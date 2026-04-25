@@ -37,7 +37,7 @@ schema_view = get_schema_view(
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/', include('patients.urls')),  # ← ajoute cette ligne
+    path('api/', include('healthtracker.api_urls')),
     #JWT Auth
     #👉 L'interface admin Django. Va sur /admin/ dans le navigateur et tu as un back-office complet automatiquement.
     # Comme phpMyAdmin mais en mieux.

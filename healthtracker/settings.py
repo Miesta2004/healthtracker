@@ -39,7 +39,10 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles', # Gestion des fichiers CSS/JS/images
     'rest_framework',            # Django REST Framework = pour créer des API
     'drf_yasg',           # Pour générer la doc Swagger automatiquement
-    'patients', 
+    'patients',
+    'consultations',
+    'signes_vitaux',
+    'alertes',
 
 ]
 
