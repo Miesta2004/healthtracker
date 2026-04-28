@@ -56,6 +56,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSIOM_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'UNAUTHENTICATED_USER': None,
 }
 
 from datetime import timedelta
