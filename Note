@@ -1,0 +1,86 @@
+### DJANGO ###
+Django Rest Framework (DRF) expose les API REST que le front-end consomme
+le serializer dans Django Rest Framework permet de faire la conversion de python a json et inversement
+Il valide aussi les donnnées entrantes (POST/PUT) avant de les sauvegarder
+
+Pour creer les tables de la base de donnée depuis django il faut faire:
+- python3 manage.py makemigrations qui genere les fichiers de migrations
+- python3 manage.py migrate qui applique les changements à la base
+
+Une ViewSet dans DRF est une classe qui regroupe la logique CRUD d'une ressource et combinée à
+un Router, elle genere automatiquement les URLS REST classiques
+
+DRF permet de définir les classes IsAuthentified,IsMedecin,IsNurse etc...
+on les applique sur chaque ViewSet avec permissions_classes
+
+La documentation Swagger est generée par drf_speculator
+Urls.py est le routeur central. Il associe chaque url à une vue ou viewSet.
+Avec DRF Router, les URLs CRUD sont générées automatiquement depuis une seule ligne.
+
+
+
+### JWT ###
+djangorestframework-simplejwt fournit les endpoints token et token refresh et elle valide les tokens
+Le standard jwt utilise le header Authorization avec le schema Bearer
+
+L'interceptor axios l'ajoute automatiquement dans chaque requete sortante
+Le frontend stocke le token JWT dans le localStorage dans le html
+mais les cookies-HTTP only sont plus securisés
+
+"authentification sans session" avec jwt le serveur est stateless
+il valide le token a chaque requete sans consulter une table des sessions
+
+
+
+### BASE DE DONNÉES ###
+Les hooks React(useState,useEffect,useContext...) permettent aux composants fonctionnels d'avoir de l'état,
+de l'effect de bord et d'accéder au contexte sans ecrire de classes
+
+
+
+### REACT ###
+Pour charger la liste des patients au montage du composant on utilise useEffect avec un tableau de dependances []
+useState stocke les données reçues
+
+TailwindCSS propose des classes utilitaires sans ecrire de CSS personnalisé
+
+Une Single Page Application (SPA), le naviguateur charge une seul fois index.html et React Router genere la
+naviguation cote client sans rechargement
+
+Un AuthContext React fournit le token et l'utilisateur courant à tout l'arbre de composants
+les composants qui en ont besoin utilisent useContext(AuthContext)
+
+React Router gere la naviguation cote client(/patients,/login,/dashboard)
+On peut proteger les routes avec un composant PrivateRouter qui verifie si l'utilisateur est authentifié
+
+La librairie Rechart permet de creer des graphiques interactifs en React. Idéal pour afficher l'evolution des signes
+vitaux dans le temps
+
+
+
+### TYPESCRIPT ###
+Interface est préferé pour les formes d'objets (peut etre etendue avec extends)
+Type permet les unions (string | number), intersections et types conditionnels
+le | cree l'union type
+
+Promise<T> signifie que la valeur de T arrivera dans le futur (appel API asynchrone)
+Avec await on deroule la Promise pour obtenir le Patient[] reel
+Sans await on a une Promise, pas les données
+
+Typescript = Javascript + types statiques
+Typescript detecte les erreurs à la compilation, avant l'execution ce qui reduit les bugs
+
+api.interceptors.request.use()s'execute avant chaque requete
+Il lit le token dans localStorageet ajoute config.headers.Authorization = 'Bearer' + token
+
+
+
+### IA ###
+Le module IA a 2 options:
+- predire la probabilité qu'un patient ne se presente pas à son rendez-vous
+- calculer un score de risque basé sur antecedents et signes vitaux
+
+scikit-learn + Pandas sont les bibliotheques utilisées pour les modeles predictifs
+Module IA Python ↔ Django Views ↔ Base de données
+
+
