@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import PatientDetail from './pages/PatientDetail'
+
 
 function App() {
     const isAuthenticated = !!localStorage.getItem('access_token')
@@ -13,6 +15,9 @@ function App() {
             } />
             <Route path="/" element={
                 isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
+            } />
+            <Route path="/patients/:id" element={
+                isAuthenticated ? <PatientDetail /> : <Navigate to="/login" />
             } />
         </Routes>
     )

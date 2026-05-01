@@ -83,7 +83,11 @@ export default function Dashboard() {
                     ) : (
                         <div className="divide-y divide-gray-50">
                             {patients.map(patient => (
-                                <div key={patient.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
+                                <div onClick={() => navigate(`/patients/${patient.id}`)}
+                                     style={{ cursor: 'pointer' }}
+                                     key={patient.id}
+                                     className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
+                                >
                                     <div className="flex items-center gap-4">
                                         <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-sm font-medium text-blue-600">
                                             {patient.prenom[0]}{patient.nom[0]}
