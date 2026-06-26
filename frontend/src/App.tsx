@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
+import AddPatient from './pages/AddPatient'
 
 
 function App() {
@@ -18,6 +19,9 @@ function App() {
             } />
             <Route path="/patients/:id" element={
                 isAuthenticated ? <PatientDetail /> : <Navigate to="/login" />
+            } />
+            <Route path="/patients/newPatient" element={
+                isAuthenticated ? <AddPatient /> : <Navigate to="/login" />
             } />
         </Routes>
     )

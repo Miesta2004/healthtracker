@@ -22,3 +22,15 @@ export interface LoginCredentials {
     username: string
     password: string
 }
+
+export interface SignesVitaux {
+    id: number
+    patient: number
+    date: string
+    tension_systolique: number | null
+    tension_diastolique: number | null
+    temperature: number | null
+    poids: number | null
+    glycemie: number | null
+    frequence_cardiaque: number | null
+}
