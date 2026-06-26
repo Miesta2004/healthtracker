@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
-import type { Patient, SignesVitaux } from '../types'
+import type { Patient, SignesVitaux, Consultation } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
+import ConsultationsSection from '../components/Consultations'
+import { getConsultations } from '../api/consultations'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function calcAge(dateStr: string) {
@@ -181,6 +183,7 @@ export default function PatientDetail() {
     const [saveError, setSaveError] = useState('')
     const [saveSuccess, setSaveSuccess] = useState(false)
     const [signes, setSignes] = useState<SignesVitaux[]>([])
+    const [consultations, setConsultations] = useState<Consultation[]>([])
 
     useEffect(() => {
         if (!id) return
@@ -189,6 +192,7 @@ export default function PatientDetail() {
             .catch(() => navigate('/dashboard'))
             .finally(() => setLoading(false))
         getSignesVitaux(Number(id)).then(setSignes).catch(() => {})
+        getConsultations(Number(id)).then(setConsultations).catch(() => {})
     }, [id])
 
     const handleSave = async (updated: Partial<Patient>) => {
@@ -283,7 +287,7 @@ export default function PatientDetail() {
                 </div>
             </nav>
 
-            <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+            <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
 
                 {/* ── Header patient ── */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6">
@@ -411,19 +415,26 @@ export default function PatientDetail() {
                     </div>
                 </div>
 
-                {/* ── Signes vitaux ── */}
-                <div className="mt-6">
-                    <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                        Suivi des signes vitaux
-                    </h2>
-                    <SignesVitauxCharts data={signes} />
-                </div>
+                {/* ── Consultations & Signes vitaux (2 colonnes) ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 items-start">
 
-                {/* ── Consultations placeholder ── */}
-                <div className="bg-white rounded-xl border border-dashed border-gray-200 p-6 text-center">
-                    <p className="text-2xl mb-2">📋</p>
-                    <p className="text-sm font-medium text-gray-500">Historique des consultations</p>
-                    <p className="text-xs text-gray-300 mt-1">Cette fonctionnalité sera disponible prochainement</p>
+                    {/* Colonne gauche : Consultations */}
+                    <div>
+                        <ConsultationsSection
+                            patientId={patient.id}
+                            consultations={consultations}
+                            onUpdate={setConsultations}
+                        />
+                    </div>
+
+                    {/* Colonne droite : Signes vitaux */}
+                    <div>
+                        <h2 className="text-sm font-semibold text-gray-900 mb-4">
+                            Suivi des signes vitaux
+                        </h2>
+                        <SignesVitauxCharts data={signes} />
+                    </div>
+
                 </div>
 
             </div>

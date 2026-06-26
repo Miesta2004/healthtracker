@@ -34,3 +34,18 @@ export interface SignesVitaux {
     glycemie: number | null
     frequence_cardiaque: number | null
 }
+
+export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annulee'
+
+export interface Consultation {
+    id: number
+    patient: number
+    date: string
+    motif: string
+    diagnostic: string
+    ordonnance: string
+    notes: string
+    statut: ConsultationStatut
+    date_creation: string
+    date_modification: string
+}
