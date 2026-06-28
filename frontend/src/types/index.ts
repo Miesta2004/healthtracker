@@ -36,12 +36,16 @@ export interface SignesVitaux {
 }
 
 export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annulee'
+export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
 
 export interface Consultation {
     id: number
     patient: number
+    type_evenement: TypeEvenement
     date: string
     motif: string
+    symptomes: string
+    examens_realises: string
     diagnostic: string
     ordonnance: string
     notes: string

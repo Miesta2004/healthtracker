@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'consultations',
     'signes_vitaux',
     'alertes',
+    'comptes'
 ]
 
 #Configuration DRF + JWT

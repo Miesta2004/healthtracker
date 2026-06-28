@@ -1,10 +1,7 @@
 import { useState } from 'react'
-import type { Consultation, ConsultationStatut } from '../types'
-import {
-    createConsultation,
-    updateConsultation,
-    deleteConsultation,
-} from '../api/consultations'
+import { useNavigate } from 'react-router-dom'
+import type { Consultation, ConsultationStatut, TypeEvenement } from '../types'
+import { deleteConsultation } from '../api/consultations'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function formatDate(dateStr: string) {
@@ -27,6 +24,13 @@ const STATUT_CONFIG: Record<ConsultationStatut, { label: string; color: string; 
     annulee:   { label: 'Annulée',   color: '#6b7280', bg: '#f3f4f6' },
 }
 
+const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: string; color: string; bg: string }> = {
+    consultation: { label: 'Consultation', icon: '🩺', color: '#003152', bg: '#ADDFF1' },
+    examen:       { label: 'Examen',        icon: '🔬', color: '#6d28d9', bg: '#ede9fe' },
+    operation:    { label: 'Opération',     icon: '🏥', color: '#b91c1c', bg: '#fee2e2' },
+    autre:        { label: 'Autre',         icon: '📋', color: '#374151', bg: '#f3f4f6' },
+}
+
 // ─── Badge statut ─────────────────────────────────────────────────────────────
 function StatutBadge({ statut }: { statut: ConsultationStatut }) {
     const cfg = STATUT_CONFIG[statut]
@@ -36,6 +40,19 @@ function StatutBadge({ statut }: { statut: ConsultationStatut }) {
             style={{ color: cfg.color, backgroundColor: cfg.bg }}
         >
             {cfg.label}
+        </span>
+    )
+}
+
+// ─── Badge type d'événement ───────────────────────────────────────────────────
+function TypeBadge({ type }: { type: TypeEvenement }) {
+    const cfg = TYPE_CONFIG[type] ?? TYPE_CONFIG.autre
+    return (
+        <span
+            className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium"
+            style={{ color: cfg.color, backgroundColor: cfg.bg }}
+        >
+            {cfg.icon} {cfg.label}
         </span>
     )
 }
@@ -52,9 +69,8 @@ function Pagination({
 }) {
     if (totalPages <= 1) return null
 
-    // Construit la liste des pages à afficher, avec "…" pour les trous
     const pages: (number | 'ellipsis')[] = []
-    const neighbors = 1 // pages voisines affichées autour de la page courante
+    const neighbors = 1
 
     for (let p = 1; p <= totalPages; p++) {
         if (
@@ -113,143 +129,6 @@ function Pagination({
     )
 }
 
-// ─── Modal formulaire (création / édition) ────────────────────────────────────
-function ConsultModal({
-                          patientId,
-                          initial,
-                          onSave,
-                          onCancel,
-                      }: {
-    patientId: number
-    initial?: Consultation
-    onSave: (c: Consultation) => void
-    onCancel: () => void
-}) {
-    const now = new Date()
-    now.setSeconds(0, 0)
-    const defaultDate = now.toISOString().slice(0, 16) // format datetime-local
-
-    const [form, setForm] = useState({
-        date:        initial ? initial.date.slice(0, 16) : defaultDate,
-        motif:       initial?.motif        ?? '',
-        diagnostic:  initial?.diagnostic   ?? '',
-        ordonnance:  initial?.ordonnance   ?? '',
-        notes:       initial?.notes        ?? '',
-        statut:      initial?.statut       ?? 'planifiee' as ConsultationStatut,
-    })
-    const [loading, setLoading] = useState(false)
-    const [error, setError]     = useState('')
-
-    const handleChange = (
-        e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
-    ) => {
-        setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
-    }
-
-    const handleSubmit = async () => {
-        if (!form.motif.trim()) { setError('Le motif est obligatoire.'); return }
-        setLoading(true)
-        setError('')
-        try {
-            let saved: Consultation
-            if (initial) {
-                saved = await updateConsultation(initial.id, { ...form, date: form.date + ':00' })
-            } else {
-                saved = await createConsultation({ ...form, date: form.date + ':00', patient: patientId })
-            }
-            onSave(saved)
-        } catch {
-            setError('Erreur lors de l\'enregistrement.')
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const inputCls = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-    const focusStyle = {
-        onFocus: (e: React.FocusEvent<HTMLElement>) => (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 2px #003152',
-        onBlur:  (e: React.FocusEvent<HTMLElement>) => (e.currentTarget as HTMLElement).style.boxShadow = 'none',
-    }
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">
-                    {initial ? 'Modifier la consultation' : 'Nouvelle consultation'}
-                </h3>
-
-                <div className="space-y-4">
-                    {/* Date */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Date et heure</label>
-                        <input type="datetime-local" name="date" value={form.date} onChange={handleChange}
-                               className={inputCls} {...focusStyle} />
-                    </div>
-
-                    {/* Motif */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Motif <span className="text-red-400">*</span></label>
-                        <input type="text" name="motif" value={form.motif} onChange={handleChange}
-                               placeholder="Ex : Douleurs abdominales, contrôle tension..."
-                               className={inputCls} {...focusStyle} />
-                    </div>
-
-                    {/* Statut */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Statut</label>
-                        <select name="statut" value={form.statut} onChange={handleChange}
-                                className={inputCls} {...focusStyle}>
-                            {(Object.entries(STATUT_CONFIG) as [ConsultationStatut, { label: string }][]).map(([k, v]) => (
-                                <option key={k} value={k}>{v.label}</option>
-                            ))}
-                        </select>
-                    </div>
-
-                    {/* Diagnostic */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Diagnostic</label>
-                        <textarea name="diagnostic" value={form.diagnostic} onChange={handleChange} rows={2}
-                                  placeholder="Diagnostic posé..."
-                                  className={inputCls + " resize-none"} {...focusStyle} />
-                    </div>
-
-                    {/* Ordonnance */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Ordonnance</label>
-                        <textarea name="ordonnance" value={form.ordonnance} onChange={handleChange} rows={2}
-                                  placeholder="Médicaments, posologie..."
-                                  className={inputCls + " resize-none"} {...focusStyle} />
-                    </div>
-
-                    {/* Notes */}
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Notes</label>
-                        <textarea name="notes" value={form.notes} onChange={handleChange} rows={2}
-                                  placeholder="Observations complémentaires..."
-                                  className={inputCls + " resize-none"} {...focusStyle} />
-                    </div>
-
-                    {error && <p className="text-xs text-red-500">{error}</p>}
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                    <button onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
-                        Annuler
-                    </button>
-                    <button onClick={handleSubmit} disabled={loading}
-                            className="flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                            style={{ backgroundColor: '#003152' }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}>
-                        {loading ? 'Enregistrement...' : 'Enregistrer'}
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
-
 // ─── Carte consultation (expand/collapse) ─────────────────────────────────────
 function ConsultCard({
                          consult,
@@ -261,22 +140,23 @@ function ConsultCard({
     onDelete: (id: number) => void
 }) {
     const [expanded, setExpanded] = useState(false)
-    const hasDetails = consult.diagnostic || consult.ordonnance || consult.notes
+    const hasDetails = consult.symptomes || consult.examens_realises || consult.diagnostic || consult.ordonnance || consult.notes
+    const typeCfg = TYPE_CONFIG[consult.type_evenement] ?? TYPE_CONFIG.autre
 
     return (
         <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
-            {/* Header cliquable */}
             <button
                 className="w-full text-left px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
                 onClick={() => hasDetails && setExpanded(p => !p)}
             >
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-                     style={{ backgroundColor: '#003152', color: 'white' }}>
-                    📋
+                     style={{ backgroundColor: typeCfg.color, color: 'white' }}>
+                    {typeCfg.icon}
                 </div>
                 <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-sm font-medium text-gray-900 truncate">{consult.motif}</p>
+                        <TypeBadge type={consult.type_evenement} />
                         <StatutBadge statut={consult.statut} />
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">{formatDateTime(consult.date)}</p>
@@ -298,11 +178,22 @@ function ConsultCard({
                 </div>
             </button>
 
-            {/* Détails dépliables */}
             {expanded && hasDetails && (
                 <div className="px-5 pb-4 space-y-3 border-t border-gray-50">
-                    {consult.diagnostic && (
+                    {consult.symptomes && (
                         <div className="pt-3">
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Symptômes observés</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{consult.symptomes}</p>
+                        </div>
+                    )}
+                    {consult.examens_realises && (
+                        <div>
+                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Examens réalisés</p>
+                            <p className="text-sm text-gray-700 whitespace-pre-line">{consult.examens_realises}</p>
+                        </div>
+                    )}
+                    {consult.diagnostic && (
+                        <div>
                             <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Diagnostic</p>
                             <p className="text-sm text-gray-700 whitespace-pre-line">{consult.diagnostic}</p>
                         </div>
@@ -340,8 +231,7 @@ export default function Consultations({
     consultations: Consultation[]
     onUpdate: (list: Consultation[]) => void
 }) {
-    const [showModal, setShowModal] = useState(false)
-    const [editing, setEditing]     = useState<Consultation | undefined>(undefined)
+    const navigate = useNavigate()
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null)
     const [deleteLoading, setDeleteLoading] = useState(false)
     const [currentPage, setCurrentPage] = useState(1)
@@ -353,18 +243,8 @@ export default function Consultations({
         safePage * PAGE_SIZE
     )
 
-    const openCreate = () => { setEditing(undefined); setShowModal(true) }
-    const openEdit   = (c: Consultation) => { setEditing(c); setShowModal(true) }
-
-    const handleSaved = (saved: Consultation) => {
-        if (editing) {
-            onUpdate(consultations.map(c => c.id === saved.id ? saved : c))
-        } else {
-            onUpdate([saved, ...consultations])
-            setCurrentPage(1)
-        }
-        setShowModal(false)
-    }
+    const openCreate = () => navigate(`/patients/${patientId}/consultations/new`)
+    const openEdit = (c: Consultation) => navigate(`/patients/${patientId}/consultations/${c.id}`)
 
     const handleDelete = async (id: number) => {
         setDeleteLoading(true)
@@ -379,22 +259,11 @@ export default function Consultations({
 
     return (
         <div>
-            {/* Modal création/édition */}
-            {showModal && (
-                <ConsultModal
-                    patientId={patientId}
-                    initial={editing}
-                    onSave={handleSaved}
-                    onCancel={() => setShowModal(false)}
-                />
-            )}
-
-            {/* Modal confirmation suppression */}
             {confirmDelete !== null && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
                     <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
                         <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-4">🗑️</div>
-                        <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer cette consultation ?</h3>
+                        <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer cet événement ?</h3>
                         <p className="text-sm text-gray-500 mb-6">Cette action est irréversible.</p>
                         <div className="flex gap-3">
                             <button onClick={() => setConfirmDelete(null)}
@@ -410,12 +279,11 @@ export default function Consultations({
                 </div>
             )}
 
-            {/* Header section */}
             <div className="flex items-center justify-between mb-4">
                 <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Historique des consultations</h2>
+                    <h2 className="text-sm font-semibold text-gray-900">Historique médical</h2>
                     {consultations.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-0.5">{consultations.length} consultation{consultations.length > 1 ? 's' : ''}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{consultations.length} événement{consultations.length > 1 ? 's' : ''} (consultations, examens, opérations...)</p>
                     )}
                 </div>
                 <button
@@ -425,16 +293,15 @@ export default function Consultations({
                     onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
                     onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
                 >
-                    <span>+</span> Nouvelle
+                    <span>+</span> Nouveau
                 </button>
             </div>
 
-            {/* Liste */}
             {consultations.length === 0 ? (
                 <div className="bg-white rounded-xl border border-dashed border-gray-200 p-8 text-center">
                     <p className="text-2xl mb-2">📋</p>
-                    <p className="text-sm font-medium text-gray-500">Aucune consultation enregistrée</p>
-                    <p className="text-xs text-gray-300 mt-1">Cliquez sur « Nouvelle » pour ajouter la première consultation.</p>
+                    <p className="text-sm font-medium text-gray-500">Aucun événement médical enregistré</p>
+                    <p className="text-xs text-gray-300 mt-1">Cliquez sur « Nouveau » pour ajouter une consultation, un examen ou une opération.</p>
                 </div>
             ) : (
                 <>

@@ -25,11 +25,42 @@ random.seed(42)
 
 # ─── NETTOYAGE ───────────────────────────────────────────────────────────────
 print("🗑️  Nettoyage des anciennes données...")
-Alerte.objects.all().delete()
-RendezVous.objects.all().delete()
-Consultation.objects.all().delete()
-SignesVitaux.objects.all().delete()
-Patient.objects.all().delete()
+
+if Alerte.objects.exists():
+    nb = Alerte.objects.count()
+    Alerte.objects.all().delete()
+    print(f"   - {nb} alerte(s) supprimée(s)")
+else:
+    print("   - Aucune alerte à supprimer")
+
+if RendezVous.objects.exists():
+    nb = RendezVous.objects.count()
+    RendezVous.objects.all().delete()
+    print(f"   - {nb} rendez-vous supprimé(s)")
+else:
+    print("   - Aucun rendez-vous à supprimer")
+
+if Consultation.objects.exists():
+    nb = Consultation.objects.count()
+    Consultation.objects.all().delete()
+    print(f"   - {nb} consultation(s) supprimée(s)")
+else:
+    print("   - Aucune consultation à supprimer")
+
+if SignesVitaux.objects.exists():
+    nb = SignesVitaux.objects.count()
+    SignesVitaux.objects.all().delete()
+    print(f"   - {nb} mesure(s) de signes vitaux supprimée(s)")
+else:
+    print("   - Aucune mesure de signes vitaux à supprimer")
+
+if Patient.objects.exists():
+    nb = Patient.objects.count()
+    Patient.objects.all().delete()
+    print(f"   - {nb} patient(s) supprimé(s)")
+else:
+    print("   - Aucun patient à supprimer")
+
 print("✅ Base nettoyée.\n")
 
 # ─── DONNÉES SÉNÉGALAISES ────────────────────────────────────────────────────
@@ -78,6 +109,37 @@ MOTIFS = [
     "Palpitations cardiaques", "Trouble du sommeil", "Perte de poids inexpliquée",
     "Suivi post-opératoire", "Vaccination adulte", "Bilan de santé annuel",
     "Douleurs lombaires", "Vertige et nausées"
+]
+
+MOTIFS_EXAMEN = [
+    "Bilan sanguin de routine", "Échographie abdominale", "Radiographie thoracique",
+    "Électrocardiogramme", "Glycémie à jeun", "Bilan lipidique",
+    "Échographie cardiaque", "Scanner cérébral", "IRM lombaire",
+    "Test d'effort cardiaque",
+]
+MOTIFS_OPERATION = [
+    "Appendicectomie", "Cholécystectomie", "Hernie inguinale",
+    "Césarienne", "Amygdalectomie", "Réduction de fracture",
+    "Pose de plâtre", "Extraction dentaire chirurgicale",
+]
+SYMPTOMES_POOL = [
+    "Fièvre, frissons et courbatures",
+    "Douleur abdominale diffuse, sans vomissement",
+    "Toux sèche persistante depuis plusieurs jours",
+    "Céphalées frontales avec photophobie légère",
+    "Fatigue généralisée et essoufflement à l'effort",
+    "Douleurs articulaires migratrices",
+    "Palpitations et sensation de malaise",
+    "Aucun symptôme particulier — contrôle systématique",
+]
+EXAMENS_POOL = [
+    "Bilan sanguin complet (NFS, ionogramme, glycémie)",
+    "Échographie abdominale sans anomalie notable",
+    "Radiographie pulmonaire — pas d'infiltrat visible",
+    "Électrocardiogramme — rythme sinusal normal",
+    "Tension artérielle et fréquence cardiaque mesurées",
+    "Glycémie capillaire et bilan lipidique",
+    "Aucun examen complémentaire réalisé",
 ]
 DIAGNOSTICS = [
     "Paludisme simple — traitement Coartem prescrit",
@@ -292,9 +354,23 @@ for patient, age, antecedents_list in patients_crees:
 
     for jour in jours_consult:
         date_consult = now - timedelta(days=jour)
-        motif = random.choice(MOTIFS)
+
+        type_evenement = random.choices(
+            ['consultation', 'examen', 'operation'],
+            weights=[0.65, 0.25, 0.10]
+        )[0]
+
+        if type_evenement == 'examen':
+            motif = random.choice(MOTIFS_EXAMEN)
+        elif type_evenement == 'operation':
+            motif = random.choice(MOTIFS_OPERATION)
+        else:
+            motif = random.choice(MOTIFS)
+
         diagnostic = random.choice(DIAGNOSTICS)
         ordonnance = random.choice(ORDONNANCES)
+        symptomes = random.choice(SYMPTOMES_POOL) if type_evenement != 'operation' else ''
+        examens_realises = random.choice(EXAMENS_POOL)
 
         statut = "terminee"
         if jour < 7:  # récent
@@ -302,8 +378,11 @@ for patient, age, antecedents_list in patients_crees:
 
         Consultation.objects.create(
             patient=patient,
+            type_evenement=type_evenement,
             date=date_consult,
             motif=motif,
+            symptomes=symptomes,
+            examens_realises=examens_realises,
             diagnostic=diagnostic,
             ordonnance=ordonnance,
             statut=statut,

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
 import type { Patient, SignesVitaux, Consultation } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
-import ConsultationsSection from '../components/Consultations'
+import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -420,7 +420,7 @@ export default function PatientDetail() {
 
                     {/* Colonne gauche : Consultations */}
                     <div>
-                        <ConsultationsSection
+                        <Consultations
                             patientId={patient.id}
                             consultations={consultations}
                             onUpdate={setConsultations}

@@ -6,6 +6,11 @@ export const getConsultations = async (patientId: number): Promise<Consultation[
     return response.data
 }
 
+export const getConsultation = async (id: number): Promise<Consultation> => {
+    const response = await api.get(`/consultations/${id}/`)
+    return response.data
+}
+
 export const createConsultation = async (data: Omit<Consultation, 'id' | 'date_creation' | 'date_modification'>): Promise<Consultation> => {
     const response = await api.post('/consultations/', data)
     return response.data

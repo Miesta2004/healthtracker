@@ -3,6 +3,7 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
 import AddPatient from './pages/AddPatient'
+import ConsultationDetail from './pages/ConsultationDetail'
 
 
 function App() {
@@ -22,6 +23,12 @@ function App() {
             } />
             <Route path="/patients/newPatient" element={
                 isAuthenticated ? <AddPatient /> : <Navigate to="/login" />
+            } />
+            <Route path="/patients/:id/consultations/new" element={
+                isAuthenticated ? <ConsultationDetail /> : <Navigate to="/login" />
+            } />
+            <Route path="/patients/:id/consultations/:consultId" element={
+                isAuthenticated ? <ConsultationDetail /> : <Navigate to="/login" />
             } />
         </Routes>
     )

@@ -29,3 +29,8 @@ export const getSignesVitaux = async (patientId: number) => {
     const response = await api.get(`/signes_vitaux/?patient=${patientId}`)
     return response.data
 }
+
+export const ajouterAntecedent = async (patientId: number, antecedent: string): Promise<Patient> => {
+    const response = await api.post(`/patients/${patientId}/ajouter_antecedent/`, { antecedent })
+    return response.data
+}

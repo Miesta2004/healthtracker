@@ -4,6 +4,13 @@ from patients.models import Patient
 # Create your models here.
 class Consultation(models.Model):
 
+    TYPE_CHOICES = [
+        ('consultation', 'Consultation'),
+        ('examen', 'Examen'),
+        ('operation', 'Opération'),
+        ('autre', 'Autre'),
+    ]
+
     STATUT_CHOICES = [
         ('planifiee','Planifiée'),
         ('en_cours','En cours'),
@@ -25,9 +32,16 @@ class Consultation(models.Model):
     #Une Consultation → appartient à un seul Patient
 
 
-    #Informations de la consultation
+    #Informations de l'événement médical
+    type_evenement = models.CharField(
+        max_length=20,
+        choices=TYPE_CHOICES,
+        default='consultation'
+    )
     date = models.DateTimeField()
     motif = models.CharField(max_length=255)
+    symptomes = models.TextField(blank=True)
+    examens_realises = models.TextField(blank=True)
     diagnostic = models.TextField(blank=True)
     ordonnance = models.TextField(blank=True)
     notes = models.TextField(blank=True)
@@ -42,7 +56,7 @@ class Consultation(models.Model):
     date_modification = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"Consultation {self.patient} - {self.date.strftime('%d/%m/%Y')}"
+        return f"{self.get_type_evenement_display()} {self.patient} - {self.date.strftime('%d/%m/%Y')}"
 
     class Meta:
         ordering = ['-date']
@@ -51,7 +65,7 @@ class Consultation(models.Model):
 
 
 class RendezVous(models.Model):
-    
+
     STATUT_CHOICES = [
         ('planifie', 'Planifié'),
         ('confirme', 'Confirmé'),
