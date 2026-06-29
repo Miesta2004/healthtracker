@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
-import type { Patient } from '../types'
+import { getMe } from '../api/comptes'
+import type { Patient, CurrentUser } from '../types'
 
 // ─── Logo SVG réutilisable ────────────────────────────────────────────────────
 function Logo() {
@@ -129,6 +130,7 @@ export default function Dashboard() {
     const navigate = useNavigate()
     const [patients, setPatients] = useState<Patient[]>([])
     const [loading, setLoading] = useState(true)
+    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
 
     // Filtres
     const [search, setSearch] = useState('')
@@ -142,6 +144,7 @@ export default function Dashboard() {
             .then(setPatients)
             .catch(() => navigate('/login'))
             .finally(() => setLoading(false))
+        getMe().then(setCurrentUser).catch(() => {})
     }, [])
 
     const handleLogout = () => {
@@ -227,6 +230,17 @@ export default function Dashboard() {
                     <span className="font-semibold text-gray-900 text-base">HealthTracker</span>
                 </div>
                 <div className="flex items-center gap-3">
+                    {currentUser?.role === 'admin' && (
+                        <button
+                            onClick={() => navigate('/employes')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                            style={{ color: '#003152', backgroundColor: '#f0f7fb' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#e3f0f8')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#f0f7fb')}
+                        >
+                            👥 Employés
+                        </button>
+                    )}
                     <button
                         onClick={() => navigate('/patients/new')}
                         className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"

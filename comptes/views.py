@@ -42,7 +42,7 @@ class EmployeViewSet(viewsets.ModelViewSet):
                 f"{employe.id}.jpg",
                 folder='employes'
             )
-            employe.photo_url = url
+            employe.photo_path = url
             employe.save()
         return Response(EmployeSerializer(employe).data, status=status.HTTP_201_CREATED)
 
@@ -75,6 +75,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
             f"{employe.id}.jpg",
             folder = 'employes'
         )
-        employe.photo_url = url
+        employe.photo_path = url
         employe.save()
         return Response({'photo_path':url})

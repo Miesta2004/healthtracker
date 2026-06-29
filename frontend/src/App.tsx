@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
 import AddPatient from './pages/AddPatient'
 import ConsultationDetail from './pages/ConsultationDetail'
+import Employes from './pages/Employes'
+import AddEmploye from './pages/AddEmploye'
 
 
 function App() {
@@ -29,6 +31,12 @@ function App() {
             } />
             <Route path="/patients/:id/consultations/:consultId" element={
                 isAuthenticated ? <ConsultationDetail /> : <Navigate to="/login" />
+            } />
+            <Route path="/employes" element={
+                isAuthenticated ? <Employes /> : <Navigate to="/login" />
+            } />
+            <Route path="/employes/newEmploye" element={
+                isAuthenticated ? <AddEmploye /> : <Navigate to="/login" />
             } />
         </Routes>
     )
