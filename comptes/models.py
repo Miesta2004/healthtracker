@@ -35,4 +35,14 @@ class Employe(Personne):
     class Meta:
         verbose_name = "Employé"
         verbose_name_plural = "Employés"
-        ordering = ['role', 'nom' , 'prenom']
+        ordering = ['role', 'nom', 'prenom']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(role__in=[r.value for r in Role]),
+                name='employe_role_valid',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(sexe__in=['M', 'F']),
+                name='employe_sexe_valid',  # ou 'patient_sexe_valid'
+            )
+        ]

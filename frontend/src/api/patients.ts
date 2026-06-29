@@ -1,5 +1,5 @@
 import api from './client.ts'
-import type {Patient} from '../types'
+import type {Patient, SignesVitaux} from '../types'
 
 export const getPatients = async () : Promise <Patient[]> => {
     const response = await api.get('/patients')
@@ -33,4 +33,12 @@ export const getSignesVitaux = async (patientId: number) => {
 export const ajouterAntecedent = async (patientId: number, antecedent: string): Promise<Patient> => {
     const response = await api.post(`/patients/${patientId}/ajouter_antecedent/`, { antecedent })
     return response.data
+}
+
+export const postSignesVitaux = async (
+    patientId: number,
+    data: Omit<SignesVitaux, 'id' | 'patient'>
+): Promise<SignesVitaux> => {
+    const response = await api.post('/signes_vitaux/', { ...data, patient: patientId })
+    return response.data``
 }

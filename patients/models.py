@@ -54,3 +54,16 @@ class Patient(Personne):
         verbose_name = "Patient"
         verbose_name_plural = "Patients"
         ordering = ['nom', 'prenom']
+        constraints = [
+            models.CheckConstraint(
+                condition=models.Q(
+                    groupe_sanguin__in=['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
+                )
+                          | models.Q(groupe_sanguin=''),
+                name='patient_groupe_sanguin_valid',
+            ),
+            models.CheckConstraint(
+                condition=models.Q(sexe__in=['M', 'F']),
+                name='employe_sexe_validate',
+            )
+        ]

@@ -6,15 +6,7 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Employe
 from .serializers import EmployeSerializer, CreateEmployeSerializer
 from .storage import upload_photo
-
-class IsAdminRole(IsAuthenticated):
-    def has_permission(self, request , view):
-        if not super().has_permission(request , view):
-            return False
-        try:
-            return request.user.employe.role == 'admin'
-        except:
-            return request.user.is_superuser
+from .permissions import IsAdminRole
 
 class EmployeViewSet(viewsets.ModelViewSet):
     queryset = Employe.objects.select_related('user').all()

@@ -429,9 +429,18 @@ export default function PatientDetail() {
 
                     {/* Colonne droite : Signes vitaux */}
                     <div>
-                        <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                            Suivi des signes vitaux
-                        </h2>
+                        <div className="flex items-center justify-between mb-4">
+                            <h2 className="text-sm font-semibold text-gray-900">Suivi des signes vitaux</h2>
+                            <button
+                                onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
+                                className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors"
+                                style={{ backgroundColor: '#003152' }}
+                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                            >
+                                + Saisir constantes
+                            </button>
+                        </div>
                         <SignesVitauxCharts data={signes} />
                     </div>
 
