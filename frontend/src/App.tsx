@@ -7,7 +7,10 @@ import ConsultationDetail from './pages/ConsultationDetail'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
 import Services from './pages/Services'
-import AddSignesVitaux from "./pages/AddSignesVitaux.tsx";
+import AddSignesVitaux from "./pages/AddSignesVitaux.tsx"
+import AddHospitalisation from "./pages/AddHospitalisation.tsx"
+import Urgences from "./pages/Urgences.tsx"
+
 
 
 function App() {
@@ -45,6 +48,12 @@ function App() {
             } />
             <Route path="/services" element={
                 isAuthenticated ? <Services /> : <Navigate to="/login" />
+            } />
+            <Route path="/patients/:id/hospitalisations/new" element={
+                isAuthenticated ? <AddHospitalisation /> : <Navigate to="/login" />
+            } />
+            <Route path="/urgences" element={
+                isAuthenticated ? <Urgences /> : <Navigate to="/login" />
             } />
         </Routes>
     )

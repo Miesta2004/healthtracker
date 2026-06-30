@@ -122,3 +122,68 @@ export interface Consultation {
     date_creation: string
     date_modification: string
 }
+
+// ─── Hospitalisations ───────────────────────────────────────────────────────
+export type StatutHospitalisation = 'en_cours' | 'terminee' | 'transferee'
+
+export interface Hospitalisation {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_dossier?: string
+    service: number | null
+    service_nom?: string | null
+    medecin_responsable: number | null
+    medecin_nom?: string | null
+    chambre: string
+    lit: string
+    motif_admission: string
+    diagnostic_entree: string
+    diagnostic_sortie: string
+    notes: string
+    date_admission: string
+    date_sortie_prevue: string | null
+    date_sortie: string | null
+    statut: StatutHospitalisation
+    statut_label?: string
+    duree_jours?: number
+    date_creation: string
+    date_modification: string
+}
+
+// ─── Urgences ───────────────────────────────────────────────────────────────
+export type NiveauTri = 1 | 2 | 3 | 4 | 5
+export type ModeArrivee = 'pied' | 'ambulance' | 'police' | 'transfert' | 'autre'
+export type StatutUrgence = 'en_attente' | 'en_consultation' | 'sorti'
+export type DecisionSortie = 'domicile' | 'hospitalisation' | 'transfert' | 'parti_sans_attendre' | 'deces' | ''
+
+export interface PassageUrgence {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_dossier?: string
+    patient_age?: number
+    service: number | null
+    service_nom?: string | null
+    infirmier_accueil: number | null
+    infirmier_nom?: string | null
+    medecin_examinateur: number | null
+    medecin_nom?: string | null
+    hospitalisation: number | null
+    date_arrivee: string
+    mode_arrivee: ModeArrivee
+    mode_arrivee_label?: string
+    niveau_tri: NiveauTri | null
+    niveau_tri_label?: string
+    motif: string
+    diagnostic: string
+    notes: string
+    statut: StatutUrgence
+    statut_label?: string
+    decision: DecisionSortie
+    decision_label?: string
+    date_sortie: string | null
+    temps_attente_minutes?: number
+    date_creation: string
+    date_modification: string
+}
