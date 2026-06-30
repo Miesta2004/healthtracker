@@ -1,26 +1,42 @@
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated , SAFE_METHODS
-from comptes.permissions import IsMedecinOuInfirmier,IsAdminRole,IsLectureAutorisee
+from rest_framework.permissions import IsAuthenticated, SAFE_METHODS
+
+from comptes.permissions import IsMedecinOuInfirmier, IsAdminRole, IsLectureAutorisee, get_employe
 from .models import SignesVitaux
 from .serializers import SignesSerializer
 
-# Create your views here.
+
 class SignesVitauxViewSet(viewsets.ModelViewSet):
-    serializer_class = SignesSerializer
+    serializer_class   = SignesSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        patient_id = self.kwargs.get('patient_pk')
+        user = self.request.user
+        if user.is_superuser:
+            return SignesVitaux.objects.select_related('patient').all()
+
+        emp = get_employe(user)
+        if emp is None or emp.role in ('secretaire', 'laborantin'):
+            return SignesVitaux.objects.none()
+
+        qs = SignesVitaux.objects.select_related('patient')
+
+        # Filtrer par service
+        if emp.service:
+            qs = qs.filter(patient__service=emp.service)
+        else:
+            return SignesVitaux.objects.none()
+
+        # Filtrer par patient si passé en query param (?patient=<id>)
+        patient_id = self.request.query_params.get('patient')
         if patient_id:
-            return SignesVitaux.objects.filter(patient_id=patient_id)
-        return SignesVitaux.objects.all()
+            qs = qs.filter(patient_id=patient_id)
+
+        return qs
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
-            # GET, HEAD, OPTIONS → médecin, infirmier, laborantin, admin
             return [IsLectureAutorisee()]
         if self.action == 'destroy':
-            # DELETE → admin uniquement
             return [IsAdminRole()]
-        # POST, PUT, PATCH → médecin ou infirmier
         return [IsMedecinOuInfirmier()]
