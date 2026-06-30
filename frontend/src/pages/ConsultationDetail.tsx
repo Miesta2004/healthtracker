@@ -1,8 +1,25 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getPatient, ajouterAntecedent } from '../api/patients'
+import { getPatient } from '../api/patients'
+import { getAntecedents, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
-import type { Patient, ConsultationStatut, TypeEvenement } from '../types'
+import type { Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent } from '../types'
+
+// ─── Types d'antécédents (catégorisation à la promotion) ─────────────────────
+const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
+    maladie_chronique: 'Maladie chronique',
+    chirurgie:         'Chirurgie',
+    allergie:          'Allergie',
+    familial:          'Antécédent familial',
+    autre:             'Autre',
+}
+const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
+    maladie_chronique: '#0e7490',
+    chirurgie:         '#ea580c',
+    allergie:          '#dc2626',
+    familial:          '#9333ea',
+    autre:             '#6b7280',
+}
 
 // ─── Config types & statuts ──────────────────────────────────────────────────
 const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: string }> = {
@@ -78,8 +95,9 @@ function DeleteModal({ onConfirm, onCancel, loading }: {
 }
 
 // ─── Modal de confirmation : ajouter aux antécédents ─────────────────────────
-function AjoutAntecedentModal({ texte, onConfirm, onCancel, loading }: {
-    texte: string; onConfirm: () => void; onCancel: () => void; loading: boolean
+function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, loading }: {
+    texte: string; type: TypeAntecedent; onTypeChange: (t: TypeAntecedent) => void
+    onConfirm: () => void; onCancel: () => void; loading: boolean
 }) {
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
@@ -89,9 +107,21 @@ function AjoutAntecedentModal({ texte, onConfirm, onCancel, loading }: {
                 <p className="text-sm text-gray-500 mb-2">
                     Voulez-vous ajouter ceci au dossier médical permanent du patient :
                 </p>
-                <p className="text-sm font-medium text-gray-900 bg-gray-50 rounded-lg px-3 py-2 mb-6">
+                <p className="text-sm font-medium text-gray-900 bg-gray-50 rounded-lg px-3 py-2 mb-4">
                     {texte}
                 </p>
+                <label className="block text-xs text-gray-500 mb-1.5">Catégorie</label>
+                <select
+                    value={type}
+                    onChange={e => onTypeChange(e.target.value as TypeAntecedent)}
+                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none mb-6"
+                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
+                    onBlur={e => e.target.style.boxShadow = 'none'}
+                >
+                    {(Object.entries(TYPE_ANTECEDENT_LABELS) as [TypeAntecedent, string][]).map(([k, label]) => (
+                        <option key={k} value={k}>{label}</option>
+                    ))}
+                </select>
                 <div className="flex gap-3">
                     <button onClick={onCancel}
                             className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
@@ -116,6 +146,7 @@ export default function ConsultationDetail() {
     const isNew = !consultId || consultId === 'new'
 
     const [patient, setPatient] = useState<Patient | null>(null)
+    const [antecedents, setAntecedents] = useState<Antecedent[]>([])
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
@@ -125,6 +156,7 @@ export default function ConsultationDetail() {
 
     // Proposition d'ajout aux antécédents après enregistrement
     const [antecedentPropose, setAntecedentPropose] = useState<string | null>(null)
+    const [typeAntecedentChoisi, setTypeAntecedentChoisi] = useState<TypeAntecedent>('maladie_chronique')
     const [antecedentLoading, setAntecedentLoading] = useState(false)
     const [antecedentAjoute, setAntecedentAjoute] = useState(false)
 
@@ -147,6 +179,7 @@ export default function ConsultationDetail() {
     useEffect(() => {
         if (!patientId) return
         getPatient(patientId).then(setPatient).catch(() => navigate('/dashboard'))
+        getAntecedents(patientId).then(setAntecedents).catch(() => {})
 
         if (!isNew && consultId) {
             getConsultation(Number(consultId))
@@ -176,13 +209,17 @@ export default function ConsultationDetail() {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
     }
 
-    const antecedentsActuels = (patient?.antecedents || '')
-        .split(',').map(s => s.trim()).filter(Boolean)
+    const antecedentsActuels = antecedents.map(a => a.libelle)
 
     // Texte candidat à proposer comme antécédent : diagnostic en priorité,
     // sinon le motif si c'est une opération (ex: "Appendicectomie")
     const candidatAntecedent = form.diagnostic.trim() || (
         form.type_evenement === 'operation' ? form.motif.trim() : ''
+    )
+
+    // Id de la consultation créée/modifiée, nécessaire pour la promotion en antécédent
+    const [savedConsultId, setSavedConsultId] = useState<number | null>(
+        !isNew && consultId ? Number(consultId) : null
     )
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -192,16 +229,24 @@ export default function ConsultationDetail() {
         setError('')
         try {
             const payload = { ...form, date: form.date + ':00', patient: patientId }
+            let savedId: number
             if (isNew) {
-                await createConsultation(payload)
+                const created = await createConsultation(payload)
+                savedId = created.id
             } else {
-                await updateConsultation(Number(consultId), payload)
+                const updated = await updateConsultation(Number(consultId), payload)
+                savedId = updated.id
             }
+            setSavedConsultId(savedId)
 
             // Propose l'ajout aux antécédents seulement si on a un candidat
-            // pertinent qui n'existe pas déjà dans le dossier du patient.
-            const aProposer = candidatAntecedent && !antecedentsActuels.includes(candidatAntecedent)
+            // pertinent qui n'existe pas déjà dans le dossier du patient,
+            // et seulement quand la consultation est clôturée (terminée).
+            const aProposer = form.statut === 'terminee'
+                && candidatAntecedent
+                && !antecedentsActuels.includes(candidatAntecedent)
             if (aProposer) {
+                setTypeAntecedentChoisi(form.type_evenement === 'operation' ? 'chirurgie' : 'maladie_chronique')
                 setAntecedentPropose(candidatAntecedent)
             } else {
                 navigate(`/patients/${patientId}`)
@@ -214,10 +259,13 @@ export default function ConsultationDetail() {
     }
 
     const handleConfirmAntecedent = async () => {
-        if (!antecedentPropose) return
+        if (!antecedentPropose || !savedConsultId) return
         setAntecedentLoading(true)
         try {
-            await ajouterAntecedent(patientId, antecedentPropose)
+            await promouvoirAntecedent(savedConsultId, {
+                libelle: antecedentPropose,
+                type_antecedent: typeAntecedentChoisi,
+            })
             setAntecedentAjoute(true)
             setTimeout(() => navigate(`/patients/${patientId}`), 600)
         } catch {
@@ -260,6 +308,8 @@ export default function ConsultationDetail() {
             {antecedentPropose && !antecedentAjoute && (
                 <AjoutAntecedentModal
                     texte={antecedentPropose}
+                    type={typeAntecedentChoisi}
+                    onTypeChange={setTypeAntecedentChoisi}
                     loading={antecedentLoading}
                     onConfirm={handleConfirmAntecedent}
                     onCancel={() => navigate(`/patients/${patientId}`)}
@@ -310,14 +360,19 @@ export default function ConsultationDetail() {
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                             Antécédents médicaux connus
                         </h2>
-                        {antecedentsActuels.length === 0 ? (
+                        {antecedents.length === 0 ? (
                             <p className="text-sm text-gray-300">Aucun antécédent renseigné</p>
                         ) : (
                             <div className="flex flex-wrap gap-2">
-                                {antecedentsActuels.map(a => (
-                                    <span key={a} className="px-2.5 py-1 rounded-full text-xs font-medium"
-                                          style={{ backgroundColor: '#00315215', color: '#003152' }}>
-                                        {a}
+                                {antecedents.map(a => (
+                                    <span key={a.id} className="px-2.5 py-1 rounded-full text-xs font-medium"
+                                          style={{
+                                              backgroundColor: TYPE_ANTECEDENT_COLORS[a.type_antecedent] + '15',
+                                              color: TYPE_ANTECEDENT_COLORS[a.type_antecedent],
+                                              opacity: a.statut === 'resolu' ? 0.5 : 1,
+                                          }}
+                                          title={a.statut === 'resolu' ? 'Résolu' : 'Actif'}>
+                                        {a.libelle}
                                     </span>
                                 ))}
                             </div>
@@ -393,7 +448,7 @@ export default function ConsultationDetail() {
                                       placeholder="Diagnostic posé..."
                                       className={inputCls + " resize-none"} {...focusHandlers} />
                             <p className="text-xs text-gray-300 mt-1">
-                                Si rempli, on vous proposera de l'ajouter aux antécédents du patient.
+                                Si rempli et que le statut est "Terminée", on vous proposera de l'ajouter aux antécédents du patient.
                             </p>
                         </div>
                     </div>

@@ -27,7 +27,7 @@ random.seed(42)
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 JOURS_HISTORIQUE = 90   # 3 mois de données
-NB_PATIENTS      = 30
+NB_PATIENTS      = 60
 NB_MESURES_MIN   = 5    # mesures par patient (pas tous les jours, plus réaliste)
 NB_MESURES_MAX   = 20
 
@@ -65,6 +65,11 @@ SERVICES_DATA = [
     ("Pédiatrie", "Suivi médical des enfants et nourrissons"),
     ("Diabétologie", "Suivi des patients diabétiques et endocriniens"),
     ("Urgences", "Accueil et tri des urgences médicales"),
+    ("Chirurgie générale", "Interventions chirurgicales et suivi post-opératoire"),
+    ("Gynécologie-Obstétrique", "Suivi de grossesse et santé de la femme"),
+    ("Neurologie", "Pathologies du système nerveux"),
+    ("ORL", "Oto-rhino-laryngologie"),
+    ("Laboratoire", "Analyses biologiques et examens de laboratoire"),
 ]
 
 services_crees = {}
@@ -244,16 +249,59 @@ print("👔 Création des employés...")
 EMPLOYES_DATA = [
     # (prenom, nom, sexe, role, specialite, username, email, password, age, service_nom)
     ("Mamadou", "Kane", "M", "admin", "", "admin.kane", "kane@healthtracker.sn", "admin123", 45, None),
+
+    # Cardiologie
     ("Aminata",   "Diop",   "F", "medecin",    "Cardiologie",          "dr.diop",       "diop@healthtracker.sn",       "medecin123", 42, "Cardiologie"),
-    ("Ibrahima",  "Sow",    "M", "medecin",    "Médecine générale",    "dr.sow",        "sow@healthtracker.sn",        "medecin123", 38, "Médecine générale"),
-    ("Fatou",     "Ndiaye", "F", "medecin",    "Pédiatrie",            "dr.ndiaye",     "ndiaye@healthtracker.sn",     "medecin123", 35, "Pédiatrie"),
-    ("Moussa",    "Fall",   "M", "medecin",    "Diabétologie",         "dr.fall",       "fall@healthtracker.sn",       "medecin123", 50, "Diabétologie"),
+    ("Modou",     "Sy",     "M", "medecin",    "Cardiologie",          "dr.sy",         "sy@healthtracker.sn",         "medecin123", 49, "Cardiologie"),
     ("Ndèye",     "Ba",     "F", "infirmier",  "",                     "inf.ba",        "ba@healthtracker.sn",         "infirmier123", 29, "Cardiologie"),
-    ("Cheikh",    "Sarr",   "M", "infirmier",  "",                     "inf.sarr",      "sarr@healthtracker.sn",       "infirmier123", 33, "Médecine générale"),
-    ("Rokhaya",   "Gueye",  "F", "infirmier",  "",                     "inf.gueye",     "gueye@healthtracker.sn",      "infirmier123", 27, "Urgences"),
-    ("Abdoulaye", "Diallo", "M", "secretaire", "",                     "sec.diallo",    "diallo@healthtracker.sn",     "secretaire123", 31, "Médecine générale"),
     ("Mariama",   "Mbaye",  "F", "secretaire", "",                     "sec.mbaye",     "mbaye@healthtracker.sn",      "secretaire123", 26, "Cardiologie"),
-    ("Oumar",     "Thiam",  "M", "laborantin", "Biologie médicale",    "lab.thiam",     "thiam@healthtracker.sn",      "labo123", 36, None),
+
+    # Médecine générale
+    ("Ibrahima",  "Sow",    "M", "medecin",    "Médecine générale",    "dr.sow",        "sow@healthtracker.sn",        "medecin123", 38, "Médecine générale"),
+    ("Khady",     "Faye",   "F", "medecin",    "Médecine générale",    "dr.faye",       "faye@healthtracker.sn",       "medecin123", 41, "Médecine générale"),
+    ("Cheikh",    "Sarr",   "M", "infirmier",  "",                     "inf.sarr",      "sarr@healthtracker.sn",       "infirmier123", 33, "Médecine générale"),
+    ("Abdoulaye", "Diallo", "M", "secretaire", "",                     "sec.diallo",    "diallo@healthtracker.sn",     "secretaire123", 31, "Médecine générale"),
+
+    # Pédiatrie
+    ("Fatou",     "Ndiaye", "F", "medecin",    "Pédiatrie",            "dr.ndiaye",     "ndiaye@healthtracker.sn",     "medecin123", 35, "Pédiatrie"),
+    ("Babacar",   "Cissé",  "M", "medecin",    "Pédiatrie",            "dr.cisse",      "cisse@healthtracker.sn",      "medecin123", 39, "Pédiatrie"),
+    ("Awa",       "Ndour",  "F", "infirmier",  "",                     "inf.ndour",     "ndour@healthtracker.sn",      "infirmier123", 28, "Pédiatrie"),
+    ("Seydou",    "Kane",   "M", "secretaire", "",                     "sec.kane",      "skane@healthtracker.sn",      "secretaire123", 30, "Pédiatrie"),
+
+    # Diabétologie
+    ("Moussa",    "Fall",   "M", "medecin",    "Diabétologie",         "dr.fall",       "fall@healthtracker.sn",       "medecin123", 50, "Diabétologie"),
+    ("Coumba",    "Thiam",  "F", "medecin",    "Diabétologie",         "dr.thiam",      "drthiam@healthtracker.sn",    "medecin123", 44, "Diabétologie"),
+    ("Astou",     "Sarr",   "F", "infirmier",  "",                     "inf.asarr",     "asarr@healthtracker.sn",      "infirmier123", 31, "Diabétologie"),
+
+    # Urgences
+    ("Rokhaya",   "Gueye",  "F", "infirmier",  "",                     "inf.gueye",     "gueye@healthtracker.sn",      "infirmier123", 27, "Urgences"),
+    ("Demba",     "Toure",  "M", "infirmier",  "",                     "inf.toure",     "toure@healthtracker.sn",      "infirmier123", 34, "Urgences"),
+    ("Pape",      "Diouf",  "M", "medecin",    "Médecine d'urgence",   "dr.diouf",      "diouf@healthtracker.sn",      "medecin123", 40, "Urgences"),
+    ("Adja",      "Camara", "F", "medecin",    "Médecine d'urgence",   "dr.camara",     "camara@healthtracker.sn",     "medecin123", 37, "Urgences"),
+    ("Issa",      "Beye",   "M", "secretaire", "",                     "sec.beye",      "beye@healthtracker.sn",       "secretaire123", 25, "Urgences"),
+
+    # Chirurgie générale
+    ("Aliou",     "Mendy",  "M", "medecin",    "Chirurgie générale",   "dr.mendy",      "mendy@healthtracker.sn",      "medecin123", 47, "Chirurgie générale"),
+    ("Soda",      "Lo",     "F", "medecin",    "Chirurgie générale",   "dr.lo",         "lo@healthtracker.sn",         "medecin123", 43, "Chirurgie générale"),
+    ("Malick",    "Dème",   "M", "infirmier",  "",                     "inf.deme",      "deme@healthtracker.sn",       "infirmier123", 32, "Chirurgie générale"),
+
+    # Gynécologie-Obstétrique
+    ("Kiné",      "Ndiaye", "F", "medecin",    "Gynécologie-Obstétrique", "dr.kndiaye", "kndiaye@healthtracker.sn",    "medecin123", 46, "Gynécologie-Obstétrique"),
+    ("Nabou",     "Diallo", "F", "infirmier",  "",                     "inf.nabou",     "nabou@healthtracker.sn",      "infirmier123", 30, "Gynécologie-Obstétrique"),
+    ("Saliou",    "Ba",     "M", "secretaire", "",                     "sec.saliou",    "saliou@healthtracker.sn",     "secretaire123", 28, "Gynécologie-Obstétrique"),
+
+    # Neurologie
+    ("Idrissa",   "Sy",     "M", "medecin",    "Neurologie",           "dr.isy",        "isy@healthtracker.sn",        "medecin123", 48, "Neurologie"),
+    ("Penda",     "Fall",   "F", "infirmier",  "",                     "inf.penda",     "penda@healthtracker.sn",      "infirmier123", 29, "Neurologie"),
+
+    # ORL
+    ("Lamine",    "Gueye",  "M", "medecin",    "ORL",                  "dr.lgueye",     "lgueye@healthtracker.sn",     "medecin123", 36, "ORL"),
+    ("Salimata",  "Sow",    "F", "infirmier",  "",                     "inf.salimata",  "salimata@healthtracker.sn",   "infirmier123", 27, "ORL"),
+
+    # Laboratoire
+    ("Oumar",     "Thiam",  "M", "laborantin", "Biologie médicale",    "lab.thiam",     "thiam@healthtracker.sn",      "labo123", 36, "Laboratoire"),
+    ("Djibril",   "Tall",   "M", "laborantin", "Biochimie",            "lab.tall",      "tall@healthtracker.sn",       "labo123", 34, "Laboratoire"),
+    ("Oumou",     "Badji",  "F", "laborantin", "Hématologie",          "lab.badji",     "badji@healthtracker.sn",      "labo123", 32, "Laboratoire"),
 ]
 
 employes_crees = []
@@ -290,22 +338,35 @@ for prenom, nom, sexe, role, specialite, username, email, password, age, service
 print(f"✅ {len(employes_crees)} employés créés.")
 print()
 
+# ─── CHEFS DE SERVICE ──────────────────────────────────────────────────────
+print("🩺 Attribution des chefs de service...")
+nb_chefs = 0
+for nom_service, service_obj in services_crees.items():
+    medecins_du_service = [e for e in employes_crees if e.role == 'medecin' and e.service_id == service_obj.id]
+    if medecins_du_service:
+        chef = medecins_du_service[0]  # le premier médecin du service devient chef
+        service_obj.chef_de_service = chef
+        service_obj.save()
+        nb_chefs += 1
+        print(f"   - {service_obj.nom} → Dr {chef.prenom} {chef.nom}")
+print(f"✅ {nb_chefs} chef(s) de service attribué(s).\n")
+
 # Afficher le tableau de connexion
-print("┌─────────────────────────────────────────────────────────────┐")
-print("│                  COMPTES DE DÉMONSTRATION                  │")
-print("├──────────────────┬──────────────────────┬───────────────────┤")
-print("│ Rôle             │ Username             │ Mot de passe      │")
-print("├──────────────────┼──────────────────────┼───────────────────┤")
+print("┌─────────────────────────────────────────────────────────────────────┐")
+print("│                  COMPTES DE DÉMONSTRATION                           │ ")
+print("├──────────────────┬───────────────────────────┬──────────────────────┤")
+print("│ Rôle             │ Username                  │ Mot de passe         │")
+print("├──────────────────┼───────────────────────────┼──────────────────────┤")
 credentials = [
-    ("Admin",       "admin.kane",         "admin123"),
-    ("Médecin",     "dr.diop / dr.sow",  "medecin123"),
-    ("Infirmier(e)","inf.ba / inf.sarr",  "infirmier123"),
-    ("Secrétaire",  "sec.diallo",         "secretaire123"),
-    ("Laborantin",  "lab.thiam",          "labo123"),
+    ("Admin",       "admin.kane",                    "admin123"),
+    ("Médecin",     "dr.diop / dr.sow / dr.faye...",  "medecin123"),
+    ("Infirmier(e)","inf.ba / inf.sarr / inf.ndour..","infirmier123"),
+    ("Secrétaire",  "sec.diallo / sec.mbaye...",      "secretaire123"),
+    ("Laborantin",  "lab.thiam / lab.tall / lab.badji","labo123"),
 ]
 for role_label, username_str, pwd in credentials:
-    print(f"│ {role_label:<16} │ {username_str:<20} │ {pwd:<17} │")
-print("└──────────────────┴──────────────────────┴───────────────────┘")
+    print(f"│ {role_label:<16}│ {username_str:<20}        │ {pwd:<17}            │")
+print("└──────────────────┴───────────────────────────┴──────────────────────┘")
 print()
 
 # ─── PATIENTS ────────────────────────────────────────────────────────────────
@@ -492,20 +553,18 @@ MOTIFS_URGENCE = [
     "Fièvre élevée chez l'enfant", "Crise d'asthme sévère",
     "Plaie nécessitant suture", "Malaise avec perte de connaissance",
     "Brûlure du second degré", "Douleur abdominale intense",
+    "Arrêt cardio-respiratoire", "Accident de la voie publique",
+    "Intoxication médicamenteuse", "Crise convulsive",
+    "Hémorragie importante", "Choc anaphylactique",
 ]
 
-# ~15% des patients ont un passage aux urgences récent
-for patient, age, antecedents_list in random.sample(patients_crees, k=max(1, NB_PATIENTS // 7)):
+def creer_passage_urgence(patient, niveau_tri, mode_arrivee, statut_choisi, decision=None, jours_max=30):
+    """Crée un passage aux urgences avec des paramètres précis (utilisé pour garantir tous les cas)."""
     infirmier = random.choice(infirmiers_crees) if infirmiers_crees else None
     medecin   = random.choice(medecins_crees) if medecins_crees else None
 
-    jours_ecoules = random.randint(0, 30)  # urgences plus récentes que l'historique complet
+    jours_ecoules = random.randint(0, jours_max)
     date_arrivee  = now - timedelta(days=jours_ecoules, hours=random.randint(0, 23))
-
-    statut_choisi = random.choices(
-        [StatutUrgence.EN_ATTENTE, StatutUrgence.EN_CONSULTATION, StatutUrgence.SORTI],
-        weights=[0.10, 0.10, 0.80]
-    )[0]
 
     passage = PassageUrgence.objects.create(
         patient=patient,
@@ -513,27 +572,85 @@ for patient, age, antecedents_list in random.sample(patients_crees, k=max(1, NB_
         infirmier_accueil=infirmier,
         medecin_examinateur=medecin if statut_choisi != StatutUrgence.EN_ATTENTE else None,
         date_arrivee=date_arrivee,
-        mode_arrivee=random.choices(
-            [ModeArrivee.PIED, ModeArrivee.AMBULANCE, ModeArrivee.POLICE, ModeArrivee.TRANSFERT, ModeArrivee.AUTRE],
-            weights=[0.50, 0.30, 0.05, 0.10, 0.05]
-        )[0],
-        niveau_tri=random.choices([1, 2, 3, 4, 5], weights=[0.05, 0.15, 0.35, 0.30, 0.15])[0],
+        mode_arrivee=mode_arrivee,
+        niveau_tri=niveau_tri,
         motif=random.choice(MOTIFS_URGENCE),
+        statut=statut_choisi,
     )
 
     if statut_choisi == StatutUrgence.SORTI:
         passage.diagnostic = random.choice(DIAGNOSTICS)
-        passage.decision = random.choices(
-            [DecisionSortie.DOMICILE, DecisionSortie.HOSPITALISATION, DecisionSortie.TRANSFERT, DecisionSortie.PARTI_SANS_ATTENDRE],
-            weights=[0.70, 0.15, 0.05, 0.10]
-        )[0]
+        passage.decision = decision or DecisionSortie.DOMICILE
         passage.date_sortie = date_arrivee + timedelta(hours=random.randint(1, 8))
         passage.statut = StatutUrgence.SORTI
         passage.save()
 
+    return passage
+
+# Pool de patients disponibles pour les urgences (on en utilise davantage pour couvrir tous les cas)
+nb_patients_urgences = max(20, NB_PATIENTS // 2)
+patients_urgences = random.sample(patients_crees, k=min(nb_patients_urgences, len(patients_crees)))
+pool_patients_urgences = iter([p for p, age, ant in patients_urgences])
+
+def patient_suivant():
+    return next(pool_patients_urgences)
+
+# 1) Garantir chaque niveau de tri (1 à 5) au moins une fois
+for niveau in [NiveauTri.NIVEAU_1, NiveauTri.NIVEAU_2, NiveauTri.NIVEAU_3, NiveauTri.NIVEAU_4, NiveauTri.NIVEAU_5]:
+    creer_passage_urgence(
+        patient_suivant(), niveau,
+        random.choice(list(ModeArrivee)),
+        StatutUrgence.SORTI,
+        random.choice(list(DecisionSortie)),
+    )
     total_urgences += 1
 
-print(f"✅ {total_urgences} passages aux urgences créés.\n")
+# 2) Garantir chaque mode d'arrivée au moins une fois
+for mode in [ModeArrivee.PIED, ModeArrivee.AMBULANCE, ModeArrivee.POLICE, ModeArrivee.TRANSFERT, ModeArrivee.AUTRE]:
+    creer_passage_urgence(
+        patient_suivant(), random.choice([1, 2, 3, 4, 5]),
+        mode, StatutUrgence.SORTI, random.choice(list(DecisionSortie)),
+    )
+    total_urgences += 1
+
+# 3) Garantir chaque décision de sortie au moins une fois (y compris décès, cas le plus rare)
+for decision in [DecisionSortie.DOMICILE, DecisionSortie.HOSPITALISATION, DecisionSortie.TRANSFERT,
+                 DecisionSortie.PARTI_SANS_ATTENDRE, DecisionSortie.DECES]:
+    niveau = NiveauTri.NIVEAU_1 if decision == DecisionSortie.DECES else random.choice([1, 2, 3, 4, 5])
+    creer_passage_urgence(
+        patient_suivant(), niveau, random.choice(list(ModeArrivee)),
+        StatutUrgence.SORTI, decision,
+    )
+    total_urgences += 1
+
+# 4) Garantir les statuts "en cours" (patients toujours présents aux urgences)
+creer_passage_urgence(patient_suivant(), random.choice([1, 2, 3]), random.choice(list(ModeArrivee)), StatutUrgence.EN_ATTENTE, jours_max=1)
+total_urgences += 1
+creer_passage_urgence(patient_suivant(), random.choice([1, 2, 3]), random.choice(list(ModeArrivee)), StatutUrgence.EN_CONSULTATION, jours_max=1)
+total_urgences += 1
+
+# 5) Compléter avec des passages aléatoires pour les patients restants (distribution réaliste)
+for patient in pool_patients_urgences:
+    statut_choisi = random.choices(
+        [StatutUrgence.EN_ATTENTE, StatutUrgence.EN_CONSULTATION, StatutUrgence.SORTI],
+        weights=[0.10, 0.10, 0.80]
+    )[0]
+    decision = None
+    if statut_choisi == StatutUrgence.SORTI:
+        decision = random.choices(
+            [DecisionSortie.DOMICILE, DecisionSortie.HOSPITALISATION, DecisionSortie.TRANSFERT,
+             DecisionSortie.PARTI_SANS_ATTENDRE, DecisionSortie.DECES],
+            weights=[0.65, 0.15, 0.05, 0.10, 0.05]
+        )[0]
+    creer_passage_urgence(
+        patient,
+        random.choices([1, 2, 3, 4, 5], weights=[0.05, 0.15, 0.35, 0.30, 0.15])[0],
+        random.choices(list(ModeArrivee), weights=[0.50, 0.30, 0.05, 0.10, 0.05])[0],
+        statut_choisi, decision,
+    )
+    total_urgences += 1
+
+print(f"✅ {total_urgences} passages aux urgences créés (tous les niveaux de tri, modes d'arrivée et décisions de sortie sont représentés).\n")
 
 # ─── CONSULTATIONS & RENDEZ-VOUS ─────────────────────────────────────────────
 print("🩺 Création des consultations et rendez-vous...")
