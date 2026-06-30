@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { getServices, createService, deleteService, updateService } from "../api/services.ts"
-import { getMe } from "../api/comptes"
 import type { Service } from "../types"
 
 // ─── Modal création/édition ───────────────────────────────────────────────────
@@ -165,16 +164,7 @@ export default function Services(){
     const [error, setError] = useState('')
 
     useEffect(() => {
-        // Vérifie accès admin
-        getMe()
-            .then(me => {
-                if (me.role !== 'admin') navigate('/dashboard')
-            })
-            .catch(() => navigate('/login'))
-
-        getServices()
-            .then(setServices)
-            .finally(() => setLoading(false))
+        getServices().then(setServices).finally(() => setLoading(false))
     }, [])
 
     const handleSave = async (data: Partial<Service>) => {
@@ -208,7 +198,7 @@ export default function Services(){
         totalEmployes: services.reduce((a, s) => a + s.nb_employes, 0),
         totalPatients: services.reduce((a, s) => a + s.nb_patients, 0),
     }
-    
+
     return (
         <div className="min-h-screen bg-gray-50">
 

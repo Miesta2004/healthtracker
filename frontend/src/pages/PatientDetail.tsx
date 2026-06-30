@@ -5,6 +5,8 @@ import type { Patient, SignesVitaux, Consultation } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
+import { useAuth } from '../contexts/AuthContext'
+
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function calcAge(dateStr: string) {
@@ -175,6 +177,7 @@ function EditModal({ patient, onSave, onCancel }: {
 export default function PatientDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
+    const { hasRole } = useAuth()
     const [patient, setPatient] = useState<Patient | null>(null)
     const [loading, setLoading] = useState(true)
     const [showEdit, setShowEdit] = useState(false)
@@ -276,14 +279,20 @@ export default function PatientDetail() {
                             {saveError}
                         </span>
                     )}
-                    <button onClick={() => setShowEdit(true)}
+                    {/* Bouton Modifier dossier patient */}
+                    {hasRole('admin', 'medecin', 'infirmier', 'secretaire') && (
+                        <button onClick={() => setShowEdit(true)}
                             className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
                         ✏️ Modifier
-                    </button>
-                    <button onClick={() => setShowDelete(true)}
+                        </button>
+                    )}
+                    {/* Bouton Supprimer dossier patient */}
+                    {hasRole('admin') && (
+                        <button onClick={() => setShowDelete(true)}
                             className="px-4 py-2 text-sm font-medium rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors">
                         🗑️
-                    </button>
+                        </button>
+                    )}
                 </div>
             </nav>
 
@@ -425,21 +434,37 @@ export default function PatientDetail() {
                             consultations={consultations}
                             onUpdate={setConsultations}
                         />
+
+                        {/* Bouton + Nouvelle hospitalisation */}
+                        {hasRole('admin', 'medecin') && (
+                            <button
+                                onClick={() => navigate(`/patients/${patient.id}/hospitalisations/new`)}
+                                className="mt-4 w-full px-4 py-2.5 text-sm font-medium rounded-lg text-white transition-colors"
+                                style={{ backgroundColor: '#003152' }}
+                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                            >
+                                + Nouvelle hospitalisation
+                            </button>
+                        )}
                     </div>
 
                     {/* Colonne droite : Signes vitaux */}
                     <div>
                         <div className="flex items-center justify-between mb-4">
                             <h2 className="text-sm font-semibold text-gray-900">Suivi des signes vitaux</h2>
-                            <button
-                                onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
-                                className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors"
-                                style={{ backgroundColor: '#003152' }}
-                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
-                            >
-                                + Saisir constantes
-                            </button>
+                            {/* Bouton + Saisir constantes (signes vitaux) */}
+                            {hasRole('admin', 'medecin', 'infirmier') && (
+                                <button
+                                    onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
+                                    className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors"
+                                    style={{ backgroundColor: '#003152' }}
+                                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                                >
+                                    + Saisir constantes
+                                </button>
+                            )}
                         </div>
                         <SignesVitauxCharts data={signes} />
                     </div>

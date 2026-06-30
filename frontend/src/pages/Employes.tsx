@@ -1,7 +1,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getEmployes, getMe, updateEmploye, deleteEmploye } from '../api/comptes'
-import type { Employe, RoleEmploye, CurrentUser } from '../types'
+import { useAuth } from '../contexts/AuthContext'
+import { getEmployes, updateEmploye, deleteEmploye } from '../api/comptes'
+import type { Employe, RoleEmploye } from '../types'
 
 
 // ─── Constantes rôles ─────────────────────────────────────────────────────────
@@ -106,8 +107,7 @@ export default function Employes() {
     const navigate = useNavigate()
     const [employes, setEmployes] = useState<Employe[]>([])
     const [loading, setLoading] = useState(true)
-    const [checkingAccess, setCheckingAccess] = useState(true)
-    const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null)
+    const { user: currentUser, logout } = useAuth()
     const [actionError, setActionError] = useState('')
 
     // Filtres
@@ -118,23 +118,11 @@ export default function Employes() {
 
     // ── Vérification d'accès (admin uniquement) ──
     useEffect(() => {
-        getMe()
-            .then(me => {
-                setCurrentUser(me)
-                if (me.role !== 'admin') {
-                    navigate('/dashboard')
-                    return
-                }
-                setCheckingAccess(false)
-                return getEmployes().then(setEmployes)
-            })
-            .catch(() => navigate('/login'))
-            .finally(() => setLoading(false))
+        getEmployes().then(setEmployes).finally(() => setLoading(false))
     }, [])
 
     const handleLogout = () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        logout()
         navigate('/login')
     }
 
@@ -216,10 +204,6 @@ export default function Employes() {
         setSearch('')
         setFilterRole('tous')
         setFilterStatut('tous')
-    }
-
-    if (checkingAccess) {
-        return <div className="min-h-screen bg-gray-50 flex items-center justify-center text-gray-300 text-sm">Vérification des droits...</div>
     }
 
     return (

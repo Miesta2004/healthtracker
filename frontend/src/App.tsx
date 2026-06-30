@@ -1,4 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
+import { useAuth } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
@@ -7,53 +9,73 @@ import ConsultationDetail from './pages/ConsultationDetail'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
 import Services from './pages/Services'
-import AddSignesVitaux from "./pages/AddSignesVitaux.tsx"
-import AddHospitalisation from "./pages/AddHospitalisation.tsx"
-import Urgences from "./pages/Urgences.tsx"
-
-
+import AddSignesVitaux from './pages/AddSignesVitaux.tsx'
+import AddHospitalisation from './pages/AddHospitalisation.tsx'
+import Urgences from './pages/Urgences.tsx'
 
 function App() {
-    const isAuthenticated = !!localStorage.getItem('access_token')
+    const { isAuthenticated, loading } = useAuth()
+
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+                <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin"
+                     style={{ borderColor: '#003152', borderTopColor: 'transparent' }} />
+            </div>
+        )
+    }
 
     return (
         <Routes>
             <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={
-                isAuthenticated ? <Dashboard /> : <Navigate to="/login" />
-            } />
+
             <Route path="/" element={
                 isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
             } />
+
+            {/* Accessible à tous les rôles authentifiés */}
+            <Route path="/dashboard" element={
+                <ProtectedRoute><Dashboard /></ProtectedRoute>
+            } />
             <Route path="/patients/:id" element={
-                isAuthenticated ? <PatientDetail /> : <Navigate to="/login" />
+                <ProtectedRoute><PatientDetail /></ProtectedRoute>
             } />
             <Route path="/patients/newPatient" element={
-                isAuthenticated ? <AddPatient /> : <Navigate to="/login" />
+                <ProtectedRoute><AddPatient /></ProtectedRoute>
             } />
+
+            {/* Consultations : lecture pour tous sauf secrétaire/laborantin côté affichage, écriture médecin/admin côté API */}
             <Route path="/patients/:id/consultations/new" element={
-                isAuthenticated ? <ConsultationDetail /> : <Navigate to="/login" />
+                <ProtectedRoute roles={['admin', 'medecin']}><ConsultationDetail /></ProtectedRoute>
             } />
             <Route path="/patients/:id/consultations/:consultId" element={
-                isAuthenticated ? <ConsultationDetail /> : <Navigate to="/login" />
+                <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}><ConsultationDetail /></ProtectedRoute>
             } />
+
+            {/* Signes vitaux : saisie réservée médecin/infirmier/admin */}
+            <Route path="/patients/:id/signes_vitaux/newSignes" element={
+                <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}><AddSignesVitaux /></ProtectedRoute>
+            } />
+
+            {/* Hospitalisations : création réservée médecin/admin */}
+            <Route path="/patients/:id/hospitalisations/new" element={
+                <ProtectedRoute roles={['admin', 'medecin']}><AddHospitalisation /></ProtectedRoute>
+            } />
+
+            {/* Urgences : médecin, infirmier, admin (laborantin et secrétaire exclus) */}
+            <Route path="/urgences" element={
+                <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}><Urgences /></ProtectedRoute>
+            } />
+
+            {/* Gestion RH/organisation : admin uniquement */}
             <Route path="/employes" element={
-                isAuthenticated ? <Employes /> : <Navigate to="/login" />
+                <ProtectedRoute roles={['admin']}><Employes /></ProtectedRoute>
             } />
             <Route path="/employes/newEmploye" element={
-                isAuthenticated ? <AddEmploye /> : <Navigate to="/login" />
-            } />
-            <Route path="/patients/:id/signes_vitaux/newSignes" element={
-                isAuthenticated ? <AddSignesVitaux /> : <Navigate to="/login" />
+                <ProtectedRoute roles={['admin']}><AddEmploye /></ProtectedRoute>
             } />
             <Route path="/services" element={
-                isAuthenticated ? <Services /> : <Navigate to="/login" />
-            } />
-            <Route path="/patients/:id/hospitalisations/new" element={
-                isAuthenticated ? <AddHospitalisation /> : <Navigate to="/login" />
-            } />
-            <Route path="/urgences" element={
-                isAuthenticated ? <Urgences /> : <Navigate to="/login" />
+                <ProtectedRoute roles={['admin']}><Services /></ProtectedRoute>
             } />
         </Routes>
     )
