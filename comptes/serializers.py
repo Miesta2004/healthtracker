@@ -3,10 +3,14 @@ from django.contrib.auth.models import User
 from .models import Employe
 
 class EmployeSerializer(serializers.ModelSerializer):
-    username = serializers.CharField(source='user.username',read_only=True)
-    email = serializers.EmailField(source='user.email',read_only=True)
-    role_label = serializers.CharField(source='get_role_display',read_only=True)
-    age = serializers.IntegerField(read_only=True)
+    username    = serializers.CharField(source='user.username', read_only=True)
+    email       = serializers.EmailField(source='user.email', read_only=True)
+    role_label  = serializers.CharField(source='get_role_display', read_only=True)
+    age         = serializers.IntegerField(read_only=True)
+    service_nom = serializers.SerializerMethodField()
+
+    def get_service_nom(self, obj):
+        return obj.service.nom if obj.service else None
 
     class Meta:
         model = Employe
@@ -15,6 +19,7 @@ class EmployeSerializer(serializers.ModelSerializer):
             'nom', 'prenom', 'date_naissance', 'sexe', 'age',
             'telephone', 'adresse', 'photo_path',
             'role', 'role_label', 'specialite', 'matricule', 'actif',
+            'service', 'service_nom',
             'date_creation',
         ]
 

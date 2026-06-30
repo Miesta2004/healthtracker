@@ -6,6 +6,7 @@ import AddPatient from './pages/AddPatient'
 import ConsultationDetail from './pages/ConsultationDetail'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
+import Services from './pages/Services'
 import AddSignesVitaux from "./pages/AddSignesVitaux.tsx";
 
 
@@ -41,6 +42,9 @@ function App() {
             } />
             <Route path="/patients/:id/signes_vitaux/newSignes" element={
                 isAuthenticated ? <AddSignesVitaux /> : <Navigate to="/login" />
+            } />
+            <Route path="/services" element={
+                isAuthenticated ? <Services /> : <Navigate to="/login" />
             } />
         </Routes>
     )

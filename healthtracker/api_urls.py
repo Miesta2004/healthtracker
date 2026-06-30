@@ -6,4 +6,7 @@ urlpatterns = [
     path('', include('signes_vitaux.urls')),
     path('', include('alertes.urls')),
     path('', include('comptes.urls')),
+    path('', include('antecedents.urls')),
+    path('', include('services.urls')),
+    path('', include('analyses.urls')),
 ]

@@ -244,6 +244,10 @@ export default function Employes() {
                     >
                         + Nouvel employé
                     </button>
+                    <button onClick={() => navigate('/services')}
+                            className="text-sm text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50">
+                        Services
+                    </button>
                     <button onClick={handleLogout}
                             className="text-sm text-gray-400 hover:text-gray-700 transition-colors px-3 py-2 rounded-lg hover:bg-gray-50">
                         Déconnexion

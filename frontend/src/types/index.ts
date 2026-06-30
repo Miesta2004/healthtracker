@@ -58,6 +58,20 @@ export interface Employe {
     specialite?: string
     matricule: string
     actif: boolean
+    service?: number | null
+    service_nom?: string | null
+    date_creation: string
+}
+
+export interface Service {
+    id: number
+    nom: string
+    description?: string
+    chef_de_service?: number
+    chef_nom?: string
+    nb_employes: number
+    nb_patients: number
+    actif: boolean
     date_creation: string
 }
 
@@ -70,6 +84,27 @@ export interface CurrentUser {
     id?: number
     nom?: string
     prenom?: string
+    service_id?: number | null
+    service_nom?: string | null
+}
+
+// ─── Antécédents ──────────────────────────────────────────────────────────────
+export type TypeAntecedent = 'maladie_chronique' | 'chirurgie' | 'allergie' | 'familial' | 'autre'
+export type StatutAntecedent = 'actif' | 'resolu'
+
+export interface Antecedent {
+    id: number
+    patient: number
+    type_antecedent: TypeAntecedent
+    type_antecedent_label: string
+    libelle: string
+    observations?: string
+    statut: StatutAntecedent
+    statut_label: string
+    date_diagnostic: string
+    consultation_source: number | null
+    date_creation: string
+    date_modification: string
 }
 
 export interface Consultation {

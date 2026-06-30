@@ -42,6 +42,18 @@ class Patient(Personne):
     antecedents     = models.TextField(blank=True)
     actif           = models.BooleanField(default=True)
     numero_dossier  = models.CharField(max_length=20, unique=True, blank=True)
+    service          = models.ForeignKey(          # ← nouveau
+        'services.Service',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='patients'
+    )
+    medecin_referent = models.ForeignKey(          # ← nouveau
+        'comptes.Employe',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='patients'
+    )
 
     def save(self, *args, **kwargs):
         # Génère un numéro de dossier automatique

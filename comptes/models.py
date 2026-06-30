@@ -22,6 +22,12 @@ class Employe(Personne):
     specialite  = models.CharField(max_length=100, blank=True)
     matricule   = models.CharField(max_length=20, unique=True, blank=True)
     actif       = models.BooleanField(default=True)
+    service    = models.ForeignKey(              # ← nouveau
+        'services.Service',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='employes'
+    )
 
     def save(self, *args, **kwargs):
         if not self.matricule:

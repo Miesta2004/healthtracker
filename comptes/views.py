@@ -7,6 +7,8 @@ from .models import Employe
 from .serializers import EmployeSerializer, CreateEmployeSerializer
 from .storage import upload_photo
 from .permissions import IsAdminRole
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.views import TokenObtainPairView
 
 class EmployeViewSet(viewsets.ModelViewSet):
     queryset = Employe.objects.select_related('user').all()
@@ -70,3 +72,31 @@ class EmployeViewSet(viewsets.ModelViewSet):
         employe.photo_path = url
         employe.save()
         return Response({'photo_path':url})
+
+class CustomTokenSerializer(TokenObtainPairSerializer):
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+        try:
+            e = user.employe
+            token['role']        = e.role
+            token['role_label']  = e.get_role_display()
+            token['nom']         = e.nom
+            token['prenom']      = e.prenom
+            token['photo_path']  = e.photo_path or ''
+            token['employe_id']  = e.id
+            token['service_id']  = e.service_id or None
+            token['service_nom'] = e.service.nom if e.service else None
+        except Exception:
+            token['role']        = 'admin'
+            token['role_label']  = 'Administrateur'
+            token['nom']         = user.last_name
+            token['prenom']      = user.first_name
+            token['photo_path']  = ''
+            token['employe_id']  = None
+            token['service_id']  = None
+            token['service_nom'] = None
+        return token
+
+class CustomTokenView(TokenObtainPairView):
+    serializer_class = CustomTokenSerializer
