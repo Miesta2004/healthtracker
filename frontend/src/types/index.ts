@@ -11,6 +11,11 @@ export interface Patient {
     antecedents?: string
     actif: boolean
     date_creation: string
+    numero_dossier?: string
+    service?: number | null
+    service_nom?: string | null
+    medecin_referent?: number | null
+    medecin_nom?: string | null
 }
 
 export interface AuthTokens {

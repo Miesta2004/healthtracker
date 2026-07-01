@@ -4,6 +4,7 @@ import { getPatient } from '../api/patients'
 import { getAntecedents, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
 import type { Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent } from '../types'
+import { SkeletonDetailPage } from '../components/Skeleton'
 
 // ─── Types d'antécédents (catégorisation à la promotion) ─────────────────────
 const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
@@ -289,12 +290,8 @@ export default function ConsultationDetail() {
     }
 
     if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-                <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin mx-auto mb-3"
-                     style={{ borderColor: '#003152', borderTopColor: 'transparent' }} />
-                <p className="text-sm text-gray-400">Chargement...</p>
-            </div>
+        <div className="min-h-screen bg-gray-50">
+            <SkeletonDetailPage />
         </div>
     )
 

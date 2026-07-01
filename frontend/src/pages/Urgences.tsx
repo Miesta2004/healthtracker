@@ -11,6 +11,7 @@ import {
 } from '../api/urgences'
 import type { Patient, Service, PassageUrgence, NiveauTri, ModeArrivee } from '../types'
 import Navbar from '../components/NavBar'
+import { SkeletonSimpleList } from '../components/Skeleton'
 
 // ─── Config triage ────────────────────────────────────────────────────────────
 const TRI_CONFIG: Record<number, { label: string; color: string; bg: string }> = {
@@ -452,7 +453,9 @@ export default function Urgences() {
                         File d'attente (triée par gravité)
                     </h2>
                     {loading ? (
-                        <div className="text-center text-gray-300 text-sm py-8">Chargement…</div>
+                        <div className="bg-white rounded-xl border border-gray-100">
+                            <SkeletonSimpleList rows={4} />
+                        </div>
                     ) : passages.length === 0 ? (
                         <div className="bg-white rounded-xl border border-gray-100 p-6 text-center text-sm text-gray-400">
                             Aucun patient actuellement aux urgences.

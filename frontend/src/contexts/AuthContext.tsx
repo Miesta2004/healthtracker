@@ -12,6 +12,12 @@ interface AuthContextValue {
      */
     hasRole: (...roles: RoleEmploye[]) => boolean
     logout: () => void
+    /**
+     * À appeler juste après un login réussi (tokens déjà stockés dans le
+     * localStorage) pour recharger le profil sans avoir besoin de recharger
+     * la page entière.
+     */
+    refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
@@ -19,27 +25,34 @@ const AuthContext = createContext<AuthContextValue>({
     loading: true,
     hasRole: () => false,
     logout: () => {},
+    refreshUser: async () => {},
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<CurrentUser | null>(null)
     const [loading, setLoading] = useState(true)
 
-    useEffect(() => {
+    const loadUser = async () => {
         if (!checkAuth()) {
+            setUser(null)
             setLoading(false)
             return
         }
-        // On charge les infos complètes depuis /employes/me/ une seule fois
-        getMe()
-            .then(setUser)
-            .catch(() => {
-                // Token invalide ou expiré : on nettoie
-                localStorage.removeItem('access_token')
-                localStorage.removeItem('refresh_token')
-                setUser(null)
-            })
-            .finally(() => setLoading(false))
+        try {
+            const me = await getMe()
+            setUser(me)
+        } catch {
+            // Token invalide ou expiré : on nettoie
+            localStorage.removeItem('access_token')
+            localStorage.removeItem('refresh_token')
+            setUser(null)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    useEffect(() => {
+        loadUser()
     }, [])
 
     const hasRole = (...roles: RoleEmploye[]): boolean => {
@@ -58,8 +71,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         window.location.href = '/login'
     }
 
+    const refreshUser = async () => {
+        setLoading(true)
+        await loadUser()
+    }
+
     return (
-        <AuthContext.Provider value={{ user, loading, hasRole, logout }}>
+        <AuthContext.Provider value={{ user, loading, hasRole, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     )

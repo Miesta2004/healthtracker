@@ -1,22 +1,25 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../api/auth'
+import { useAuth } from '../contexts/AuthContext'
 
 export default function Login() {
     const navigate = useNavigate()
-    const[username, setUsername] = useState('')
+    const [username, setUsername] = useState('')
     const [password, setPassword] = useState('')
     const [error, setError] = useState('')
     const [loading, setLoading] = useState(false)
+    const {refreshUser} = useAuth()
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
         setError('')
         try {
-            const tokens = await login({ username,password})
-            localStorage.setItem('access_token',tokens.access)
+            const tokens = await login({username, password})
+            localStorage.setItem('access_token', tokens.access)
             localStorage.setItem('refresh_token', tokens.refresh)
+            await refreshUser()
             navigate('/dashboard')
         } catch {
             setError('Identifiants incorrects. Réessaie')
@@ -31,27 +34,27 @@ export default function Login() {
             {/* ── Côté gauche : image + branding ── */}
             <div
                 className="hidden lg:flex lg:w-1/2 xl:w-3/5 flex-col justify-between p-12 relative overflow-hidden"
-                style={{ backgroundColor: '#003152' }}
+                style={{backgroundColor: '#003152'}}
             >
                 {/* Cercles décoratifs en arrière-plan */}
                 <div
                     className="absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-10"
-                    style={{ backgroundColor: '#ADDFF1' }}
+                    style={{backgroundColor: '#ADDFF1'}}
                 />
                 <div
                     className="absolute -bottom-32 -right-16 w-[500px] h-[500px] rounded-full opacity-10"
-                    style={{ backgroundColor: '#ADDFF1' }}
+                    style={{backgroundColor: '#ADDFF1'}}
                 />
                 <div
                     className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full opacity-5"
-                    style={{ backgroundColor: '#ADDFF1' }}
+                    style={{backgroundColor: '#ADDFF1'}}
                 />
 
                 {/* Logo */}
                 <div className="relative z-10 flex items-center gap-3">
                     <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center"
-                        style={{ backgroundColor: '#003152', border: '1.5px solid #ADDFF1' }}
+                        style={{backgroundColor: '#003152', border: '1.5px solid #ADDFF1'}}
                     >
                         <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
                             <g fill="#ADDFF1">
@@ -97,33 +100,34 @@ export default function Login() {
                 <div className="relative z-10 space-y-6">
                     <div
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
-                        style={{ backgroundColor: 'rgba(173,223,241,0.15)', color: '#ADDFF1' }}
+                        style={{backgroundColor: 'rgba(173,223,241,0.15)', color: '#ADDFF1'}}
                     >
-                        <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-current"/>
                         Plateforme médicale sécurisée
                     </div>
                     <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
-                        Gérez vos patients<br />
-                        <span style={{ color: '#ADDFF1' }}>en toute simplicité</span>
+                        Gérez vos patients<br/>
+                        <span style={{color: '#ADDFF1'}}>en toute simplicité</span>
                     </h1>
                     <p className="text-blue-200 text-base leading-relaxed max-w-md">
-                        Suivez les dossiers médicaux, les consultations et les alertes de vos patients depuis une seule interface intuitive.
+                        Suivez les dossiers médicaux, les consultations et les alertes de vos patients depuis une seule
+                        interface intuitive.
                     </p>
 
                     {/* Stats */}
                     <div className="grid grid-cols-3 gap-4 pt-4">
                         {[
-                            { label: 'Patients suivis', value: '1 200+' },
-                            { label: 'Consultations', value: '8 500+' },
-                            { label: 'Disponibilité', value: '99,9%' },
+                            {label: 'Patients suivis', value: '1 200+'},
+                            {label: 'Consultations', value: '8 500+'},
+                            {label: 'Disponibilité', value: '99,9%'},
                         ].map(stat => (
                             <div
                                 key={stat.label}
                                 className="rounded-xl p-4"
-                                style={{ backgroundColor: 'rgba(173,223,241,0.08)' }}
+                                style={{backgroundColor: 'rgba(173,223,241,0.08)'}}
                             >
                                 <p className="text-2xl font-bold text-white">{stat.value}</p>
-                                <p className="text-xs mt-1" style={{ color: '#ADDFF1' }}>{stat.label}</p>
+                                <p className="text-xs mt-1" style={{color: '#ADDFF1'}}>{stat.label}</p>
                             </div>
                         ))}
                     </div>
@@ -143,7 +147,7 @@ export default function Login() {
                     <div className="lg:hidden flex items-center gap-3 mb-8">
                         <div
                             className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                            style={{ backgroundColor: '#003152' }}
+                            style={{backgroundColor: '#003152'}}
                         >
                             🏥
                         </div>
@@ -171,7 +175,7 @@ export default function Login() {
                                 value={username}
                                 onChange={(e) => setUsername(e.target.value)}
                                 className="w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:border-transparent transition-all"
-                                style={{ '--tw-ring-color': '#003152' } as React.CSSProperties}
+                                style={{'--tw-ring-color': '#003152'} as React.CSSProperties}
                                 onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
                                 onBlur={e => e.target.style.boxShadow = 'none'}
                                 placeholder="marietou"
@@ -197,9 +201,13 @@ export default function Login() {
                             type="submit"
                             disabled={loading}
                             className="w-full text-white font-medium py-2.5 rounded-lg text-sm transition-all mt-2"
-                            style={{ backgroundColor: loading ? '#5a8aaa' : '#003152' }}
-                            onMouseEnter={e => { if (!loading) (e.target as HTMLElement).style.backgroundColor = '#004070' }}
-                            onMouseLeave={e => { if (!loading) (e.target as HTMLElement).style.backgroundColor = '#003152' }}
+                            style={{backgroundColor: loading ? '#5a8aaa' : '#003152'}}
+                            onMouseEnter={e => {
+                                if (!loading) (e.target as HTMLElement).style.backgroundColor = '#004070'
+                            }}
+                            onMouseLeave={e => {
+                                if (!loading) (e.target as HTMLElement).style.backgroundColor = '#003152'
+                            }}
                         >
                             {loading ? 'Connexion en cours...' : 'Se connecter'}
                         </button>

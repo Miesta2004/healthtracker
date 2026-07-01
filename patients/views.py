@@ -62,6 +62,22 @@ class PatientViewSet(viewsets.ModelViewSet):
             return [IsAdminRole()]
         return [IsAuthenticated()]
 
+    def perform_create(self, serializer):
+        """
+        Rattache automatiquement le patient au service (et, si créateur médecin,
+        au médecin référent) de l'employé connecté quand ces champs ne sont pas
+        fournis explicitement. Sans ça, un patient créé sans service n'apparaît
+        dans la liste d'aucun employé (la liste est filtrée par service).
+        """
+        emp = get_employe(self.request.user)
+        extra = {}
+        if emp is not None:
+            if not serializer.validated_data.get('service'):
+                extra['service'] = emp.service
+            if emp.role == 'medecin' and not serializer.validated_data.get('medecin_referent'):
+                extra['medecin_referent'] = emp
+        serializer.save(**extra)
+
     @action(detail=True, methods=['post'], url_path='ajouter_antecedent')
     def ajouter_antecedent(self, request, pk=None):
         """Ajoute un antécédent au dossier du patient sans doublon."""

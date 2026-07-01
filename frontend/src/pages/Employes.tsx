@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { getEmployes, updateEmploye, deleteEmploye } from '../api/comptes'
 import type { Employe, RoleEmploye } from '../types'
 import Navbar from '../components/NavBar'
+import { SkeletonChartCard, SkeletonTable } from '../components/Skeleton'
 
 
 
@@ -245,29 +246,30 @@ export default function Employes() {
                 </div>
 
                 {/* ── Graphiques ── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des comptes</h3>
-                        {loading
-                            ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
-                            : <DonutChart actif={actif} inactif={inactif} />
-                        }
+                {loading ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <SkeletonChartCard /><SkeletonChartCard /><SkeletonChartCard />
                     </div>
+                ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white rounded-xl border border-gray-100 p-6">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des comptes</h3>
+                            <DonutChart actif={actif} inactif={inactif} />
+                        </div>
 
-                    <div className="md:col-span-2 bg-white rounded-xl border border-gray-100 p-6">
-                        <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par rôle</h3>
-                        {loading
-                            ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
-                            : (
+                        <div className="md:col-span-2 bg-white rounded-xl border border-gray-100 p-6">
+                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par rôle</h3>
+                            {(
                                 <div className="space-y-3">
                                     {roleCounts.map(({ role, count }) => (
                                         <MiniBar key={role} label={ROLE_LABELS[role]} value={count} max={maxRoleCount} color={ROLE_COLORS[role]} />
                                     ))}
                                 </div>
                             )
-                        }
+                            }
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* ── Tableau employés avec filtres ── */}
                 <div className="bg-white rounded-xl border border-gray-100">
@@ -359,7 +361,7 @@ export default function Employes() {
 
                     {/* Contenu */}
                     {loading ? (
-                        <div className="px-6 py-12 text-center text-gray-300 text-sm">Chargement...</div>
+                        <SkeletonTable rows={6} />
                     ) : employes.length === 0 ? (
                         <div className="px-6 py-16 text-center">
                             <p className="text-4xl mb-3">🧑‍⚕️</p>

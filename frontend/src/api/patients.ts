@@ -1,8 +1,9 @@
 import api from './client.ts'
 import type {Patient, SignesVitaux} from '../types'
 
-export const getPatients = async () : Promise <Patient[]> => {
-    const response = await api.get('/patients')
+export const getPatients = async (q?: string): Promise<Patient[]> => {
+    const params = q ? { params: { search: q } } : {}
+    const response = await api.get('/patients', params)
     return response.data
 }
 

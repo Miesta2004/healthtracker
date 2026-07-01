@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { getServices, createService, deleteService, updateService } from "../api/services.ts"
 import type { Service } from "../types"
 import Navbar from '../components/NavBar'
+import { SkeletonCardGrid } from '../components/Skeleton'
 
 
 // ─── Modal création/édition ───────────────────────────────────────────────────
@@ -247,7 +248,7 @@ export default function Services(){
 
                 {/* Grille services */}
                 {loading ? (
-                    <div className="text-center py-16 text-gray-300 text-sm">Chargement...</div>
+                    <SkeletonCardGrid count={6} />
                 ) : services.length === 0 ? (
                     <div className="text-center py-16">
                         <p className="text-4xl mb-3">🏥</p>
