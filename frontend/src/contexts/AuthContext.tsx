@@ -1,45 +1,53 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { getMe } from '../api/comptes'
 import type { CurrentUser, RoleEmploye } from '../types'
+import { getCurrentRole, isAuthenticated as checkAuth } from '../utils/auth'
+import { getMe } from '../api/comptes'
 
 interface AuthContextValue {
     user: CurrentUser | null
     loading: boolean
-    isAuthenticated: boolean
+    /**
+     * Vérifie si l'utilisateur connecté a l'un des rôles passés.
+     * Exemple : hasRole('admin', 'medecin')
+     */
     hasRole: (...roles: RoleEmploye[]) => boolean
     logout: () => void
-    refreshUser: () => Promise<void>
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null)
+const AuthContext = createContext<AuthContextValue>({
+    user: null,
+    loading: true,
+    hasRole: () => false,
+    logout: () => {},
+})
 
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<CurrentUser | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const fetchUser = async () => {
-        const token = localStorage.getItem('access_token')
-        if (!token) {
-            setUser(null)
+    useEffect(() => {
+        if (!checkAuth()) {
             setLoading(false)
             return
         }
-        try {
-            const me = await getMe()
-            setUser(me)
-        } catch {
-            setUser(null)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    useEffect(() => {
-        fetchUser()
+        // On charge les infos complètes depuis /employes/me/ une seule fois
+        getMe()
+            .then(setUser)
+            .catch(() => {
+                // Token invalide ou expiré : on nettoie
+                localStorage.removeItem('access_token')
+                localStorage.removeItem('refresh_token')
+                setUser(null)
+            })
+            .finally(() => setLoading(false))
     }, [])
 
-    const hasRole = (...roles: RoleEmploye[]) => {
-        if (!user) return false
+    const hasRole = (...roles: RoleEmploye[]): boolean => {
+        if (!user) {
+            // Fallback rapide : on décode le JWT sans appel réseau
+            const role = getCurrentRole()
+            return role ? roles.includes(role) : false
+        }
         return roles.includes(user.role)
     }
 
@@ -47,26 +55,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
         setUser(null)
+        window.location.href = '/login'
     }
 
     return (
-        <AuthContext.Provider
-            value={{
-                user,
-                loading,
-                isAuthenticated: !!user,
-                hasRole,
-                logout,
-                refreshUser: fetchUser,
-            }}
-        >
+        <AuthContext.Provider value={{ user, loading, hasRole, logout }}>
             {children}
         </AuthContext.Provider>
     )
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useAuth() {
-    const ctx = useContext(AuthContext)
-    if (!ctx) throw new Error('useAuth doit être utilisé dans un AuthProvider')
-    return ctx
+    return useContext(AuthContext)
 }

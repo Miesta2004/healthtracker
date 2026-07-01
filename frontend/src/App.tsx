@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useAuth } from './contexts/AuthContext'
+import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
+
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import PatientDetail from './pages/PatientDetail'
@@ -9,75 +10,79 @@ import ConsultationDetail from './pages/ConsultationDetail'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
 import Services from './pages/Services'
-import AddSignesVitaux from './pages/AddSignesVitaux.tsx'
-import AddHospitalisation from './pages/AddHospitalisation.tsx'
-import Urgences from './pages/Urgences.tsx'
+import AddSignesVitaux from './pages/AddSignesVitaux'
+import AddHospitalisation from './pages/AddHospitalisation'
+import Urgences from './pages/Urgences'
+import AccesRefuse from './pages/AccesRefuse'
 
 function App() {
-    const { isAuthenticated, loading } = useAuth()
-
-    if (loading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin"
-                     style={{ borderColor: '#003152', borderTopColor: 'transparent' }} />
-            </div>
-        )
-    }
-
     return (
-        <Routes>
-            <Route path="/login" element={<Login />} />
+        <AuthProvider>
+            <Routes>
+                {/* ── Publique ── */}
+                <Route path="/login" element={<Login />} />
+                <Route path="/acces-refuse" element={<AccesRefuse />} />
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
 
-            <Route path="/" element={
-                isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />
-            } />
+                {/* ── Tous les employés connectés ── */}
+                <Route path="/dashboard" element={
+                    <ProtectedRoute><Dashboard /></ProtectedRoute>
+                } />
+                <Route path="/patients/:id" element={
+                    <ProtectedRoute><PatientDetail /></ProtectedRoute>
+                } />
+                <Route path="/patients/:id/consultations/new" element={
+                    <ProtectedRoute><ConsultationDetail /></ProtectedRoute>
+                } />
+                <Route path="/patients/:id/consultations/:consultId" element={
+                    <ProtectedRoute><ConsultationDetail /></ProtectedRoute>
+                } />
+                <Route path="/patients/:id/signes_vitaux/newSignes" element={
+                    <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}>
+                        <AddSignesVitaux />
+                    </ProtectedRoute>
+                } />
+                <Route path="/patients/:id/hospitalisations/new" element={
+                    <ProtectedRoute roles={['admin', 'medecin']}>
+                        <AddHospitalisation />
+                    </ProtectedRoute>
+                } />
 
-            {/* Accessible à tous les rôles authentifiés */}
-            <Route path="/dashboard" element={
-                <ProtectedRoute><Dashboard /></ProtectedRoute>
-            } />
-            <Route path="/patients/:id" element={
-                <ProtectedRoute><PatientDetail /></ProtectedRoute>
-            } />
-            <Route path="/patients/newPatient" element={
-                <ProtectedRoute><AddPatient /></ProtectedRoute>
-            } />
+                {/* ── Médecin, infirmier, admin ── */}
+                <Route path="/urgences" element={
+                    <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}>
+                        <Urgences />
+                    </ProtectedRoute>
+                } />
 
-            {/* Consultations : lecture pour tous sauf secrétaire/laborantin côté affichage, écriture médecin/admin côté API */}
-            <Route path="/patients/:id/consultations/new" element={
-                <ProtectedRoute roles={['admin', 'medecin']}><ConsultationDetail /></ProtectedRoute>
-            } />
-            <Route path="/patients/:id/consultations/:consultId" element={
-                <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}><ConsultationDetail /></ProtectedRoute>
-            } />
+                {/* ── Admin, médecin, secrétaire ── */}
+                <Route path="/patients/newPatient" element={
+                    <ProtectedRoute roles={['admin', 'medecin', 'secretaire']}>
+                        <AddPatient />
+                    </ProtectedRoute>
+                } />
 
-            {/* Signes vitaux : saisie réservée médecin/infirmier/admin */}
-            <Route path="/patients/:id/signes_vitaux/newSignes" element={
-                <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}><AddSignesVitaux /></ProtectedRoute>
-            } />
+                {/* ── Admin seulement ── */}
+                <Route path="/employes" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <Employes />
+                    </ProtectedRoute>
+                } />
+                <Route path="/employes/newEmploye" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <AddEmploye />
+                    </ProtectedRoute>
+                } />
+                <Route path="/services" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <Services />
+                    </ProtectedRoute>
+                } />
 
-            {/* Hospitalisations : création réservée médecin/admin */}
-            <Route path="/patients/:id/hospitalisations/new" element={
-                <ProtectedRoute roles={['admin', 'medecin']}><AddHospitalisation /></ProtectedRoute>
-            } />
-
-            {/* Urgences : médecin, infirmier, admin (laborantin et secrétaire exclus) */}
-            <Route path="/urgences" element={
-                <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}><Urgences /></ProtectedRoute>
-            } />
-
-            {/* Gestion RH/organisation : admin uniquement */}
-            <Route path="/employes" element={
-                <ProtectedRoute roles={['admin']}><Employes /></ProtectedRoute>
-            } />
-            <Route path="/employes/newEmploye" element={
-                <ProtectedRoute roles={['admin']}><AddEmploye /></ProtectedRoute>
-            } />
-            <Route path="/services" element={
-                <ProtectedRoute roles={['admin']}><Services /></ProtectedRoute>
-            } />
-        </Routes>
+                {/* ── Fallback ── */}
+                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+        </AuthProvider>
     )
 }
 

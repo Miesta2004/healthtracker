@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createPatient } from '../api/patients'
+import Navbar from '../components/NavBar'
+
 
 // ─── Données médicales de référence ──────────────────────────────────────────
 const ALLERGIES_COMMUNES = [
@@ -176,31 +178,8 @@ export default function AddPatient() {
         <div className="min-h-screen bg-gray-50">
 
             {/* Navbar */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
-                <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                    ← Retour
-                </button>
-                <span className="text-gray-200">|</span>
-                <span className="text-sm font-medium text-gray-900">Nouveau patient</span>
-                <div className="ml-auto flex items-center gap-2 text-xs text-gray-400">
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-medium ${step === 1 ? 'text-white' : 'bg-green-100 text-green-600'}`}
-                          style={step === 1 ? { backgroundColor: '#003152' } : {}}>
-                        {step === 1 ? '1' : '✓'}
-                    </span>
-                    <span className={step === 1 ? 'font-medium' : ''} style={step === 1 ? { color: '#003152' } : {}}>
-                        Infos personnelles
-                    </span>
-                    <span className="mx-2 text-gray-200">──</span>
-                    <span className={`w-6 h-6 rounded-full flex items-center justify-center font-medium ${step === 2 ? 'text-white' : 'bg-gray-100 text-gray-400'}`}
-                          style={step === 2 ? { backgroundColor: '#003152' } : {}}>
-                        2
-                    </span>
-                    <span className={step === 2 ? 'font-medium' : ''} style={step === 2 ? { color: '#003152' } : {}}>
-                        Dossier médical
-                    </span>
-                </div>
-            </nav>
-
+            <Navbar />
+            
             <div className="max-w-2xl mx-auto px-6 py-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Ajouter un patient</h1>

@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react"
-import { useNavigate } from "react-router-dom"
 import { getServices, createService, deleteService, updateService } from "../api/services.ts"
 import type { Service } from "../types"
+import Navbar from '../components/NavBar'
+
 
 // ─── Modal création/édition ───────────────────────────────────────────────────
 function ServiceModal({ service, onClose, onSave} : {
@@ -156,7 +157,6 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Services(){
-    const navigate = useNavigate()
     const [services, setServices] = useState<Service[]>([])
     const [loading, setLoading] = useState(true)
     const [modalOpen, setModalOpen] = useState(false)
@@ -212,25 +212,7 @@ export default function Services(){
             )}
 
             {/* Navbar */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/dashboard')}
-                            className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                        ← Tableau de bord
-                    </button>
-                    <span className="text-gray-200">|</span>
-                    <span className="font-semibold text-gray-900">Services</span>
-                </div>
-                <button
-                    onClick={() => { setEditService(null); setModalOpen(true) }}
-                    className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                    style={{ backgroundColor: '#003152' }}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = '#004070'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = '#003152'}
-                >
-                    + Nouveau service
-                </button>
-            </nav>
+            <Navbar />
 
             <div className="max-w-5xl mx-auto px-6 py-8">
 

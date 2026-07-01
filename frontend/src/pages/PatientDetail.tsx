@@ -6,6 +6,8 @@ import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, S
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
+//import Navbar from '../components/NavBar'
+
 
 // ─── Types d'antécédents ───────────────────────────────────────────────────────
 const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {

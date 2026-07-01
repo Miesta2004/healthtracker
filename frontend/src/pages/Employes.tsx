@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getEmployes, updateEmploye, deleteEmploye } from '../api/comptes'
 import type { Employe, RoleEmploye } from '../types'
+import Navbar from '../components/NavBar'
+
 
 
 // ─── Constantes rôles ─────────────────────────────────────────────────────────
@@ -107,7 +109,7 @@ export default function Employes() {
     const navigate = useNavigate()
     const [employes, setEmployes] = useState<Employe[]>([])
     const [loading, setLoading] = useState(true)
-    const { user: currentUser, logout } = useAuth()
+    const { user: currentUser } = useAuth()
     const [actionError, setActionError] = useState('')
 
     // Filtres
@@ -120,11 +122,6 @@ export default function Employes() {
     useEffect(() => {
         getEmployes().then(setEmployes).finally(() => setLoading(false))
     }, [])
-
-    const handleLogout = () => {
-        logout()
-        navigate('/login')
-    }
 
     const refreshList = () => {
         getEmployes().then(setEmployes)
@@ -210,34 +207,7 @@ export default function Employes() {
         <div className="min-h-screen bg-gray-50 flex flex-col">
 
             {/* ── Navbar ── */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                        ← Tableau de bord
-                    </button>
-                    <span className="text-gray-200">|</span>
-                    <span className="font-semibold text-gray-900 text-base">Employés</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <button
-                        onClick={() => navigate('/employes/newEmploye')}
-                        className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                        style={{ backgroundColor: '#003152' }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
-                    >
-                        + Nouvel employé
-                    </button>
-                    <button onClick={() => navigate('/services')}
-                            className="text-sm text-gray-400 hover:text-gray-700 px-3 py-1.5 rounded-lg hover:bg-gray-50">
-                        Services
-                    </button>
-                    <button onClick={handleLogout}
-                            className="text-sm text-gray-400 hover:text-gray-700 transition-colors px-3 py-2 rounded-lg hover:bg-gray-50">
-                        Déconnexion
-                    </button>
-                </div>
-            </nav>
+            <Navbar />
 
             <div className="max-w-6xl mx-auto px-6 py-8 w-full space-y-8">
 

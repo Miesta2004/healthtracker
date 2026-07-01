@@ -1,50 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
-import { useAuth } from '../contexts/AuthContext'
 import type { Patient } from '../types'
-
-// ─── Logo SVG réutilisable ────────────────────────────────────────────────────
-function Logo() {
-    return (
-        <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
-            <g fill="#ADDFF1">
-                <rect x="25" y="22" width="12" height="12" rx="2"/>
-                <rect x="39" y="22" width="12" height="12" rx="2"/>
-                <rect x="67" y="22" width="12" height="12" rx="2"/>
-                <rect x="81" y="22" width="12" height="12" rx="2"/>
-                <rect x="11" y="36" width="12" height="12" rx="2"/>
-                <rect x="25" y="36" width="12" height="12" rx="2"/>
-                <rect x="39" y="36" width="12" height="12" rx="2"/>
-                <rect x="53" y="36" width="12" height="12" rx="2"/>
-                <rect x="67" y="36" width="12" height="12" rx="2"/>
-                <rect x="81" y="36" width="12" height="12" rx="2"/>
-                <rect x="95" y="36" width="12" height="12" rx="2"/>
-                <rect x="11" y="50" width="12" height="12" rx="2"/>
-                <rect x="25" y="50" width="12" height="12" rx="2"/>
-                <rect x="39" y="50" width="12" height="12" rx="2"/>
-                <rect x="53" y="50" width="12" height="12" rx="2"/>
-                <rect x="67" y="50" width="12" height="12" rx="2"/>
-                <rect x="81" y="50" width="12" height="12" rx="2"/>
-                <rect x="95" y="50" width="12" height="12" rx="2"/>
-                <rect x="25" y="64" width="12" height="12" rx="2"/>
-                <rect x="39" y="64" width="12" height="12" rx="2"/>
-                <rect x="53" y="64" width="12" height="12" rx="2"/>
-                <rect x="67" y="64" width="12" height="12" rx="2"/>
-                <rect x="81" y="64" width="12" height="12" rx="2"/>
-                <rect x="39" y="78" width="12" height="12" rx="2"/>
-                <rect x="53" y="78" width="12" height="12" rx="2"/>
-                <rect x="67" y="78" width="12" height="12" rx="2"/>
-                <rect x="53" y="92" width="12" height="12" rx="2"/>
-            </g>
-            <g fill="#e8f6fc" opacity="0.5">
-                <rect x="25" y="36" width="12" height="12" rx="2"/>
-                <rect x="11" y="50" width="12" height="12" rx="2"/>
-                <rect x="25" y="50" width="12" height="12" rx="2"/>
-            </g>
-        </svg>
-    )
-}
+import Navbar from '../components/NavBar'
+import { useAuth } from '../contexts/AuthContext'
 
 // ─── Mini barre ───────────────────────────────────────────────────────────────
 function MiniBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
@@ -78,8 +37,7 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
                 <circle cx="50" cy="50" r={r} fill="none" stroke="#003152" strokeWidth="14"
                         strokeDasharray={`${dash} ${circ - dash}`}
                         strokeDashoffset={circ / 4} strokeLinecap="round"
-                        style={{ transition: 'stroke-dasharray 1s ease' }}
-                />
+                        style={{ transition: 'stroke-dasharray 1s ease' }} />
                 <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#003152">
                     {Math.round(pct * 100)}%
                 </text>
@@ -106,14 +64,9 @@ function KpiCard({ label, value, sub, icon, accent }: {
         <div className="rounded-xl border p-5 flex items-start gap-4"
              style={accent
                  ? { backgroundColor: '#003152', borderColor: '#003152' }
-                 : { backgroundColor: 'white', borderColor: '#f3f4f6' }
-             }
-        >
+                 : { backgroundColor: 'white', borderColor: '#f3f4f6' }}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                 style={accent
-                     ? { backgroundColor: 'rgba(173,223,241,0.15)' }
-                     : { backgroundColor: '#f8fafc' }
-                 }>
+                 style={accent ? { backgroundColor: 'rgba(173,223,241,0.15)' } : { backgroundColor: '#f8fafc' }}>
                 {icon}
             </div>
             <div>
@@ -130,9 +83,8 @@ export default function Dashboard() {
     const navigate = useNavigate()
     const [patients, setPatients] = useState<Patient[]>([])
     const [loading, setLoading] = useState(true)
-    const { logout, hasRole } = useAuth()
+    const { user, hasRole } = useAuth()
 
-    // Filtres
     const [search, setSearch] = useState('')
     const [filterSexe, setFilterSexe] = useState<'tous' | 'M' | 'F'>('tous')
     const [filterStatut, setFilterStatut] = useState<'tous' | 'actif' | 'inactif'>('tous')
@@ -146,12 +98,6 @@ export default function Dashboard() {
             .finally(() => setLoading(false))
     }, [])
 
-    const handleLogout = () => {
-        logout()
-        navigate('/login')
-    }
-
-    // ── Stats ──
     const total = patients.length
     const actif = patients.filter(p => p.actif).length
     const inactif = total - actif
@@ -171,10 +117,8 @@ export default function Dashboard() {
     })).filter(x => x.count > 0)
     const maxGroup = Math.max(...groupCounts.map(x => x.count), 1)
 
-    // ── Patients filtrés ──
     const patientsFiltres = useMemo(() => {
         let result = [...patients]
-
         if (search.trim()) {
             const q = search.toLowerCase()
             result = result.filter(p =>
@@ -188,12 +132,10 @@ export default function Dashboard() {
         if (filterStatut === 'actif') result = result.filter(p => p.actif)
         if (filterStatut === 'inactif') result = result.filter(p => !p.actif)
         if (filterGroupe) result = result.filter(p => p.groupe_sanguin === filterGroupe)
-
-        result.sort((a, b) => {
-            if (sortBy === 'nom') return a.nom.localeCompare(b.nom)
-            return new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime()
-        })
-
+        result.sort((a, b) => sortBy === 'nom'
+            ? a.nom.localeCompare(b.nom)
+            : new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime()
+        )
         return result
     }, [patients, search, filterSexe, filterStatut, filterGroupe, sortBy])
 
@@ -218,94 +160,71 @@ export default function Dashboard() {
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
 
-            {/* ── Navbar ── */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                         style={{ backgroundColor: '#003152', border: '1.5px solid #ADDFF1' }}>
-                        <Logo />
-                    </div>
-                    <span className="font-semibold text-gray-900 text-base">HealthTracker</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    {hasRole('admin') && (
-                        <>
-                            <button onClick={() => navigate('/employes')}
-                                    className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                                    style={{ color: '#003152', backgroundColor: '#f0f7fb' }}>
-                                👥 Employés
-                            </button>
-                            <button onClick={() => navigate('/services')}
-                                    className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                                    style={{ color: '#003152', backgroundColor: '#f0f7fb' }}>
-                                🏥 Services
-                            </button>
-                        </>
-                    )}
-                    {hasRole('admin', 'medecin', 'infirmier') && (
-                        <button onClick={() => navigate('/urgences')}
-                                className="text-sm font-medium px-4 py-2 rounded-lg transition-colors"
-                                style={{ color: '#003152', backgroundColor: '#f0f7fb' }}>
-                            🚨 Urgences
-                        </button>
-                    )}
-                    {hasRole('admin', 'medecin', 'infirmier', 'secretaire') && (
-                        <button onClick={() => navigate('/patients/newPatient')}
-                                className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                                style={{ backgroundColor: '#003152' }}>
-                            + Nouveau patient
-                        </button>
-                    )}
-                    <button onClick={handleLogout}
-                            className="text-sm text-gray-400 hover:text-gray-700 transition-colors px-3 py-2 rounded-lg hover:bg-gray-50">
-                        Déconnexion
-                    </button>
-                </div>
-            </nav>
+            <Navbar />
 
             <div className="max-w-6xl mx-auto px-6 py-8 w-full space-y-8">
 
-                {/* ── Titre ── */}
+                {/* ── Titre personnalisé par rôle ── */}
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Tableau de bord</h1>
-                    <p className="text-gray-400 text-sm mt-1">Vue d'ensemble de votre activité médicale</p>
+                    <h1 className="text-2xl font-semibold text-gray-900">
+                        {hasRole('admin') && 'Tableau de bord — Administration'}
+                        {hasRole('medecin') && `Bonjour Dr. ${user?.nom} 👋`}
+                        {hasRole('infirmier') && `Bonjour ${user?.prenom} 👋`}
+                        {hasRole('secretaire') && 'Accueil & Secrétariat'}
+                        {hasRole('laborantin') && 'Espace Laboratoire'}
+                    </h1>
+                    <p className="text-gray-400 text-sm mt-1">
+                        {hasRole('admin') && "Vue globale de l'établissement"}
+                        {hasRole('medecin') && 'Vos patients et consultations du jour'}
+                        {hasRole('infirmier') && 'Suivi des patients et signes vitaux'}
+                        {hasRole('secretaire') && 'Gestion des rendez-vous et admissions'}
+                        {hasRole('laborantin') && 'Analyses et résultats biologiques'}
+                    </p>
                 </div>
+
+                {/* ── Actions rapides ── */}
+                {hasRole('admin', 'medecin', 'secretaire') && (
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => navigate('/patients/newPatient')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
+                            style={{ backgroundColor: '#003152' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                        >
+                            + Nouveau patient
+                        </button>
+                        {hasActiveFilters && (
+                            <button onClick={resetFilters}
+                                    className="text-xs text-red-400 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">
+                                Réinitialiser les filtres
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 {/* ── 4 KPIs ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <KpiCard
-                        label="Total patients" value={total} icon="👥"
-                        sub={total > 0 ? `${actif} actif${actif > 1 ? 's' : ''}` : 'Aucun patient'}
-                        accent
-                    />
-                    <KpiCard
-                        label="Avec allergies" value={avecAllergies} icon="⚠️"
-                        sub={total > 0 ? `${Math.round(avecAllergies / total * 100)}% des patients` : '—'}
-                    />
-                    <KpiCard
-                        label="Avec antécédents" value={avecAntecedents} icon="📋"
-                        sub={total > 0 ? `${Math.round(avecAntecedents / total * 100)}% des patients` : '—'}
-                    />
-                    <KpiCard
-                        label="Ajoutés ce mois" value={nouveauCeMois} icon="🆕"
-                        sub={nouveauCeMois > 0 ? `depuis le 1er du mois` : 'Aucun ce mois'}
-                    />
+                    <KpiCard label="Total patients" value={total} icon="👥"
+                             sub={total > 0 ? `${actif} actif${actif > 1 ? 's' : ''}` : 'Aucun patient'} accent />
+                    <KpiCard label="Avec allergies" value={avecAllergies} icon="⚠️"
+                             sub={total > 0 ? `${Math.round(avecAllergies / total * 100)}% des patients` : '—'} />
+                    <KpiCard label="Avec antécédents" value={avecAntecedents} icon="📋"
+                             sub={total > 0 ? `${Math.round(avecAntecedents / total * 100)}% des patients` : '—'} />
+                    <KpiCard label="Ajoutés ce mois" value={nouveauCeMois} icon="🆕"
+                             sub={nouveauCeMois > 0 ? 'depuis le 1er du mois' : 'Aucun ce mois'} />
                 </div>
 
                 {/* ── Graphiques ── */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     <div className="bg-white rounded-xl border border-gray-100 p-6">
                         <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des patients</h3>
-                        {loading
-                            ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
-                            : <DonutChart actif={actif} inactif={inactif} />
-                        }
+                        {loading ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
+                            : <DonutChart actif={actif} inactif={inactif} />}
                     </div>
-
                     <div className="bg-white rounded-xl border border-gray-100 p-6">
                         <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par sexe</h3>
-                        {loading
-                            ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
+                        {loading ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
                             : (
                                 <div className="space-y-4 pt-2">
                                     <MiniBar label="Masculin" value={hommes} max={total} color="#003152" />
@@ -315,29 +234,23 @@ export default function Dashboard() {
                                         {total > 0 && <span>{Math.round(hommes / total * 100)}% H · {Math.round(femmes / total * 100)}% F</span>}
                                     </div>
                                 </div>
-                            )
-                        }
+                            )}
                     </div>
-
                     <div className="bg-white rounded-xl border border-gray-100 p-6">
                         <h3 className="text-sm font-semibold text-gray-700 mb-4">Groupes sanguins</h3>
-                        {loading
-                            ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
+                        {loading ? <div className="text-center text-gray-300 text-sm py-8">Chargement...</div>
                             : groupCounts.length === 0
                                 ? <div className="text-center text-gray-300 text-sm py-8">Aucune donnée</div>
                                 : <div className="space-y-3">
                                     {groupCounts.map(({ g, count }) => (
                                         <MiniBar key={g} label={g} value={count} max={maxGroup} color="#ADDFF1" />
                                     ))}
-                                </div>
-                        }
+                                </div>}
                     </div>
                 </div>
 
-                {/* ── Tableau patients avec filtres ── */}
+                {/* ── Tableau patients ── */}
                 <div className="bg-white rounded-xl border border-gray-100">
-
-                    {/* Header + filtres */}
                     <div className="px-6 py-4 border-b border-gray-100 space-y-3">
                         <div className="flex items-center justify-between">
                             <div>
@@ -345,8 +258,7 @@ export default function Dashboard() {
                                 <p className="text-xs text-gray-400 mt-0.5">
                                     {hasActiveFilters
                                         ? `${patientsFiltres.length} résultat${patientsFiltres.length > 1 ? 's' : ''} sur ${total}`
-                                        : `${total} patient${total > 1 ? 's' : ''} au total`
-                                    }
+                                        : `${total} patient${total > 1 ? 's' : ''} au total`}
                                 </p>
                             </div>
                             <div className="flex items-center gap-2">
@@ -358,64 +270,42 @@ export default function Dashboard() {
                                 )}
                                 <select value={sortBy} onChange={e => setSortBy(e.target.value as 'nom' | 'date')}
                                         className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                        onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                        onBlur={e => e.target.style.boxShadow = 'none'}
-                                >
+                                        onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
+                                        onBlur={e => (e.target.style.boxShadow = 'none')}>
                                     <option value="nom">Trier : A → Z</option>
                                     <option value="date">Trier : plus récents</option>
                                 </select>
                             </div>
                         </div>
-
-                        {/* Barre de filtres */}
                         <div className="flex flex-wrap gap-2">
-                            {/* Recherche */}
                             <div className="relative flex-1 min-w-48">
                                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
-                                <input
-                                    type="text" value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                    placeholder="Rechercher un patient..."
-                                    className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                    onBlur={e => e.target.style.boxShadow = 'none'}
-                                />
+                                <input type="text" value={search} onChange={e => setSearch(e.target.value)}
+                                       placeholder="Rechercher un patient..."
+                                       className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                                       onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
+                                       onBlur={e => (e.target.style.boxShadow = 'none')} />
                             </div>
-
-                            {/* Sexe */}
                             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                                 {(['tous', 'M', 'F'] as const).map(s => (
-                                    <button key={s} onClick={() => setFilterSexe(s)}
-                                            className="px-3 py-1.5 transition-colors"
-                                            style={filterSexe === s
-                                                ? { backgroundColor: '#003152', color: 'white' }
-                                                : { backgroundColor: 'white', color: '#6b7280' }
-                                            }>
+                                    <button key={s} onClick={() => setFilterSexe(s)} className="px-3 py-1.5 transition-colors"
+                                            style={filterSexe === s ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
                                         {s === 'tous' ? 'Tous' : s === 'M' ? '♂ Hommes' : '♀ Femmes'}
                                     </button>
                                 ))}
                             </div>
-
-                            {/* Statut */}
                             <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                                 {(['tous', 'actif', 'inactif'] as const).map(s => (
-                                    <button key={s} onClick={() => setFilterStatut(s)}
-                                            className="px-3 py-1.5 transition-colors capitalize"
-                                            style={filterStatut === s
-                                                ? { backgroundColor: '#003152', color: 'white' }
-                                                : { backgroundColor: 'white', color: '#6b7280' }
-                                            }>
+                                    <button key={s} onClick={() => setFilterStatut(s)} className="px-3 py-1.5 transition-colors capitalize"
+                                            style={filterStatut === s ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
                                         {s === 'tous' ? 'Tous' : s === 'actif' ? '● Actifs' : '○ Inactifs'}
                                     </button>
                                 ))}
                             </div>
-
-                            {/* Groupe sanguin */}
                             <select value={filterGroupe} onChange={e => setFilterGroupe(e.target.value)}
                                     className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                    onBlur={e => e.target.style.boxShadow = 'none'}
-                            >
+                                    onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
+                                    onBlur={e => (e.target.style.boxShadow = 'none')}>
                                 <option value="">Groupe sanguin</option>
                                 {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(g => (
                                     <option key={g} value={g}>{g}</option>
@@ -424,7 +314,6 @@ export default function Dashboard() {
                         </div>
                     </div>
 
-                    {/* En-têtes colonnes */}
                     {!loading && patientsFiltres.length > 0 && (
                         <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 grid grid-cols-12 gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
                             <div className="col-span-4">Patient</div>
@@ -436,25 +325,18 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {/* Contenu */}
                     {loading ? (
                         <div className="px-6 py-12 text-center text-gray-300 text-sm">Chargement...</div>
                     ) : patients.length === 0 ? (
                         <div className="px-6 py-16 text-center">
                             <p className="text-4xl mb-3">👥</p>
                             <p className="text-gray-400 text-sm">Aucun patient pour le moment</p>
-                            <button onClick={() => navigate('/patients/new')}
-                                    className="mt-4 text-sm font-medium px-4 py-2 rounded-lg text-white"
-                                    style={{ backgroundColor: '#003152' }}>
-                                Ajouter le premier patient
-                            </button>
                         </div>
                     ) : patientsFiltres.length === 0 ? (
                         <div className="px-6 py-12 text-center">
                             <p className="text-3xl mb-3">🔍</p>
                             <p className="text-gray-400 text-sm">Aucun patient ne correspond aux filtres</p>
-                            <button onClick={resetFilters}
-                                    className="mt-3 text-sm text-red-400 hover:text-red-600">
+                            <button onClick={resetFilters} className="mt-3 text-sm text-red-400 hover:text-red-600">
                                 Réinitialiser les filtres
                             </button>
                         </div>
@@ -468,9 +350,7 @@ export default function Dashboard() {
                                 return (
                                     <div key={patient.id}
                                          onClick={() => navigate(`/patients/${patient.id}`)}
-                                         className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors cursor-pointer group"
-                                    >
-                                        {/* Patient */}
+                                         className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors cursor-pointer group">
                                         <div className="col-span-4 flex items-center gap-3">
                                             <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
                                                  style={{ backgroundColor: '#003152' }}>
@@ -481,56 +361,41 @@ export default function Dashboard() {
                                                     {patient.prenom} {patient.nom}
                                                 </p>
                                                 <p className="text-xs text-gray-400">
-                                                    {patient.sexe === 'M' ? '♂' : '♀'} {patient.sexe === 'M' ? 'Masculin' : 'Féminin'}
+                                                    {patient.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
                                                 </p>
                                             </div>
                                         </div>
-
-                                        {/* Âge */}
                                         <div className="col-span-1 text-center">
                                             <span className="text-sm font-medium text-gray-700">{age}</span>
                                             <span className="text-xs text-gray-400"> ans</span>
                                         </div>
-
-                                        {/* Groupe sanguin */}
                                         <div className="col-span-2 flex justify-center">
                                             {patient.groupe_sanguin ? (
                                                 <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
                                                       style={{ backgroundColor: '#ADDFF1', color: '#003152' }}>
                                                     🩸 {patient.groupe_sanguin}
                                                 </span>
-                                            ) : (
-                                                <span className="text-xs text-gray-300">—</span>
-                                            )}
+                                            ) : <span className="text-xs text-gray-300">—</span>}
                                         </div>
-
-                                        {/* Téléphone */}
                                         <div className="col-span-2">
                                             <span className="text-xs text-gray-500">
                                                 {patient.telephone || <span className="text-gray-300">—</span>}
                                             </span>
                                         </div>
-
-                                        {/* Allergies */}
                                         <div className="col-span-2">
                                             {allergies.length === 0 ? (
                                                 <span className="text-xs text-gray-300">Aucune</span>
                                             ) : (
-                                                <div className="flex items-center gap-1">
-                                                    <span className="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
-                                                        ⚠ {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
-                                                    </span>
-                                                </div>
+                                                <span className="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
+                                                    ⚠ {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
+                                                </span>
                                             )}
                                         </div>
-
-                                        {/* Statut */}
                                         <div className="col-span-1 flex justify-center">
                                             <span className="text-xs px-2.5 py-1 rounded-full font-medium"
                                                   style={patient.actif
                                                       ? { backgroundColor: '#003152', color: 'white' }
-                                                      : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
-                                                  }>
+                                                      : { backgroundColor: '#f3f4f6', color: '#9ca3af' }}>
                                                 {patient.actif ? 'Actif' : 'Inactif'}
                                             </span>
                                         </div>
@@ -540,7 +405,6 @@ export default function Dashboard() {
                         </div>
                     )}
 
-                    {/* Footer tableau */}
                     {patientsFiltres.length > 0 && (
                         <div className="px-6 py-3 border-t border-gray-50 flex justify-between items-center">
                             <p className="text-xs text-gray-400">

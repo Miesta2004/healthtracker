@@ -10,6 +10,7 @@ import {
     admettreUrgence,
 } from '../api/urgences'
 import type { Patient, Service, PassageUrgence, NiveauTri, ModeArrivee } from '../types'
+import Navbar from '../components/NavBar'
 
 // ─── Config triage ────────────────────────────────────────────────────────────
 const TRI_CONFIG: Record<number, { label: string; color: string; bg: string }> = {
@@ -390,7 +391,6 @@ function PassageCard({ passage, onPriseEnCharge, onSortie }: {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Urgences() {
-    const navigate = useNavigate()
     const [passages, setPassages] = useState<PassageUrgence[]>([])
     const [patients, setPatients] = useState<Patient[]>([])
     const [services, setServices] = useState<Service[]>([])
@@ -432,24 +432,7 @@ export default function Urgences() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center justify-between sticky top-0 z-10">
-                <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/dashboard')} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                        ← Tableau de bord
-                    </button>
-                    <span className="text-gray-200">|</span>
-                    <span className="text-sm font-medium text-gray-900">🚨 Urgences — file d'attente</span>
-                </div>
-                <button
-                    onClick={() => setShowNouveau(true)}
-                    className="px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors"
-                    style={{ backgroundColor: '#003152' }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
-                >
-                    + Nouvel arrivant
-                </button>
-            </nav>
+            <Navbar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
 

@@ -1,71 +1,33 @@
+import type { ReactNode } from 'react'
 import { Navigate } from 'react-router-dom'
-import { useAuth } from "../contexts/AuthContext"
-import type { RoleEmploye } from "../types"
-import { useState, useEffect } from 'react'
+import type { RoleEmploye } from '../types'
+import { useAuth } from '../contexts/AuthContext'
 
-
-interface Props {
-    children: React.ReactNode
+interface ProtectedRouteProps {
+    children: ReactNode
+    /** Si fourni, seuls ces rôles peuvent accéder. Si omis, tout employé connecté peut y accéder. */
     roles?: RoleEmploye[]
 }
 
-// ─── Page d'accès refusé ──────────────────────────────────────────────────────
-function AccesRefuse() {
-    return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-6">
-            <div className="text-center max-w-sm">
-                <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center text-3xl mx-auto mb-4">
-                    🔒
-                </div>
-                <h1 className="text-lg font-semibold text-gray-900 mb-2">Accès refusé</h1>
-                <p className="text-sm text-gray-500">
-                    Votre rôle ne vous permet pas d'accéder à cette page. Redirection en cours…
-                </p>
-            </div>
-        </div>
-    )
-}
+export default function ProtectedRoute({ children, roles }: ProtectedRouteProps) {
+    const { user, loading, hasRole } = useAuth()
 
-export default function ProtectedRoute({ children, roles }: Props) {
-    const { isAuthenticated, loading, hasRole } = useAuth()
-
+    // Pendant le chargement initial du profil, on ne redirige pas trop vite
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50">
-                <div className="w-10 h-10 border-2 border-t-transparent rounded-full animate-spin"
-                     style={{ borderColor: '#003152', borderTopColor: 'transparent' }} />
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-sm text-gray-300">Chargement…</div>
             </div>
         )
     }
 
-    if (!isAuthenticated) {
+    if (!user) {
         return <Navigate to="/login" replace />
     }
 
-    // Route sans contrainte de rôle → accessible à tout utilisateur connecté
-    if (!roles || roles.length === 0) {
-        return <>{children}</>
-    }
-
-    if (!hasRole(...roles)) {
-        return (
-            <>
-                <AccesRefuse />
-                <RedirectAfterDelay />
-            </>
-        )
+    if (roles && roles.length > 0 && !hasRole(...roles)) {
+        return <Navigate to="/acces-refuse" replace />
     }
 
     return <>{children}</>
-}
-
-// Petit composant pour rediriger après affichage bref du message
-function RedirectAfterDelay() {
-    const [redirect, setRedirect] = useState(false)
-    useEffect(() => {
-        const t = setTimeout(() => setRedirect(true), 1500)
-        return () => clearTimeout(t)
-    }, [])
-    if (redirect) return <Navigate to="/dashboard" replace />
-    return null
 }

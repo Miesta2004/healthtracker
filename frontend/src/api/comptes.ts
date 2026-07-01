@@ -27,6 +27,6 @@ export const deleteEmploye = async (id: number): Promise<void> => {
 
 //Profil de l'utilisateur connecté
 export const getMe = async (): Promise<CurrentUser> => {
-    const response = await api.get('employes/me/')
+    const response = await api.get('/employes/me/')
     return response.data
 }
