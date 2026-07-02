@@ -2,7 +2,7 @@ import api from './client.ts'
 import type {Patient, SignesVitaux} from '../types'
 
 export const getPatients = async (q?: string): Promise<Patient[]> => {
-    const params = q ? { params: { search: q } } : {}
+    const params = q ? { params: { q } } : {}
     const response = await api.get('/patients', params)
     return response.data
 }
@@ -41,5 +41,5 @@ export const postSignesVitaux = async (
     data: Omit<SignesVitaux, 'id' | 'patient'>
 ): Promise<SignesVitaux> => {
     const response = await api.post('/signes_vitaux/', { ...data, patient: patientId })
-    return response.data``
+    return response.data
 }

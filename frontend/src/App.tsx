@@ -4,6 +4,7 @@ import ProtectedRoute from './components/ProtectedRoute'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Patients from './pages/Patients'
 import PatientDetail from './pages/PatientDetail'
 import AddPatient from './pages/AddPatient'
 import ConsultationDetail from './pages/ConsultationDetail'
@@ -27,6 +28,11 @@ function App() {
                 {/* ── Tous les employés connectés ── */}
                 <Route path="/dashboard" element={
                     <ProtectedRoute><Dashboard /></ProtectedRoute>
+                } />
+                <Route path="/patients" element={
+                    <ProtectedRoute roles={['admin', 'medecin', 'infirmier', 'secretaire']}>
+                        <Patients />
+                    </ProtectedRoute>
                 } />
                 <Route path="/patients/:id" element={
                     <ProtectedRoute><PatientDetail /></ProtectedRoute>

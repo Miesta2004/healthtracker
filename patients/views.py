@@ -2,6 +2,7 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Q
 from .models import Patient
 from .serializers import PatientSerializer
 from comptes.permissions import IsInSameService, get_employe
@@ -24,20 +25,22 @@ class PatientViewSet(viewsets.ModelViewSet):
         role = emp.role
 
         # Infirmier : pas de liste globale — accès uniquement via recherche ciblée
+        # mais accès direct au détail d'un patient de son service
         if role == 'infirmier':
+            # Pour les actions de détail (retrieve, update...), on autorise l'accès
+            # à tous les patients du service sans exiger de recherche
+            if self.action in ('retrieve', 'update', 'partial_update', 'ajouter_antecedent'):
+                return Patient.objects.filter(service=emp.service)
+            # Pour la liste, uniquement via recherche ciblée
             q = self.request.query_params.get('q', '').strip()
             if not q:
                 return Patient.objects.none()
             return Patient.objects.filter(
                 service=emp.service
             ).filter(
-                numero_dossier__icontains=q
-            ) | Patient.objects.filter(
-                service=emp.service,
-                nom__icontains=q
-            ) | Patient.objects.filter(
-                service=emp.service,
-                prenom__icontains=q
+                Q(nom__icontains=q) |
+                Q(prenom__icontains=q) |
+                Q(numero_dossier__icontains=q)
             )
 
         # Laborantin : uniquement les patients avec des demandes d'analyse en cours

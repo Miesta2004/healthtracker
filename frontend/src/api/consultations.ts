@@ -1,8 +1,8 @@
 import api from './client.ts'
 import type { Consultation } from '../types'
 
-export const getConsultations = async (patientId: number): Promise<Consultation[]> => {
-    const response = await api.get(`/consultations/?patient=${patientId}`)
+export const getConsultations = async (patientId?: number): Promise<Consultation[]> => {
+    const response = await api.get('/consultations/', patientId ? { params: { patient: patientId } } : undefined)
     return response.data
 }
 

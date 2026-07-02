@@ -11,6 +11,11 @@ export const getHospitalisation = async (id: number): Promise<Hospitalisation> =
     return response.data
 }
 
+export const getHospitalisationsEnCours = async (): Promise<Hospitalisation[]> => {
+    const response = await api.get('/hospitalisations/?statut=en_cours')
+    return response.data
+}
+
 export const createHospitalisation = async (
     data: Omit<Hospitalisation, 'id' | 'date_creation' | 'date_modification' | 'patient_nom' | 'patient_dossier' | 'service_nom' | 'medecin_nom' | 'statut_label' | 'duree_jours'>
 ): Promise<Hospitalisation> => {

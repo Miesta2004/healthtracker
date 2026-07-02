@@ -1,71 +1,32 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
-import type { Patient } from '../types'
+import { getFileAttente } from '../api/urgences'
+import { getHospitalisationsEnCours } from '../api/hospitalisations'
+import { getConsultations } from '../api/consultations'
+import { getEmployes } from '../api/comptes'
+import { getServices } from '../api/services'
+import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri } from '../types'
 import Navbar from '../components/NavBar'
 import { useAuth } from '../contexts/AuthContext'
-import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
+import { SkeletonKpiCard, SkeletonSimpleList } from '../components/Skeleton'
 
-// ─── Mini barre ───────────────────────────────────────────────────────────────
-function MiniBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
-    const pct = max > 0 ? (value / max) * 100 : 0
-    return (
-        <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-500">
-                <span>{label}</span>
-                <span className="font-medium text-gray-700">{value}</span>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-700"
-                     style={{ width: `${pct}%`, backgroundColor: color }} />
-            </div>
-        </div>
-    )
-}
-
-// ─── Donut ────────────────────────────────────────────────────────────────────
-function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
-    const total = actif + inactif
-    if (total === 0) return <div className="flex items-center justify-center h-28 text-gray-300 text-sm">Aucune donnée</div>
-    const pct = actif / total
-    const r = 40
-    const circ = 2 * Math.PI * r
-    const dash = pct * circ
-    return (
-        <div className="flex flex-col items-center gap-3">
-            <svg width="100" height="100" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r={r} fill="none" stroke="#e5e7eb" strokeWidth="14" />
-                <circle cx="50" cy="50" r={r} fill="none" stroke="#003152" strokeWidth="14"
-                        strokeDasharray={`${dash} ${circ - dash}`}
-                        strokeDashoffset={circ / 4} strokeLinecap="round"
-                        style={{ transition: 'stroke-dasharray 1s ease' }} />
-                <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#003152">
-                    {Math.round(pct * 100)}%
-                </text>
-            </svg>
-            <div className="flex gap-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: '#003152' }} />
-                    Actifs ({actif})
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-gray-200 inline-block" />
-                    Inactifs ({inactif})
-                </span>
-            </div>
-        </div>
-    )
+// ─── Config triage ────────────────────────────────────────────────────────────
+const TRI_COLORS: Record<NiveauTri, string> = {
+    1: '#b91c1c', 2: '#ea580c', 3: '#ca8a04', 4: '#16a34a', 5: '#6b7280',
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, icon, accent }: {
-    label: string; value: string | number; sub?: string; icon: string; accent?: boolean
+function StatCard({ label, value, sub, icon, accent, onClick }: {
+    label: string; value: string | number; sub?: string; icon: string; accent?: boolean; onClick?: () => void
 }) {
     return (
-        <div className="rounded-xl border p-5 flex items-start gap-4"
-             style={accent
-                 ? { backgroundColor: '#003152', borderColor: '#003152' }
-                 : { backgroundColor: 'white', borderColor: '#f3f4f6' }}>
+        <div
+            onClick={onClick}
+            className={`rounded-xl border p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:shadow-sm transition-shadow' : ''}`}
+            style={accent
+                ? { backgroundColor: '#003152', borderColor: '#003152' }
+                : { backgroundColor: 'white', borderColor: '#f3f4f6' }}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
                  style={accent ? { backgroundColor: 'rgba(173,223,241,0.15)' } : { backgroundColor: '#f8fafc' }}>
                 {icon}
@@ -79,104 +40,90 @@ function KpiCard({ label, value, sub, icon, accent }: {
     )
 }
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+// ─── Widget card ──────────────────────────────────────────────────────────────
+function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty, emptyLabel }: {
+    title: string; count?: number; linkLabel?: string; onLink?: () => void
+    children: React.ReactNode; loading: boolean; empty: boolean; emptyLabel: string
+}) {
+    return (
+        <div className="bg-white rounded-xl border border-gray-100">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-gray-700">
+                    {title}
+                    {typeof count === 'number' && !loading && (
+                        <span className="ml-1.5 text-gray-400 font-normal">({count})</span>
+                    )}
+                </h3>
+                {onLink && (
+                    <button onClick={onLink} className="text-xs font-medium hover:underline" style={{ color: '#003152' }}>
+                        {linkLabel} →
+                    </button>
+                )}
+            </div>
+            {loading ? (
+                <SkeletonSimpleList rows={3} />
+            ) : empty ? (
+                <div className="px-5 py-10 text-center text-sm text-gray-300">{emptyLabel}</div>
+            ) : children}
+        </div>
+    )
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function Dashboard() {
     const navigate = useNavigate()
-    const [patients, setPatients] = useState<Patient[]>([])
-    const [loading, setLoading] = useState(true)
     const { user, hasRole } = useAuth()
 
-    const [search, setSearch] = useState('')
-    const [filterSexe, setFilterSexe] = useState<'tous' | 'M' | 'F'>('tous')
-    const [filterStatut, setFilterStatut] = useState<'tous' | 'actif' | 'inactif'>('tous')
-    const [filterGroupe, setFilterGroupe] = useState('')
-    const [sortBy, setSortBy] = useState<'nom' | 'date'>('nom')
+    const canSeePatients = hasRole('admin', 'medecin', 'secretaire')
+    const canSeeUrgences = hasRole('admin', 'medecin', 'infirmier')
+    const canSeeHospit   = hasRole('admin', 'medecin')
+    const canSeeConsult  = hasRole('admin', 'medecin', 'infirmier')
+    const isAdmin        = hasRole('admin')
+    const isNurse        = hasRole('infirmier')
 
-    // L'infirmier n'a pas accès à la liste globale des patients : il doit
-    // chercher un patient nommément (le backend renvoie une liste vide sans
-    // paramètre "q"). On gère donc une recherche dédiée pour ce rôle.
-    const isNurse = hasRole('infirmier')
-    const [nurseQuery, setNurseQuery] = useState('')
-    const [nurseSearched, setNurseSearched] = useState(false)
-
-    useEffect(() => {
-        if (isNurse) {
-            setLoading(false)
-            return
-        }
-        getPatients()
-            .then(setPatients)
-            .catch(() => navigate('/login'))
-            .finally(() => setLoading(false))
-    }, [isNurse])
+    const [patients,         setPatients]         = useState<Patient[] | null>(null)
+    const [urgences,         setUrgences]         = useState<PassageUrgence[] | null>(null)
+    const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null)
+    const [consultations,    setConsultations]    = useState<Consultation[] | null>(null)
+    const [effectif,         setEffectif]         = useState<{ employes: number; services: number } | null>(null)
 
     useEffect(() => {
-        if (!isNurse) return
-        const q = nurseQuery.trim()
-        if (q.length < 2) {
-            setPatients([])
-            setNurseSearched(false)
-            return
+        if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]))
+        if (canSeeUrgences) getFileAttente().then(setUrgences).catch(() => setUrgences([]))
+        if (canSeeHospit) getHospitalisationsEnCours().then(setHospitalisations).catch(() => setHospitalisations([]))
+        if (canSeeConsult)  getConsultations().then(setConsultations).catch(() => setConsultations([]))
+        if (isAdmin) {
+            Promise.all([getEmployes(), getServices()])
+                .then(([emps, servs]) => setEffectif({
+                    employes: emps.filter(e => e.actif).length,
+                    services: servs.filter(s => s.actif).length,
+                }))
+                .catch(() => setEffectif({ employes: 0, services: 0 }))
         }
-        setLoading(true)
-        const timeout = setTimeout(() => {
-            getPatients(q)
-                .then(res => { setPatients(res); setNurseSearched(true) })
-                .catch(() => setPatients([]))
-                .finally(() => setLoading(false))
-        }, 350)
-        return () => clearTimeout(timeout)
-    }, [isNurse, nurseQuery])
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
 
-    const total = patients.length
-    const actif = patients.filter(p => p.actif).length
-    const inactif = total - actif
-    const hommes = patients.filter(p => p.sexe === 'M').length
-    const femmes = patients.filter(p => p.sexe === 'F').length
-    const avecAllergies = patients.filter(p => p.allergies && p.allergies.trim() !== '').length
-    const avecAntecedents = patients.filter(p => p.antecedents && p.antecedents.trim() !== '').length
-    const nouveauCeMois = patients.filter(p => {
+    const patientsRecents = patients
+        ? [...patients]
+            .sort((a, b) => new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime())
+            .slice(0, 5)
+        : []
+
+    const nouveauCeMois = patients?.filter(p => {
         const d = new Date(p.date_creation)
         const now = new Date()
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    }).length
+    }).length ?? 0
 
-    const groupes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-    const groupCounts = groupes.map(g => ({
-        g, count: patients.filter(p => p.groupe_sanguin === g).length,
-    })).filter(x => x.count > 0)
-    const maxGroup = Math.max(...groupCounts.map(x => x.count), 1)
+    const urgencesTriees = urgences
+        ? [...urgences].sort((a, b) => (a.niveau_tri ?? 5) - (b.niveau_tri ?? 5)).slice(0, 5)
+        : []
 
-    const patientsFiltres = useMemo(() => {
-        let result = [...patients]
-        if (search.trim()) {
-            const q = search.toLowerCase()
-            result = result.filter(p =>
-                p.nom.toLowerCase().includes(q) ||
-                p.prenom.toLowerCase().includes(q) ||
-                (p.telephone && p.telephone.includes(q)) ||
-                (p.groupe_sanguin && p.groupe_sanguin.toLowerCase().includes(q))
-            )
-        }
-        if (filterSexe !== 'tous') result = result.filter(p => p.sexe === filterSexe)
-        if (filterStatut === 'actif') result = result.filter(p => p.actif)
-        if (filterStatut === 'inactif') result = result.filter(p => !p.actif)
-        if (filterGroupe) result = result.filter(p => p.groupe_sanguin === filterGroupe)
-        result.sort((a, b) => sortBy === 'nom'
-            ? a.nom.localeCompare(b.nom)
-            : new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime()
-        )
-        return result
-    }, [patients, search, filterSexe, filterStatut, filterGroupe, sortBy])
-
-    const hasActiveFilters = search || filterSexe !== 'tous' || filterStatut !== 'tous' || filterGroupe
-
-    const resetFilters = () => {
-        setSearch('')
-        setFilterSexe('tous')
-        setFilterStatut('tous')
-        setFilterGroupe('')
-    }
+    const consultationsAujourdhui = consultations?.filter(c => {
+        const d = new Date(c.date)
+        const now = new Date()
+        return d.toDateString() === now.toDateString()
+    }) ?? []
 
     const calcAge = (dateStr: string) => {
         const today = new Date()
@@ -189,338 +136,234 @@ export default function Dashboard() {
 
     return (
         <div className="min-h-screen bg-gray-50 flex flex-col">
-
             <Navbar />
 
             <div className="max-w-6xl mx-auto px-6 py-8 w-full space-y-8">
 
-                {/* ── Titre personnalisé par rôle ── */}
+                {/* ── Titre ── */}
                 <div>
                     <h1 className="text-2xl font-semibold text-gray-900">
-                        {hasRole('admin') && 'Tableau de bord — Administration'}
-                        {hasRole('medecin') && `Bonjour Dr. ${user?.nom} 👋`}
-                        {hasRole('infirmier') && `Bonjour ${user?.prenom} 👋`}
+                        {hasRole('admin')      && 'Tableau de bord — Administration'}
+                        {hasRole('medecin')    && `Bonjour Dr. ${user?.nom} 👋`}
+                        {hasRole('infirmier')  && `Bonjour ${user?.prenom} 👋`}
                         {hasRole('secretaire') && 'Accueil & Secrétariat'}
                         {hasRole('laborantin') && 'Espace Laboratoire'}
                     </h1>
                     <p className="text-gray-400 text-sm mt-1">
-                        {hasRole('admin') && "Vue globale de l'établissement"}
-                        {hasRole('medecin') && 'Vos patients et consultations du jour'}
-                        {hasRole('infirmier') && 'Suivi des patients et signes vitaux'}
+                        {hasRole('admin')      && "Vue globale de l'établissement"}
+                        {hasRole('medecin')    && 'Vos patients et consultations du jour'}
+                        {hasRole('infirmier')  && 'Suivi des patients et signes vitaux'}
                         {hasRole('secretaire') && 'Gestion des rendez-vous et admissions'}
                         {hasRole('laborantin') && 'Analyses et résultats biologiques'}
                     </p>
                 </div>
 
-                {/* ── Recherche dédiée infirmier ──
-                     L'infirmier n'a pas accès à la liste complète des patients
-                     (règle métier : seulement les patients de son service, et
-                     uniquement via une recherche ciblée). On lui propose donc
-                     une recherche par nom, prénom ou numéro de dossier. */}
-                {isNurse && (
-                    <div className="space-y-6">
-                        <div className="bg-white rounded-xl border border-gray-100 p-6">
-                            <h2 className="text-sm font-semibold text-gray-700 mb-1">Rechercher un patient</h2>
-                            <p className="text-xs text-gray-400 mb-4">
-                                Tapez un nom, prénom ou numéro de dossier pour accéder au dossier d'un patient de votre service.
-                            </p>
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
-                                <input
-                                    type="text"
-                                    autoFocus
-                                    value={nurseQuery}
-                                    onChange={e => setNurseQuery(e.target.value)}
-                                    placeholder="Ex : Diallo, Fatou, P123456..."
-                                    className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                    onBlur={e => (e.target.style.boxShadow = 'none')}
-                                />
-                            </div>
-                        </div>
+                {/* ── Actions rapides ── */}
+                <div className="flex flex-wrap items-center gap-2">
+                    {hasRole('admin', 'medecin', 'secretaire') && (
+                        <button
+                            onClick={() => navigate('/patients/newPatient')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
+                            style={{ backgroundColor: '#003152' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                        >
+                            + Nouveau patient
+                        </button>
+                    )}
+                    {isNurse && (
+                        <button
+                            onClick={() => navigate('/patients')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
+                            style={{ backgroundColor: '#003152' }}
+                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                        >
+                            🔍 Rechercher un patient
+                        </button>
+                    )}
+                    {canSeeUrgences && (
+                        <button
+                            onClick={() => navigate('/urgences')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
+                            style={{ borderColor: '#fecaca', color: '#b91c1c', backgroundColor: '#fef2f2' }}
+                        >
+                            🚨 Voir les urgences
+                        </button>
+                    )}
+                    {canSeePatients && (
+                        <button
+                            onClick={() => navigate('/patients')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                        >
+                            Voir tous les patients
+                        </button>
+                    )}
+                </div>
 
-                        <div className="bg-white rounded-xl border border-gray-100">
-                            {nurseQuery.trim().length < 2 ? (
-                                <div className="px-6 py-16 text-center">
-                                    <p className="text-4xl mb-3">🔍</p>
-                                    <p className="text-gray-400 text-sm">Entrez au moins 2 caractères pour lancer la recherche</p>
-                                </div>
-                            ) : loading ? (
-                                <SkeletonSimpleList rows={3} />
-                            ) : patients.length === 0 && nurseSearched ? (
-                                <div className="px-6 py-16 text-center">
-                                    <p className="text-4xl mb-3">🙁</p>
-                                    <p className="text-gray-400 text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
-                                </div>
-                            ) : (
-                                <div className="divide-y divide-gray-50">
-                                    {patients.map(patient => (
-                                        <div key={patient.id}
-                                             onClick={() => navigate(`/patients/${patient.id}`)}
-                                             className="px-6 py-3.5 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer group">
-                                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                                                 style={{ backgroundColor: '#003152' }}>
-                                                {patient.prenom[0]}{patient.nom[0]}
-                                            </div>
-                                            <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-                                                    {patient.prenom} {patient.nom}
-                                                </p>
-                                                <p className="text-xs text-gray-400">
-                                                    {patient.numero_dossier} · {patient.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
-                                                </p>
-                                            </div>
-                                            {patient.groupe_sanguin && (
-                                                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                                                      style={{ backgroundColor: '#ADDFF1', color: '#003152' }}>
-                                                    🩸 {patient.groupe_sanguin}
-                                                </span>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                        </div>
+                {/* ── KPIs ── */}
+                {(canSeePatients || canSeeUrgences || canSeeHospit || isAdmin) && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {canSeePatients && (
+                            patients === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Total patients" value={patients.length} icon="👥" accent
+                                          sub={`${nouveauCeMois} ajouté${nouveauCeMois > 1 ? 's' : ''} ce mois`}
+                                          onClick={() => navigate('/patients')} />
+                            )
+                        )}
+                        {canSeeUrgences && (
+                            urgences === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Aux urgences" value={urgences.length} icon="🚨"
+                                          sub={urgences.length > 0 ? 'en attente ou en cours' : 'Aucun patient'}
+                                          onClick={() => navigate('/urgences')} />
+                            )
+                        )}
+                        {canSeeHospit && (
+                            hospitalisations === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Hospitalisations en cours" value={hospitalisations.length} icon="🛏️"
+                                          sub={hospitalisations.length > 0 ? 'lits occupés' : 'Aucune'} />
+                            )
+                        )}
+                        {canSeeConsult && (
+                            consultations === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Consultations aujourd'hui" value={consultationsAujourdhui.length} icon="🩺"
+                                          sub={consultationsAujourdhui.length > 0 ? 'programmées ou réalisées' : 'Aucune'} />
+                            )
+                        )}
+                        {isAdmin && (
+                            effectif === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Effectif actif" value={effectif.employes} icon="🧑‍⚕️"
+                                          sub={`${effectif.services} service${effectif.services > 1 ? 's' : ''} actif${effectif.services > 1 ? 's' : ''}`}
+                                          onClick={() => navigate('/employes')} />
+                            )
+                        )}
                     </div>
                 )}
 
-                {!isNurse && <>
-                    {/* ── Actions rapides ── */}
-                    {hasRole('admin', 'medecin', 'secretaire') && (
-                        <div className="flex items-center gap-2">
-                            <button
-                                onClick={() => navigate('/patients/newPatient')}
-                                className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                                style={{ backgroundColor: '#003152' }}
-                                onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
-                            >
-                                + Nouveau patient
-                            </button>
-                            {hasActiveFilters && (
-                                <button onClick={resetFilters}
-                                        className="text-xs text-red-400 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">
-                                    Réinitialiser les filtres
-                                </button>
-                            )}
-                        </div>
-                    )}
+                {/* ── Widgets ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                    {/* ── 4 KPIs ── */}
-                    {loading ? <SkeletonKpiGrid /> : (
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <KpiCard label="Total patients" value={total} icon="👥"
-                                     sub={total > 0 ? `${actif} actif${actif > 1 ? 's' : ''}` : 'Aucun patient'} accent />
-                            <KpiCard label="Avec allergies" value={avecAllergies} icon="⚠️"
-                                     sub={total > 0 ? `${Math.round(avecAllergies / total * 100)}% des patients` : '—'} />
-                            <KpiCard label="Avec antécédents" value={avecAntecedents} icon="📋"
-                                     sub={total > 0 ? `${Math.round(avecAntecedents / total * 100)}% des patients` : '—'} />
-                            <KpiCard label="Ajoutés ce mois" value={nouveauCeMois} icon="🆕"
-                                     sub={nouveauCeMois > 0 ? 'depuis le 1er du mois' : 'Aucun ce mois'} />
-                        </div>
-                    )}
-
-                    {/* ── Graphiques ── */}
-                    {loading ? (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <SkeletonChartCard /><SkeletonChartCard /><SkeletonChartCard />
-                        </div>
-                    ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                            <div className="bg-white rounded-xl border border-gray-100 p-6">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des patients</h3>
-                                <DonutChart actif={actif} inactif={inactif} />
-                            </div>
-                            <div className="bg-white rounded-xl border border-gray-100 p-6">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par sexe</h3>
-                                <div className="space-y-4 pt-2">
-                                    <MiniBar label="Masculin" value={hommes} max={total} color="#003152" />
-                                    <MiniBar label="Féminin" value={femmes} max={total} color="#ADDFF1" />
-                                    <div className="pt-2 border-t border-gray-50 flex justify-between text-xs text-gray-400">
-                                        <span>Total : {total} patient{total > 1 ? 's' : ''}</span>
-                                        {total > 0 && <span>{Math.round(hommes / total * 100)}% H · {Math.round(femmes / total * 100)}% F</span>}
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="bg-white rounded-xl border border-gray-100 p-6">
-                                <h3 className="text-sm font-semibold text-gray-700 mb-4">Groupes sanguins</h3>
-                                {groupCounts.length === 0
-                                    ? <div className="text-center text-gray-300 text-sm py-8">Aucune donnée</div>
-                                    : <div className="space-y-3">
-                                        {groupCounts.map(({ g, count }) => (
-                                            <MiniBar key={g} label={g} value={count} max={maxGroup} color="#ADDFF1" />
-                                        ))}
-                                    </div>}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ── Tableau patients ── */}
-                    <div className="bg-white rounded-xl border border-gray-100">
-                        <div className="px-6 py-4 border-b border-gray-100 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <h2 className="font-semibold text-gray-900">Liste des patients</h2>
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                        {hasActiveFilters
-                                            ? `${patientsFiltres.length} résultat${patientsFiltres.length > 1 ? 's' : ''} sur ${total}`
-                                            : `${total} patient${total > 1 ? 's' : ''} au total`}
-                                    </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    {hasActiveFilters && (
-                                        <button onClick={resetFilters}
-                                                className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors">
-                                            Réinitialiser
-                                        </button>
-                                    )}
-                                    <select value={sortBy} onChange={e => setSortBy(e.target.value as 'nom' | 'date')}
-                                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                            onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                            onBlur={e => (e.target.style.boxShadow = 'none')}>
-                                        <option value="nom">Trier : A → Z</option>
-                                        <option value="date">Trier : plus récents</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div className="flex flex-wrap gap-2">
-                                <div className="relative flex-1 min-w-48">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
-                                    <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-                                           placeholder="Rechercher un patient..."
-                                           className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                           onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                           onBlur={e => (e.target.style.boxShadow = 'none')} />
-                                </div>
-                                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
-                                    {(['tous', 'M', 'F'] as const).map(s => (
-                                        <button key={s} onClick={() => setFilterSexe(s)} className="px-3 py-1.5 transition-colors"
-                                                style={filterSexe === s ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
-                                            {s === 'tous' ? 'Tous' : s === 'M' ? '♂ Hommes' : '♀ Femmes'}
-                                        </button>
-                                    ))}
-                                </div>
-                                <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
-                                    {(['tous', 'actif', 'inactif'] as const).map(s => (
-                                        <button key={s} onClick={() => setFilterStatut(s)} className="px-3 py-1.5 transition-colors capitalize"
-                                                style={filterStatut === s ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
-                                            {s === 'tous' ? 'Tous' : s === 'actif' ? '● Actifs' : '○ Inactifs'}
-                                        </button>
-                                    ))}
-                                </div>
-                                <select value={filterGroupe} onChange={e => setFilterGroupe(e.target.value)}
-                                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                        onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                        onBlur={e => (e.target.style.boxShadow = 'none')}>
-                                    <option value="">Groupe sanguin</option>
-                                    {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(g => (
-                                        <option key={g} value={g}>{g}</option>
-                                    ))}
-                                </select>
-                            </div>
-                        </div>
-
-                        {!loading && patientsFiltres.length > 0 && (
-                            <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 grid grid-cols-12 gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
-                                <div className="col-span-4">Patient</div>
-                                <div className="col-span-1 text-center">Âge</div>
-                                <div className="col-span-2 text-center">Groupe</div>
-                                <div className="col-span-2">Téléphone</div>
-                                <div className="col-span-2">Allergies</div>
-                                <div className="col-span-1 text-center">Statut</div>
-                            </div>
-                        )}
-
-                        {loading ? (
-                            <SkeletonTable rows={6} />
-                        ) : patients.length === 0 ? (
-                            <div className="px-6 py-16 text-center">
-                                <p className="text-4xl mb-3">👥</p>
-                                <p className="text-gray-400 text-sm">Aucun patient pour le moment</p>
-                            </div>
-                        ) : patientsFiltres.length === 0 ? (
-                            <div className="px-6 py-12 text-center">
-                                <p className="text-3xl mb-3">🔍</p>
-                                <p className="text-gray-400 text-sm">Aucun patient ne correspond aux filtres</p>
-                                <button onClick={resetFilters} className="mt-3 text-sm text-red-400 hover:text-red-600">
-                                    Réinitialiser les filtres
-                                </button>
-                            </div>
-                        ) : (
+                    {canSeeUrgences && (
+                        <WidgetCard
+                            title="File d'attente aux urgences"
+                            count={urgences?.length}
+                            loading={urgences === null}
+                            empty={(urgences?.length ?? 0) === 0}
+                            emptyLabel="Aucun patient actuellement aux urgences"
+                            linkLabel="Voir tout"
+                            onLink={() => navigate('/urgences')}
+                        >
                             <div className="divide-y divide-gray-50">
-                                {patientsFiltres.map(patient => {
-                                    const allergies = patient.allergies
-                                        ? patient.allergies.split(',').map(s => s.trim()).filter(Boolean)
-                                        : []
-                                    const age = calcAge(patient.date_naissance)
-                                    return (
-                                        <div key={patient.id}
-                                             onClick={() => navigate(`/patients/${patient.id}`)}
-                                             className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors cursor-pointer group">
-                                            <div className="col-span-4 flex items-center gap-3">
-                                                <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                                                     style={{ backgroundColor: '#003152' }}>
-                                                    {patient.prenom[0]}{patient.nom[0]}
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">
-                                                        {patient.prenom} {patient.nom}
-                                                    </p>
-                                                    <p className="text-xs text-gray-400">
-                                                        {patient.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div className="col-span-1 text-center">
-                                                <span className="text-sm font-medium text-gray-700">{age}</span>
-                                                <span className="text-xs text-gray-400"> ans</span>
-                                            </div>
-                                            <div className="col-span-2 flex justify-center">
-                                                {patient.groupe_sanguin ? (
-                                                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                                                          style={{ backgroundColor: '#ADDFF1', color: '#003152' }}>
-                                                    🩸 {patient.groupe_sanguin}
-                                                </span>
-                                                ) : <span className="text-xs text-gray-300">—</span>}
-                                            </div>
-                                            <div className="col-span-2">
-                                            <span className="text-xs text-gray-500">
-                                                {patient.telephone || <span className="text-gray-300">—</span>}
-                                            </span>
-                                            </div>
-                                            <div className="col-span-2">
-                                                {allergies.length === 0 ? (
-                                                    <span className="text-xs text-gray-300">Aucune</span>
-                                                ) : (
-                                                    <span className="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
-                                                    ⚠ {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
-                                                </span>
-                                                )}
-                                            </div>
-                                            <div className="col-span-1 flex justify-center">
-                                            <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                                                  style={patient.actif
-                                                      ? { backgroundColor: '#003152', color: 'white' }
-                                                      : { backgroundColor: '#f3f4f6', color: '#9ca3af' }}>
-                                                {patient.actif ? 'Actif' : 'Inactif'}
-                                            </span>
-                                            </div>
+                                {urgencesTriees.map(u => (
+                                    <div key={u.id} className="px-5 py-3 flex items-center gap-3">
+                                        <span className="w-2 h-2 rounded-full flex-shrink-0"
+                                              style={{ backgroundColor: u.niveau_tri ? TRI_COLORS[u.niveau_tri] : '#d1d5db' }} />
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                {u.patient_nom || `Patient #${u.patient}`}
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                {u.niveau_tri_label || 'Non trié'} · {u.motif}
+                                            </p>
                                         </div>
-                                    )
-                                })}
+                                        <span className="text-xs px-2 py-0.5 rounded-full font-medium text-gray-500 bg-gray-100">
+                                            {u.statut_label || u.statut}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
-                        )}
+                        </WidgetCard>
+                    )}
 
-                        {patientsFiltres.length > 0 && (
-                            <div className="px-6 py-3 border-t border-gray-50 flex justify-between items-center">
-                                <p className="text-xs text-gray-400">
-                                    {patientsFiltres.length} patient{patientsFiltres.length > 1 ? 's' : ''} affiché{patientsFiltres.length > 1 ? 's' : ''}
-                                </p>
-                                <p className="text-xs text-gray-300">Cliquer sur une ligne pour voir le dossier</p>
+                    {canSeeHospit && (
+                        <WidgetCard
+                            title="Hospitalisations en cours"
+                            count={hospitalisations?.length}
+                            loading={hospitalisations === null}
+                            empty={(hospitalisations?.length ?? 0) === 0}
+                            emptyLabel="Aucune hospitalisation en cours"
+                        >
+                            <div className="divide-y divide-gray-50">
+                                {(hospitalisations ?? []).slice(0, 5).map(h => (
+                                    <div key={h.id} className="px-5 py-3 flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                {h.patient_nom || `Patient #${h.patient}`}
+                                            </p>
+                                            <p className="text-xs text-gray-400">
+                                                {h.chambre ? `Chambre ${h.chambre}` : 'Chambre non assignée'}
+                                                {h.lit ? ` · Lit ${h.lit}` : ''}
+                                            </p>
+                                        </div>
+                                        <span className="text-xs text-gray-400">{h.duree_jours ?? 0} j</span>
+                                    </div>
+                                ))}
                             </div>
-                        )}
+                        </WidgetCard>
+                    )}
+
+                    {canSeePatients && (
+                        <WidgetCard
+                            title="Derniers patients ajoutés"
+                            loading={patients === null}
+                            empty={patientsRecents.length === 0}
+                            emptyLabel="Aucun patient pour le moment"
+                            linkLabel="Voir tous les patients"
+                            onLink={() => navigate('/patients')}
+                        >
+                            <div className="divide-y divide-gray-50">
+                                {patientsRecents.map(p => (
+                                    <div key={p.id}
+                                         onClick={() => navigate(`/patients/${p.id}`)}
+                                         className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition-colors">
+                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                                             style={{ backgroundColor: '#003152' }}>
+                                            {p.prenom[0]}{p.nom[0]}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{p.prenom} {p.nom}</p>
+                                            <p className="text-xs text-gray-400">{calcAge(p.date_naissance)} ans</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </WidgetCard>
+                    )}
+
+                    {canSeeConsult && (
+                        <WidgetCard
+                            title="Consultations du jour"
+                            count={consultationsAujourdhui.length}
+                            loading={consultations === null}
+                            empty={consultationsAujourdhui.length === 0}
+                            emptyLabel="Aucune consultation prévue aujourd'hui"
+                        >
+                            <div className="divide-y divide-gray-50">
+                                {consultationsAujourdhui.slice(0, 5).map(c => (
+                                    <div key={c.id} className="px-5 py-3 flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-900 truncate">{c.motif}</p>
+                                            <p className="text-xs text-gray-400">
+                                                {new Date(c.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                {' · '}{c.type_evenement}
+                                            </p>
+                                        </div>
+                                        <span className="text-xs px-2 py-0.5 rounded-full font-medium text-gray-500 bg-gray-100 capitalize">
+                                            {c.statut.replace('_', ' ')}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </WidgetCard>
+                    )}
+                </div>
+
+                {hasRole('laborantin') && (
+                    <div className="bg-white rounded-xl border border-gray-100 p-10 text-center">
+                        <p className="text-4xl mb-3">🧪</p>
+                        <p className="text-gray-500 text-sm">L'espace laboratoire arrive bientôt.</p>
                     </div>
-                </>}
+                )}
             </div>
         </div>
     )
