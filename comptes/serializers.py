@@ -4,11 +4,12 @@ from .models import Employe
 
 
 class EmployeSerializer(serializers.ModelSerializer):
-    username    = serializers.CharField(source='user.username', read_only=True)
-    email       = serializers.EmailField(source='user.email', read_only=True)
-    role_label  = serializers.CharField(source='get_role_display', read_only=True)
-    age         = serializers.IntegerField(read_only=True)
-    service_nom = serializers.CharField(source='service.nom', default=None, read_only=True)
+    username           = serializers.CharField(source='user.username', read_only=True)
+    email              = serializers.EmailField(source='user.email', read_only=True)
+    role_label         = serializers.CharField(source='get_role_display', read_only=True)
+    type_contrat_label = serializers.CharField(source='get_type_contrat_display', read_only=True)
+    age                = serializers.IntegerField(read_only=True)
+    service_nom        = serializers.CharField(source='service.nom', default=None, read_only=True)
 
     class Meta:
         model  = Employe
@@ -18,22 +19,21 @@ class EmployeSerializer(serializers.ModelSerializer):
             'telephone', 'adresse', 'photo_path',
             'role', 'role_label', 'specialite', 'matricule', 'actif',
             'service', 'service_nom',
+            'type_contrat', 'type_contrat_label',
+            'date_debut_contrat', 'date_fin_contrat',
+            'description_poste',
             'date_creation',
         ]
 
     def update(self, instance, validated_data):
         """
-        PATCH partiel sur un Employe — champs directs uniquement.
-        username/email sont read_only, ils ne passent jamais dans validated_data.
-        On met à jour is_staff si le rôle change vers/depuis admin.
+        PATCH partiel — synchronise is_staff si le rôle change vers/depuis admin.
         """
-        # Si le rôle change, on synchronise is_staff sur le User Django
         new_role = validated_data.get('role')
         if new_role is not None and new_role != instance.role:
             instance.user.is_staff = (new_role == 'admin')
             instance.user.save(update_fields=['is_staff'])
 
-        # Mise à jour des champs directs de l'Employe
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()

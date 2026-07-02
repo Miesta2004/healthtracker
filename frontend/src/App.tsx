@@ -15,6 +15,7 @@ import AddSignesVitaux from './pages/AddSignesVitaux'
 import AddHospitalisation from './pages/AddHospitalisation'
 import Urgences from './pages/Urgences'
 import AccesRefuse from './pages/AccesRefuse'
+import EmployeDetail from './pages/EmployeDetail'
 
 function App() {
     return (
@@ -74,9 +75,14 @@ function App() {
                         <Employes />
                     </ProtectedRoute>
                 } />
-                <Route path="/employes/newEmploye" element={
+                <Route path="/employes/new" element={
                     <ProtectedRoute roles={['admin']}>
                         <AddEmploye />
+                    </ProtectedRoute>
+                } />
+                <Route path="/employes/:id" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <EmployeDetail />
                     </ProtectedRoute>
                 } />
                 <Route path="/services" element={

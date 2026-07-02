@@ -46,6 +46,8 @@ export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
 // ─── Comptes / Employés ─────────────────────────────────────────────────────
 export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin'
 
+export type TypeContrat = 'cdi' | 'cdd' | 'stage' | 'vacation' | 'benevolat' | ''
+
 export interface Employe {
     id: number
     username: string
@@ -65,6 +67,11 @@ export interface Employe {
     actif: boolean
     service?: number | null
     service_nom?: string | null
+    type_contrat?: TypeContrat
+    type_contrat_label?: string
+    date_debut_contrat?: string | null
+    date_fin_contrat?: string | null
+    description_poste?: string
     date_creation: string
 }
 

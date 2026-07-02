@@ -389,14 +389,15 @@ export default function Employes() {
                                     <div key={employe.id}
                                          className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors"
                                     >
-                                        {/* Employé */}
-                                        <div className="col-span-3 flex items-center gap-3">
+                                        {/* Employé — cliquable vers le détail */}
+                                        <div className="col-span-3 flex items-center gap-3 cursor-pointer group"
+                                             onClick={() => navigate(`/employes/${employe.id}`)}>
                                             <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
                                                  style={{ backgroundColor: ROLE_COLORS[employe.role] }}>
                                                 {employe.prenom[0]}{employe.nom[0]}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">
+                                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">
                                                     {employe.prenom} {employe.nom}
                                                 </p>
                                                 <p className="text-xs text-gray-400">{employe.matricule}</p>

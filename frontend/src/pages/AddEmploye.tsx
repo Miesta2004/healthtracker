@@ -1,7 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { createEmploye } from "../api/comptes.ts"
-import type { RoleEmploye } from '../types'
+import { getServices } from "../api/services.ts"
+import type { RoleEmploye, Service } from '../types'
 
 // ─── Rôles disponibles ────────────────────────────────────────────────────────
 const ROLES: { value: RoleEmploye; label: string; icon: string }[] = [
@@ -67,6 +68,12 @@ export default function AddEmploye() {
         specialite: '',
     })
     const [role, setRole] = useState<RoleEmploye | ''>('')
+    const [serviceId, setServiceId] = useState<string>('')
+    const [services, setServices] = useState<Service[]>([])
+
+    useEffect(() => {
+        getServices().then(setServices).catch(() => setServices([]))
+    }, [])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value })
@@ -92,9 +99,13 @@ export default function AddEmploye() {
             setError('Sélectionne un rôle pour cet employé.')
             return
         }
+        if (role !== 'admin' && !serviceId) {
+            setError("Sélectionne un service : sans service, cet employé ne verra aucun patient ni aucune donnée de son établissement.")
+            return
+        }
         setLoading(true)
         try {
-            const payload = { ...form, role }
+            const payload = { ...form, role, service: serviceId ? Number(serviceId) : undefined }
             await createEmploye(payload)
             navigate('/employes')
         } catch (err) {
@@ -105,7 +116,8 @@ export default function AddEmploye() {
     }
 
     const formValid = form.prenom && form.nom && form.date_naissance && form.sexe &&
-        form.telephone && form.adresse && form.username && form.email && form.password && role
+        form.telephone && form.adresse && form.username && form.email && form.password && role &&
+        (role === 'admin' || !!serviceId)
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -181,6 +193,29 @@ export default function AddEmploye() {
                         {(role === 'medecin' || role === 'infirmier' || role === 'laborantin') && (
                             <div className="mt-4">
                                 <Field label="Spécialité (optionnel)" name="specialite" value={form.specialite} onChange={handleChange} placeholder="Pédiatrie, Cardiologie..." />
+                            </div>
+                        )}
+                        {role && role !== 'admin' && (
+                            <div className="mt-4">
+                                <label className="block text-xs text-gray-500 mb-1">Service *</label>
+                                <select value={serviceId} onChange={e => setServiceId(e.target.value)}
+                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none bg-white"
+                                        onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
+                                        onBlur={e => e.target.style.boxShadow = 'none'}
+                                >
+                                    <option value="">Sélectionner un service</option>
+                                    {services.map(s => (
+                                        <option key={s.id} value={s.id}>{s.nom}</option>
+                                    ))}
+                                </select>
+                                <p className="text-xs text-gray-400 mt-1.5">
+                                    Sans service assigné, cet employé ne verra aucun patient ni aucune donnée de l'établissement.
+                                </p>
+                                {services.length === 0 && (
+                                    <p className="text-xs text-amber-600 mt-1.5">
+                                        Aucun service n'existe encore — <button type="button" onClick={() => navigate('/services')} className="underline">crée-en un d'abord</button>.
+                                    </p>
+                                )}
                             </div>
                         )}
                     </div>

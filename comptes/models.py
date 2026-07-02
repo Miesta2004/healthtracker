@@ -9,6 +9,14 @@ class Role(models.TextChoices):
     SECRETAIRE = 'secretaire', 'Secrétaire'
     LABORANTIN = 'laborantin', 'Laborantin'
 
+class TypeContrat(models.TextChoices):
+    CDI       = 'cdi',       'CDI'
+    CDD       = 'cdd',       'CDD'
+    STAGE     = 'stage',     'Stage'
+    VACATION  = 'vacation',  'Vacation'
+    BENEVOLAT = 'benevolat', 'Bénévolat'
+
+
 class Employe(Personne):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE,
@@ -22,12 +30,22 @@ class Employe(Personne):
     specialite  = models.CharField(max_length=100, blank=True)
     matricule   = models.CharField(max_length=20, unique=True, blank=True)
     actif       = models.BooleanField(default=True)
-    service    = models.ForeignKey(              # ← nouveau
+    service    = models.ForeignKey(
         'services.Service',
         on_delete=models.SET_NULL,
         null=True, blank=True,
         related_name='employes'
     )
+
+    # ── Contrat de travail ──────────────────────────────────────────────────
+    type_contrat        = models.CharField(
+        max_length=20,
+        choices=TypeContrat.choices,
+        blank=True, default=''
+    )
+    date_debut_contrat  = models.DateField(null=True, blank=True)
+    date_fin_contrat    = models.DateField(null=True, blank=True)   # null = CDI sans limite
+    description_poste   = models.TextField(blank=True)              # résumé des missions
 
     def save(self, *args, **kwargs):
         if not self.matricule:
