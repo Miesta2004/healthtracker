@@ -153,10 +153,10 @@ Application disponible sur `http://localhost:5173/`
 | Rôle | Exemple username | Mot de passe |
 |---|---|---|
 | Admin | `admin.kane` | `admin123` |
-| Médecin | `dr.diop` · `dr.sow` · `dr.faye` … | `medecin123` |
-| Infirmier(e) | `inf.ba` · `inf.sarr` · `inf.ndour` … | `infirmier123` |
-| Secrétaire | `sec.diallo` · `sec.mbaye` … | `secretaire123` |
-| Laborantin | `lab.thiam` · `lab.tall` · `lab.badji` | `labo123` |
+| Médecin | `dr.diop` · `dr.sow` · `dr.faye` … | `**********` |
+| Infirmier(e) | `inf.ba` · `inf.sarr` · `inf.ndour` … | ``**********`` |
+| Secrétaire | `sec.diallo` · `sec.mbaye` … | ``**********`` |
+| Laborantin | `lab.thiam` · `lab.tall` · `lab.badji` | ``**********`` |
 
 ---
 
@@ -220,4 +220,4 @@ Authorization: Bearer <access_token>
 ## 👤 Auteure
 
 **Marietou Fall**
-Étudiante en Master IA & Big Data — Baobab Sénégal, Dakar
+Étudiante en Master IA & Big Data —  Sénégal, Dakar
