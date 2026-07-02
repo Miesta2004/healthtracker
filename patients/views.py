@@ -4,19 +4,25 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Q
 from .models import Patient
-from .serializers import PatientSerializer
+from .serializers import PatientSerializer, PatientListSerializer
 from comptes.permissions import IsInSameService, get_employe
 
 
 class PatientViewSet(viewsets.ModelViewSet):
-    serializer_class   = PatientSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == 'list':
+            return PatientListSerializer
+        return PatientSerializer
 
     def get_queryset(self):
         user = self.request.user
 
+        base_qs = Patient.objects.select_related('service', 'medecin_referent')
+
         if user.is_superuser:
-            return Patient.objects.all()
+            return base_qs.all()
 
         emp = get_employe(user)
         if emp is None:
@@ -27,15 +33,12 @@ class PatientViewSet(viewsets.ModelViewSet):
         # Infirmier : pas de liste globale — accès uniquement via recherche ciblée
         # mais accès direct au détail d'un patient de son service
         if role == 'infirmier':
-            # Pour les actions de détail (retrieve, update...), on autorise l'accès
-            # à tous les patients du service sans exiger de recherche
             if self.action in ('retrieve', 'update', 'partial_update', 'ajouter_antecedent'):
-                return Patient.objects.filter(service=emp.service)
-            # Pour la liste, uniquement via recherche ciblée
+                return base_qs.filter(service=emp.service)
             q = self.request.query_params.get('q', '').strip()
             if not q:
                 return Patient.objects.none()
-            return Patient.objects.filter(
+            return base_qs.filter(
                 service=emp.service
             ).filter(
                 Q(nom__icontains=q) |
@@ -50,11 +53,11 @@ class PatientViewSet(viewsets.ModelViewSet):
                 patient__service=emp.service,
                 statut__in=['en_attente', 'en_cours'],
             ).values_list('patient_id', flat=True).distinct()
-            return Patient.objects.filter(id__in=patient_ids)
+            return base_qs.filter(id__in=patient_ids)
 
         # Secrétaire, médecin, admin : tous les patients du service
         if emp.service:
-            return Patient.objects.filter(service=emp.service)
+            return base_qs.filter(service=emp.service)
 
         return Patient.objects.none()
 

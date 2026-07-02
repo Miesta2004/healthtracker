@@ -122,7 +122,7 @@ export default function Patients() {
     const hommes          = patients.filter(p => p.sexe === 'M').length
     const femmes          = patients.filter(p => p.sexe === 'F').length
     const avecAllergies   = patients.filter(p => p.allergies?.trim()).length
-    const avecAntecedents = patients.filter(p => p.antecedents?.trim()).length
+    const avecAntecedents = patients.filter(p => (p.antecedents ?? '').trim()).length
     const nouveauCeMois   = patients.filter(p => {
         const d = new Date(p.date_creation), now = new Date()
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()

@@ -2,18 +2,16 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Employe
 
+
 class EmployeSerializer(serializers.ModelSerializer):
     username    = serializers.CharField(source='user.username', read_only=True)
     email       = serializers.EmailField(source='user.email', read_only=True)
     role_label  = serializers.CharField(source='get_role_display', read_only=True)
     age         = serializers.IntegerField(read_only=True)
-    service_nom = serializers.SerializerMethodField()
-
-    def get_service_nom(self, obj):
-        return obj.service.nom if obj.service else None
+    service_nom = serializers.CharField(source='service.nom', default=None, read_only=True)
 
     class Meta:
-        model = Employe
+        model  = Employe
         fields = [
             'id', 'username', 'email',
             'nom', 'prenom', 'date_naissance', 'sexe', 'age',
@@ -23,26 +21,41 @@ class EmployeSerializer(serializers.ModelSerializer):
             'date_creation',
         ]
 
+    def update(self, instance, validated_data):
+        """
+        PATCH partiel sur un Employe — champs directs uniquement.
+        username/email sont read_only, ils ne passent jamais dans validated_data.
+        On met à jour is_staff si le rôle change vers/depuis admin.
+        """
+        # Si le rôle change, on synchronise is_staff sur le User Django
+        new_role = validated_data.get('role')
+        if new_role is not None and new_role != instance.role:
+            instance.user.is_staff = (new_role == 'admin')
+            instance.user.save(update_fields=['is_staff'])
+
+        # Mise à jour des champs directs de l'Employe
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
+
 
 class CreateEmployeSerializer(serializers.Serializer):
-    # Infos personnelles
     nom            = serializers.CharField()
     prenom         = serializers.CharField()
     date_naissance = serializers.DateField()
     sexe           = serializers.ChoiceField(choices=['M', 'F'])
     telephone      = serializers.CharField(required=True, allow_blank=False)
     adresse        = serializers.CharField(required=True, allow_blank=False)
-    # Compte
     username       = serializers.CharField()
     email          = serializers.EmailField()
     password       = serializers.CharField(write_only=True)
-    # Rôle
     role           = serializers.ChoiceField(
-        choices=['admin','medecin','infirmier','secretaire','laborantin']
+        choices=['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin']
     )
     specialite     = serializers.CharField(required=False, allow_blank=True)
 
-    def validate_username(self,value):
+    def validate_username(self, value):
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("Ce nom d'utilisateur existe déjà")
         return value

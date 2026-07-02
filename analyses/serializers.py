@@ -5,8 +5,9 @@ from .models import DemandeAnalyse
 
 class DemandeAnalyseSerializer(serializers.ModelSerializer):
     """Sérialiseur complet — pour médecins et admins."""
-    patient_nom     = serializers.SerializerMethodField()
-    patient_dossier = serializers.SerializerMethodField()
+    patient_nom     = serializers.CharField(source='patient.nom', read_only=True)
+    patient_prenom  = serializers.CharField(source='patient.prenom', read_only=True)
+    patient_dossier = serializers.CharField(source='patient.numero_dossier', read_only=True)
     demandeur_nom   = serializers.SerializerMethodField()
     laborantin_nom  = serializers.SerializerMethodField()
     type_label      = serializers.CharField(source='get_type_analyse_display', read_only=True)
@@ -16,12 +17,6 @@ class DemandeAnalyseSerializer(serializers.ModelSerializer):
     class Meta:
         model  = DemandeAnalyse
         fields = '__all__'
-
-    def get_patient_nom(self, obj):
-        return f"{obj.patient.prenom} {obj.patient.nom}"
-
-    def get_patient_dossier(self, obj):
-        return obj.patient.numero_dossier
 
     def get_demandeur_nom(self, obj):
         if obj.demandeur:
@@ -35,7 +30,7 @@ class DemandeAnalyseSerializer(serializers.ModelSerializer):
 
 
 class DemandeAnalyseLaboSerializer(serializers.ModelSerializer):
-    """Sérialiseur restreint pour le laborantin — pas de dossier médical complet."""
+    """Sérialiseur restreint pour le laborantin."""
     patient_prenom         = serializers.CharField(source='patient.prenom', read_only=True)
     patient_nom_famille    = serializers.CharField(source='patient.nom', read_only=True)
     patient_dossier        = serializers.CharField(source='patient.numero_dossier', read_only=True)
@@ -70,6 +65,6 @@ class DemandeAnalyseLaboSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         if validated_data.get('resultats'):
-            validated_data['statut'] = 'terminee'
+            validated_data['statut']        = 'terminee'
             validated_data['date_resultat'] = timezone.now()
         return super().update(instance, validated_data)

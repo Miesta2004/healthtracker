@@ -11,8 +11,8 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 class EmployeViewSet(viewsets.ModelViewSet):
-    queryset = Employe.objects.select_related('user').all()
-    parser_classes = [MultiPartParser , FormParser , JSONParser]
+    queryset = Employe.objects.select_related('user', 'service').all()
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_serializer_class(self):
         if self.action == 'create':

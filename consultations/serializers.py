@@ -3,25 +3,22 @@ from .models import Consultation, RendezVous
 
 
 class ConsultSerializer(serializers.ModelSerializer):
-    patient_nom = serializers.SerializerMethodField()
+    # source= évite le SerializerMethodField + requête séparée
+    patient_nom    = serializers.CharField(source='patient.nom', read_only=True)
+    patient_prenom = serializers.CharField(source='patient.prenom', read_only=True)
+    statut_label   = serializers.CharField(source='get_statut_display', read_only=True)
 
     class Meta:
-            model = Consultation
-            fields = '__all__'
-
-    def get_patient_nom(self, obj):
-        return f"{obj.patient.prenom} {obj.patient.nom}"
-
-class RdvSerializer(serializers.ModelSerializer):
-    patient_nom    = serializers.SerializerMethodField()
-    patient_dossier = serializers.SerializerMethodField()
-
-    class Meta:
-        model = RendezVous
+        model  = Consultation
         fields = '__all__'
 
-    def get_patient_nom(self, obj):
-        return f"{obj.patient.prenom} {obj.patient.nom}"
 
-    def get_patient_dossier(self, obj):
-        return obj.patient.numero_dossier
+class RdvSerializer(serializers.ModelSerializer):
+    patient_nom     = serializers.CharField(source='patient.nom', read_only=True)
+    patient_prenom  = serializers.CharField(source='patient.prenom', read_only=True)
+    patient_dossier = serializers.CharField(source='patient.numero_dossier', read_only=True)
+    statut_label    = serializers.CharField(source='get_statut_display', read_only=True)
+
+    class Meta:
+        model  = RendezVous
+        fields = '__all__'
