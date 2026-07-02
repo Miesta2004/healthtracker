@@ -1,65 +1,71 @@
 # 🏥 HealthTracker
 
-Plateforme de suivi des patients — API REST Django sécurisée par JWT, couplée à un dashboard React/TypeScript en temps réel.
+Plateforme de gestion hospitalière — API REST Django sécurisée par JWT, couplée à un dashboard React/TypeScript avec accès par rôle.
 
-Projet personnel développé pour appliquer une architecture full-stack professionnelle : authentification, tests automatisés, documentation API et interface utilisateur connectée.
+Projet développé dans le cadre du Master IA & Big Data (Baobab Sénégal) pour mettre en pratique une architecture full-stack professionnelle : authentification, gestion des rôles, module urgences, hospitalisation, et interface utilisateur connectée.
 
 ---
 
 ## ✨ Fonctionnalités
 
-- 🔐 **Authentification JWT** — login sécurisé avec access token / refresh token
-- 👥 **Gestion des patients** — dossiers complets (état civil, groupe sanguin, allergies, antécédents)
-- 🩺 **Consultations & rendez-vous** — historique médical par patient
+- 🔐 **Authentification JWT** — login sécurisé avec access token / refresh token, rôles embarqués dans le token
+- 👥 **Gestion des patients** — dossiers complets (état civil, groupe sanguin, allergies, antécédents, photo)
+- 🏢 **Gestion des services** — 10 services hospitaliers, chef de service par service
+- 👩‍⚕️ **Gestion des employés** — médecins, infirmiers, secrétaires, laborantins, administrateurs
+- 🩺 **Consultations** — historique médical par patient, diagnostic, traitement
 - 📊 **Signes vitaux** — suivi tension, température, poids, glycémie, fréquence cardiaque
+- 🏨 **Hospitalisations** — suivi des admissions et sorties
+- 🚨 **Module urgences** — passages aux urgences avec niveau de tri (1–5), mode d'arrivée, décision de sortie
+- 🔬 **Analyses biologiques** — résultats de laboratoire par patient
 - 🔔 **Alertes** — notifications automatiques liées aux patients
+- 🔒 **Accès par rôle** — chaque profil (admin, médecin, infirmier, secrétaire, laborantin) a une vue filtrée
 - 📚 **Documentation API interactive** — Swagger UI générée automatiquement
-- 🧪 **Tests unitaires** — suite de tests Django (modèles + API + authentification)
-- ⚛️ **Dashboard React** — liste des patients, fiche détaillée, statistiques en direct
 
 ---
 
 ## 🛠️ Stack technique
 
 **Backend**
-- Python 3.14 + Django 6
+- Python 3.12+ / Django 5
 - Django REST Framework
 - SimpleJWT (authentification)
 - drf-yasg (documentation Swagger)
-- SQLite (dev) → PostgreSQL (prod)
+- PostgreSQL via Supabase (prod) / SQLite (dev)
 
 **Frontend**
 - React 18 + TypeScript
-- Vite 8
+- Vite
 - TailwindCSS
 - Axios (avec intercepteur JWT automatique)
 - React Router v6
 
 **Outils**
 - Git / GitHub
-- Tests : Django TestCase + APIClient
+- Supabase (base de données PostgreSQL cloud)
+- Variables d'environnement `.env`
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-Navigateur (React)
-      ↓
-  Axios + JWT Token
-      ↓
-  Django urls.py
-      ↓
-  JWT Middleware
-      ↓
-  ViewSet (CRUD)
-      ↓
-  Serializer (JSON)
-      ↓
-  Model → Base de données
+Navigateur (React + TypeScript)
+          ↓
+    Axios + Bearer Token
+          ↓
+    Django urls.py
+          ↓
+    JWT Middleware
+          ↓
+    ViewSet (CRUD + filtres par rôle)
+          ↓
+    Serializer (JSON)
+          ↓
+    Model → PostgreSQL (Supabase)
 ```
 
-5 apps Django indépendantes : `patients`, `consultations`, `signes_vitaux`, `alertes`, et leurs relations via `ForeignKey` (1 patient → N consultations / signes vitaux / alertes / rendez-vous).
+**10 apps Django indépendantes :**
+`patients` · `consultations` · `signes_vitaux` · `alertes` · `antecedents` · `analyses` · `hospitalisations` · `urgences` · `services` · `comptes`
 
 ---
 
@@ -67,22 +73,36 @@ Navigateur (React)
 
 ```
 healthtracker/
-├── healthtracker/        # config Django (settings, urls)
-├── patients/              # app patients (models, views, serializers, tests)
-├── consultations/         # app consultations + rendez-vous
-├── signes_vitaux/         # app signes vitaux
-├── alertes/                # app alertes
-├── frontend/               # app React/TypeScript
-│   └── src/
-│       ├── api/            # clients Axios (auth, patients)
-│       ├── pages/           # Login, Dashboard, PatientDetail
-│       └── types/            # types TypeScript
-└── manage.py
+├── healthtracker/          # Config Django (settings, urls, api_urls)
+├── comptes/                # Employés, rôles, authentification JWT
+├── services/               # Services hospitaliers + chef de service
+├── patients/               # Dossiers patients (accès filtré par rôle)
+├── consultations/          # Consultations médicales
+├── signes_vitaux/          # Suivi des constantes
+├── antecedents/            # Antécédents médicaux
+├── analyses/               # Résultats d'analyses biologiques
+├── hospitalisations/       # Admissions et sorties
+├── urgences/               # Passages aux urgences
+├── alertes/                # Alertes automatiques
+├── seed.py                 # Données de démonstration (60 patients, 34 employés)
+└── frontend/
+    └── src/
+        ├── api/            # Clients Axios (auth, patients, comptes…)
+        ├── components/     # NavBar, ProtectedRoute, Skeleton…
+        ├── contexts/       # AuthContext (JWT + rôle)
+        ├── pages/          # Login, Dashboard, PatientDetail, Urgences…
+        └── types/          # Types TypeScript
 ```
 
 ---
 
 ## 🚀 Installation
+
+### Prérequis
+
+- Python 3.12+
+- Node.js 18+
+- Un projet Supabase (ou SQLite pour le dev local)
 
 ### Backend
 
@@ -94,14 +114,27 @@ python3 -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+```
 
+Créer un fichier `.env` à la racine :
+
+```env
+DB_NAME=postgres
+DB_USER=postgres
+DB_PASSWORD=your_password
+DB_HOST=your_supabase_host
+DB_PORT=5432
+SECRET_KEY=your_django_secret_key
+```
+
+```bash
 python3 manage.py migrate
-python3 manage.py createsuperuser
+python3 seed.py          # Données de démonstration
 python3 manage.py runserver
 ```
 
-L'API est disponible sur `http://127.0.0.1:8000/`
-La documentation Swagger sur `http://127.0.0.1:8000/api/docs/`
+API disponible sur `http://127.0.0.1:8000/`
+Documentation Swagger sur `http://127.0.0.1:8000/api/docs/`
 
 ### Frontend
 
@@ -111,58 +144,80 @@ npm install
 npm run dev
 ```
 
-L'application est disponible sur `http://localhost:5173/`
+Application disponible sur `http://localhost:5173/`
 
 ---
 
-## 🔑 Endpoints principaux
+## 🔑 Comptes de démonstration (après seed)
+
+| Rôle | Exemple username | Mot de passe |
+|---|---|---|
+| Admin | `admin.kane` | `admin123` |
+| Médecin | `dr.diop` · `dr.sow` · `dr.faye` … | `**********` |
+| Infirmier(e) | `inf.ba` · `inf.sarr` · `inf.ndour` … | ``**********`` |
+| Secrétaire | `sec.diallo` · `sec.mbaye` … | ``**********`` |
+| Laborantin | `lab.thiam` · `lab.tall` · `lab.badji` | ``**********`` |
+
+---
+
+## 🔗 Endpoints principaux
 
 | Méthode | Endpoint | Description |
 |---|---|---|
 | POST | `/api/auth/login/` | Connexion (obtenir les tokens) |
 | POST | `/api/auth/refresh/` | Rafraîchir le token |
+| GET | `/api/employes/me/` | Profil de l'employé connecté |
 | GET / POST | `/api/patients/` | Liste / créer un patient |
 | GET / PUT / DELETE | `/api/patients/{id}/` | Détail / modifier / supprimer |
 | GET / POST | `/api/consultations/` | Gestion des consultations |
-| GET / POST | `/api/signes-vitaux/` | Gestion des signes vitaux |
-| GET / POST | `/api/alertes/` | Gestion des alertes |
-| GET / POST | `/api/rendez_vous/` | Gestion des rendez-vous |
+| GET / POST | `/api/signes_vitaux/` | Suivi des constantes |
+| GET / POST | `/api/urgences/` | Passages aux urgences |
+| GET / POST | `/api/hospitalisations/` | Hospitalisations |
+| GET / POST | `/api/analyses/` | Analyses biologiques |
+| GET / POST | `/api/services/` | Services hospitaliers |
+| GET / POST | `/api/employes/` | Gestion des employés |
 
-Toutes les routes (sauf `/api/auth/`) nécessitent un token JWT valide dans le header :
+Toutes les routes (sauf `/api/auth/`) nécessitent un token JWT :
 ```
 Authorization: Bearer <access_token>
 ```
 
 ---
 
-## 🧪 Tests
+## 🔒 Accès par rôle
 
-```bash
-python3 manage.py test patients --verbosity=2
-```
-
-9 tests unitaires couvrant :
-- Création et validation des modèles
-- CRUD complet via l'API (create, list, retrieve, update, delete)
-- Protection des routes par authentification JWT (401/403 sans token)
+| Fonctionnalité | Admin | Médecin | Infirmier | Secrétaire | Laborantin |
+|---|:---:|:---:|:---:|:---:|:---:|
+| Liste complète patients | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Recherche patients (son service) | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Créer / modifier un patient | ✅ | ✅ | ❌ | ✅ | ❌ |
+| Consultations | ✅ | ✅ | 👁️ | ❌ | ❌ |
+| Signes vitaux | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Hospitalisations | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Urgences | ✅ | ✅ | ✅ | ❌ | ❌ |
+| Gestion employés / services | ✅ | ❌ | ❌ | ❌ | ❌ |
 
 ---
 
 ## 📌 Roadmap
 
 - [x] API REST complète avec authentification JWT
-- [x] Documentation Swagger
-- [x] Tests unitaires
+- [x] Gestion des rôles et accès filtrés
+- [x] 10 services hospitaliers avec chef de service
+- [x] Module urgences (niveaux de tri, modes d'arrivée, décisions de sortie)
+- [x] Hospitalisations, analyses biologiques, antécédents
 - [x] Dashboard React connecté en temps réel
 - [x] Fiche patient détaillée
-- [ ] Formulaire de création de patient depuis le frontend
+- [x] Seed complet (60 patients, 34 employés, tous les cas d'urgence)
+- [x] Données hébergées sur Supabase (PostgreSQL)
 - [ ] Graphiques d'évolution des signes vitaux
 - [ ] Module de prédiction (scikit-learn)
 - [ ] Déploiement (Railway / Render)
+- [ ] Tests unitaires étendus
 
 ---
 
-## 👤 Auteur
+## 👤 Auteure
 
 **Marietou Fall**
-Développeuse Web Full-Stack Junior — Master IA & Big Data, Groupe ISM Dakar
+Étudiante en Master IA & Big Data —  Sénégal, Dakar
