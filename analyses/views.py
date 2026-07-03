@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import DemandeAnalyse
 from .serializers import DemandeAnalyseSerializer, DemandeAnalyseLaboSerializer
 from comptes.permissions import get_employe, IsMedecinOuAdmin
+from alertes.models import Alerte
 
 
 class DemandeAnalyseViewSet(viewsets.ModelViewSet):
@@ -26,20 +27,25 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
         user = self.request.user
 
         if user.is_superuser:
-            return DemandeAnalyse.objects.select_related(
+            qs = DemandeAnalyse.objects.select_related(
                 'patient', 'demandeur', 'laborantin', 'consultation'
             ).all()
+        else:
+            emp = get_employe(user)
+            if emp is None or emp.role in ('secretaire', 'infirmier'):
+                return DemandeAnalyse.objects.none()
 
-        emp = get_employe(user)
-        if emp is None or emp.role in ('secretaire', 'infirmier'):
-            return DemandeAnalyse.objects.none()
+            qs = DemandeAnalyse.objects.select_related(
+                'patient', 'demandeur', 'laborantin'
+            ).filter(patient__service=emp.service)
 
-        qs = DemandeAnalyse.objects.select_related(
-            'patient', 'demandeur', 'laborantin'
-        ).filter(patient__service=emp.service)
+            if emp.role == 'laborantin':
+                qs = qs.filter(statut__in=['en_attente', 'en_cours', 'terminee'])
 
-        if emp.role == 'laborantin':
-            qs = qs.filter(statut__in=['en_attente', 'en_cours', 'terminee'])
+        # Filtre optionnel par patient (utilisé par le dossier patient)
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            qs = qs.filter(patient_id=patient_id)
 
         return qs
 
@@ -59,6 +65,38 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(qs, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['post'], url_path='prendre-en-charge')
+    def prendre_en_charge(self, request, pk=None):
+        """Le laborantin s'assigne la demande (premier arrivé)."""
+        demande = self.get_object()
+        emp = get_employe(request.user)
+        if emp is None or emp.role != 'laborantin':
+            return Response({'detail': 'Seul un laborantin peut prendre en charge une demande.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        if demande.statut != 'en_attente':
+            return Response({'detail': "Cette demande n'est plus en attente."},
+                            status=status.HTTP_400_BAD_REQUEST)
+        demande.laborantin = emp
+        demande.statut = 'en_cours'
+        demande.save()
+        serializer = self.get_serializer(demande)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='annuler')
+    def annuler(self, request, pk=None):
+        """Le médecin demandeur, un admin, ou un laborantin peut annuler."""
+        demande = self.get_object()
+        emp = get_employe(request.user)
+        if emp is None or emp.role not in ('medecin', 'admin', 'laborantin'):
+            return Response({'detail': 'Accès refusé.'}, status=status.HTTP_403_FORBIDDEN)
+        if demande.statut == 'terminee':
+            return Response({'detail': 'Une demande déjà terminée ne peut plus être annulée.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        demande.statut = 'annulee'
+        demande.save()
+        serializer = self.get_serializer(demande)
+        return Response(serializer.data)
+
     @action(detail=True, methods=['post'], url_path='soumettre-resultats')
     def soumettre_resultats(self, request, pk=None):
         """Le laborantin soumet ses résultats."""
@@ -69,4 +107,12 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(demande, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+
+        if serializer.instance.statut == 'terminee':
+            Alerte.objects.create(
+                patient=demande.patient,
+                type='resultat_analyse',
+                message=f"Résultat d'analyse disponible : {demande.get_type_analyse_display()}",
+            )
+
         return Response(serializer.data)

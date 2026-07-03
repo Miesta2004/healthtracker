@@ -8,9 +8,33 @@ import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, S
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
+import { getDemandesPatient, createDemande } from '../api/analyses'
+import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
+import { useAuth } from '../contexts/AuthContext'
 import { SkeletonDetailPage } from '../components/Skeleton'
 //import Navbar from '../components/NavBar'
 
+// ─── Config analyses ────────────────────────────────────────────────────────
+const TYPES_ANALYSE: { value: TypeAnalyse; label: string }[] = [
+    { value: 'nfs', label: 'NFS (numération formule sanguine)' },
+    { value: 'glycemie', label: 'Glycémie' },
+    { value: 'bilan_renal', label: 'Bilan rénal (créatinine, urée)' },
+    { value: 'bilan_hepatique', label: 'Bilan hépatique (ASAT, ALAT)' },
+    { value: 'bilan_lipidique', label: 'Bilan lipidique' },
+    { value: 'ionogramme', label: 'Ionogramme sanguin' },
+    { value: 'crp', label: 'CRP (protéine C-réactive)' },
+    { value: 'groupe_sanguin', label: 'Groupe sanguin / RAI' },
+    { value: 'hemostase', label: 'Hémostase (TP, TCA)' },
+    { value: 'urine', label: 'Examen cytobactériologique des urines' },
+    { value: 'parasite', label: 'Frottis / goutte épaisse (paludisme)' },
+    { value: 'autre', label: 'Autre' },
+]
+const STATUT_ANALYSE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    en_attente: { label: 'En attente', color: '#b45309', bg: '#fef3c7' },
+    en_cours: { label: 'En cours', color: '#1d4ed8', bg: '#dbeafe' },
+    terminee: { label: 'Terminée', color: '#166534', bg: '#dcfce7' },
+    annulee: { label: 'Annulée', color: '#6b7280', bg: '#f3f4f6' },
+}
 
 // ─── Types d'antécédents ───────────────────────────────────────────────────────
 const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
@@ -273,6 +297,14 @@ export default function PatientDetail() {
     const [antecedentLoading, setAntecedentLoading] = useState(false)
     const [services, setServices] = useState<Service[]>([])
     const [medecins, setMedecins] = useState<Employe[]>([])
+    const [demandesAnalyses, setDemandesAnalyses] = useState<DemandeAnalyse[]>([])
+    const [showDemandeAnalyse, setShowDemandeAnalyse] = useState(false)
+    const [demandeLoading, setDemandeLoading] = useState(false)
+    const [demandeError, setDemandeError] = useState('')
+    const [resultatsAffiches, setResultatsAffiches] = useState<DemandeAnalyse | null>(null)
+    const { hasRole } = useAuth()
+    const canRequestAnalyse = hasRole('admin', 'medecin')
+    const canSeeAnalyses = hasRole('admin', 'medecin')
 
     // Formulaire d'édition (mode pleine page, pas une petite modale)
     const [form, setForm] = useState<Partial<Patient>>({})
@@ -288,7 +320,23 @@ export default function PatientDetail() {
         getAntecedents(Number(id)).then(setAntecedents).catch(() => {})
         getServices().then(setServices).catch(() => {})
         getEmployes().then(emps => setMedecins(emps.filter(e => e.role === 'medecin' && e.actif))).catch(() => {})
-    }, [id])
+        }, [id])
+        if (canSeeAnalyses) getDemandesPatient(Number(id)).then(setDemandesAnalyses).catch(() => {})
+
+    const handleDemandeAnalyse = async (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => {
+        if (!patient) return
+        setDemandeLoading(true)
+        setDemandeError('')
+        try {
+            const created = await createDemande({ ...data, patient: patient.id })
+            setDemandesAnalyses(prev => [created, ...prev])
+            setShowDemandeAnalyse(false)
+        } catch {
+            setDemandeError("Erreur lors de l'enregistrement de la demande.")
+        } finally {
+            setDemandeLoading(false)
+        }
+    }
 
     const startEdit = () => {
         if (!patient) return
@@ -413,6 +461,20 @@ export default function PatientDetail() {
                     loading={antecedentLoading}
                 />
             )}
+            {showDemandeAnalyse && (
+                <DemandeAnalyseModal
+                    onSave={handleDemandeAnalyse}
+                    onCancel={() => { setShowDemandeAnalyse(false); setDemandeError('') }}
+                    loading={demandeLoading}
+                    error={demandeError}
+                />
+            )}
+            {resultatsAffiches && (
+                <ResultatsAnalyseModal
+                    demande={resultatsAffiches}
+                    onClose={() => setResultatsAffiches(null)}
+                />
+            )}
 
             {/* Navbar */}
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
@@ -530,6 +592,15 @@ export default function PatientDetail() {
                         onToggleStatut={handleToggleStatutAntecedent}
                         onDelete={handleDeleteAntecedent}
                     />
+
+                    {canSeeAnalyses && (
+                        <AnalysesPanel
+                            demandes={demandesAnalyses}
+                            canRequest={canRequestAnalyse}
+                            onRequest={() => setShowDemandeAnalyse(true)}
+                            onVoirResultats={setResultatsAffiches}
+                        />
+                    )}
                 </div>
 
                 {/* ── Alerte allergies ── */}

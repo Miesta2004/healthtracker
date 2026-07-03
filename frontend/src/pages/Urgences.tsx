@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import { getServices } from '../api/services'
@@ -62,28 +62,35 @@ function tempsEcoule(dateArrivee: string) {
 }
 
 // ─── Modal : nouveau passage ──────────────────────────────────────────────────
-function NouveauPassageModal({ patients, onClose, onCreated }: {
-    patients: Patient[]
+function NouveauPassageModal({ onClose, onCreated }: {
     onClose: () => void
     onCreated: (p: PassageUrgence) => void
 }) {
     const [search, setSearch] = useState('')
+    const [results, setResults] = useState<Patient[]>([])
+    const [searching, setSearching] = useState(false)
     const [patientId, setPatientId] = useState<number | null>(null)
+    const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
     const [niveauTri, setNiveauTri] = useState<string>('')
     const [modeArrivee, setModeArrivee] = useState<ModeArrivee>('pied')
     const [motif, setMotif] = useState('')
     const [submitting, setSubmitting] = useState(false)
     const [erreur, setErreur] = useState('')
 
-    const results = useMemo(() => {
-        if (search.trim().length < 2) return []
-        const q = search.toLowerCase()
-        return patients.filter(p =>
-            `${p.prenom} ${p.nom}`.toLowerCase().includes(q)
-        ).slice(0, 6)
-    }, [search, patients])
-
-    const selectedPatient = patients.find(p => p.id === patientId)
+    // Recherche en direct côté serveur : indispensable pour l'infirmier, qui
+    // n'a jamais accès à la liste complète des patients (recherche obligatoire).
+    useEffect(() => {
+        const q = search.trim()
+        if (q.length < 2) {
+            setResults([])
+            return
+        }
+        setSearching(true)
+        const timeout = setTimeout(() => {
+            getPatients(q).then(setResults).catch(() => setResults([])).finally(() => setSearching(false))
+        }, 300)
+        return () => clearTimeout(timeout)
+    }, [search])
 
     const handleSubmit = async () => {
         if (!patientId || !motif.trim()) return
@@ -115,28 +122,34 @@ function NouveauPassageModal({ patients, onClose, onCreated }: {
                     {selectedPatient ? (
                         <div className="flex items-center justify-between px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
                             <span>{selectedPatient.prenom} {selectedPatient.nom}</span>
-                            <button onClick={() => setPatientId(null)} className="text-xs text-gray-400 hover:text-gray-700">Changer</button>
+                            <button onClick={() => { setPatientId(null); setSelectedPatient(null) }} className="text-xs text-gray-400 hover:text-gray-700">Changer</button>
                         </div>
                     ) : (
                         <>
                             <input
                                 type="text"
-                                placeholder="Rechercher un patient par nom…"
+                                placeholder="Rechercher un patient par nom, prénom ou n° de dossier…"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
                                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
                             />
-                            {results.length > 0 && (
+                            {search.trim().length >= 2 && (
                                 <div className="mt-1 border border-gray-100 rounded-lg overflow-hidden">
-                                    {results.map(p => (
-                                        <button
-                                            key={p.id}
-                                            onClick={() => { setPatientId(p.id); setSearch('') }}
-                                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0"
-                                        >
-                                            {p.prenom} {p.nom} <span className="text-gray-400 text-xs">· {p.date_naissance}</span>
-                                        </button>
-                                    ))}
+                                    {searching ? (
+                                        <div className="px-3 py-2.5 text-xs text-gray-300">Recherche…</div>
+                                    ) : results.length === 0 ? (
+                                        <div className="px-3 py-2.5 text-xs text-gray-300">Aucun patient trouvé</div>
+                                    ) : (
+                                        results.slice(0, 6).map(p => (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => { setPatientId(p.id); setSelectedPatient(p); setSearch('') }}
+                                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                                            >
+                                                {p.prenom} {p.nom} <span className="text-gray-400 text-xs">· {p.date_naissance}</span>
+                                            </button>
+                                        ))
+                                    )}
                                 </div>
                             )}
                         </>
@@ -436,6 +449,22 @@ export default function Urgences() {
             <Navbar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
+
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-semibold text-gray-900">Urgences</h1>
+                        <p className="text-gray-400 text-sm mt-1">File d'attente de votre service</p>
+                    </div>
+                    <button
+                        onClick={() => setShowNouveau(true)}
+                        className="text-sm font-medium px-4 py-2.5 rounded-lg text-white transition-colors flex-shrink-0"
+                        style={{ backgroundColor: '#003152' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                    >
+                        + Nouvel arrivant
+                    </button>
+                </div>
 
                 <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
