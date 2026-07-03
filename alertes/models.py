@@ -8,6 +8,7 @@ class Alerte(models.Model):
         ('temperature', 'Température anormale'),
         ('frequence', 'Fréquence cardiaque anormale'),
         ('rdv', 'Rendez-vous manqué'),
+        ('resultat_analyse', "Résultat d'analyse disponible"),
         ('autre', 'Autre'),
     ]
 

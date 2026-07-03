@@ -75,6 +75,23 @@ class IsLectureAutorisee(IsAuthenticated):
         return emp is not None and emp.role in self.ROLES
 
 
+class PeutVoirRendezVous(IsAuthenticated):
+    """
+    Lecture des rendez-vous : équipe médicale + secrétaire (qui les gère au
+    quotidien). Le laborantin n'a pas besoin d'y accéder.
+    """
+
+    ROLES = {'admin', 'medecin', 'infirmier', 'secretaire'}
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        return emp is not None and emp.role in self.ROLES
+
+
 class IsInSameService(IsAuthenticated):
     """
     Vérifie que l'objet demandé appartient au même service que l'utilisateur.

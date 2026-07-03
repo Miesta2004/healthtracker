@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
 import { getAntecedents, createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
-import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent } from '../types'
+import { getServices } from '../api/services'
+import { getEmployes } from '../api/comptes'
+import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Service, Employe } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
@@ -91,105 +93,17 @@ function DeleteModal({ name, onConfirm, onCancel, loading }: {
     )
 }
 
-// ─── Modal d'édition ─────────────────────────────────────────────────────────
-function EditModal({ patient, onSave, onCancel }: {
-    patient: Patient
-    onSave: (updated: Partial<Patient>) => void
-    onCancel: () => void
-}) {
-    const [form, setForm] = useState({
-        nom: patient.nom,
-        prenom: patient.prenom,
-        telephone: patient.telephone || '',
-        adresse: patient.adresse || '',
-        groupe_sanguin: patient.groupe_sanguin || '',
-        actif: patient.actif,
-    })
-
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-        const { name, value, type } = e.target
-        setForm(prev => ({
-            ...prev,
-            [name]: type === 'checkbox' ? (e.target as HTMLInputElement).checked : value
-        }))
-    }
-
+// ─── Champ d'édition (mode édition pleine page, façon EmployeDetail) ─────────
+function EditField({ label, children }: { label: string; children: React.ReactNode }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">Modifier le dossier</h3>
-                <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        {(['prenom', 'nom'] as const).map(field => (
-                            <div key={field}>
-                                <label className="block text-xs text-gray-500 mb-1 capitalize">{field === 'prenom' ? 'Prénom' : 'Nom'}</label>
-                                <input name={field} value={form[field]} onChange={handleChange}
-                                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                       onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                       onBlur={e => e.target.style.boxShadow = 'none'}
-                                />
-                            </div>
-                        ))}
-                    </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Téléphone</label>
-                        <input name="telephone" value={form.telephone} onChange={handleChange}
-                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                               onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                               onBlur={e => e.target.style.boxShadow = 'none'}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Adresse</label>
-                        <input name="adresse" value={form.adresse} onChange={handleChange}
-                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                               onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                               onBlur={e => e.target.style.boxShadow = 'none'}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Groupe sanguin</label>
-                        <select name="groupe_sanguin" value={form.groupe_sanguin} onChange={handleChange}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                onBlur={e => e.target.style.boxShadow = 'none'}
-                        >
-                            <option value="">Inconnu</option>
-                            {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => (
-                                <option key={g} value={g}>{g}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="flex items-center gap-3 pt-1">
-                        <button type="button"
-                                onClick={() => setForm(prev => ({ ...prev, actif: !prev.actif }))}
-                                className="relative w-10 h-5 rounded-full transition-colors"
-                                style={{ backgroundColor: form.actif ? '#003152' : '#d1d5db' }}
-                        >
-                            <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
-                                  style={{ left: form.actif ? '22px' : '2px' }} />
-                        </button>
-                        <span className="text-sm text-gray-700">Patient {form.actif ? 'actif' : 'inactif'}</span>
-                    </div>
-                </div>
-                <div className="flex gap-3 mt-6">
-                    <button onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
-                        Annuler
-                    </button>
-                    <button onClick={() => onSave(form)}
-                            className="flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-medium"
-                            style={{ backgroundColor: '#003152' }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
-                    >
-                        Enregistrer
-                    </button>
-                </div>
-            </div>
+        <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</label>
+            {children}
         </div>
     )
 }
+
+const inputCls = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
 
 // ─── Modal d'ajout d'un antécédent manuel ────────────────────────────────────
 function AddAntecedentModal({ onSave, onCancel, loading }: {
@@ -346,7 +260,8 @@ export default function PatientDetail() {
     const navigate = useNavigate()
     const [patient, setPatient] = useState<Patient | null>(null)
     const [loading, setLoading] = useState(true)
-    const [showEdit, setShowEdit] = useState(false)
+    const [editing, setEditing] = useState(false)
+    const [saving, setSaving] = useState(false)
     const [showDelete, setShowDelete] = useState(false)
     const [deleteLoading, setDeleteLoading] = useState(false)
     const [saveError, setSaveError] = useState('')
@@ -356,6 +271,11 @@ export default function PatientDetail() {
     const [antecedents, setAntecedents] = useState<Antecedent[]>([])
     const [showAddAntecedent, setShowAddAntecedent] = useState(false)
     const [antecedentLoading, setAntecedentLoading] = useState(false)
+    const [services, setServices] = useState<Service[]>([])
+    const [medecins, setMedecins] = useState<Employe[]>([])
+
+    // Formulaire d'édition (mode pleine page, pas une petite modale)
+    const [form, setForm] = useState<Partial<Patient>>({})
 
     useEffect(() => {
         if (!id) return
@@ -366,7 +286,33 @@ export default function PatientDetail() {
         getSignesVitaux(Number(id)).then(setSignes).catch(() => {})
         getConsultations(Number(id)).then(setConsultations).catch(() => {})
         getAntecedents(Number(id)).then(setAntecedents).catch(() => {})
+        getServices().then(setServices).catch(() => {})
+        getEmployes().then(emps => setMedecins(emps.filter(e => e.role === 'medecin' && e.actif))).catch(() => {})
     }, [id])
+
+    const startEdit = () => {
+        if (!patient) return
+        setForm({
+            nom: patient.nom,
+            prenom: patient.prenom,
+            date_naissance: patient.date_naissance,
+            sexe: patient.sexe,
+            telephone: patient.telephone ?? '',
+            adresse: patient.adresse ?? '',
+            groupe_sanguin: patient.groupe_sanguin ?? '',
+            allergies: patient.allergies ?? '',
+            service: patient.service ?? null,
+            medecin_referent: patient.medecin_referent ?? null,
+            actif: patient.actif,
+        })
+        setSaveError('')
+        setEditing(true)
+    }
+
+    const cancelEdit = () => { setEditing(false); setSaveError('') }
+
+    const set = (key: keyof Patient, value: unknown) =>
+        setForm(f => ({ ...f, [key]: value }))
 
     const refreshAntecedents = () => {
         if (id) getAntecedents(Number(id)).then(setAntecedents)
@@ -406,17 +352,20 @@ export default function PatientDetail() {
         }
     }
 
-    const handleSave = async (updated: Partial<Patient>) => {
+    const handleSave = async () => {
         if (!patient) return
+        setSaving(true)
         setSaveError('')
         try {
-            const res = await updatePatient(patient.id, updated)
+            const res = await updatePatient(patient.id, form)
             setPatient(res)
-            setShowEdit(false)
+            setEditing(false)
             setSaveSuccess(true)
             setTimeout(() => setSaveSuccess(false), 3000)
         } catch {
-            setSaveError('Erreur lors de la mise à jour')
+            setSaveError('Erreur lors de la mise à jour. Vérifiez les informations.')
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -449,9 +398,6 @@ export default function PatientDetail() {
         <div className="min-h-screen bg-gray-50">
 
             {/* Modals */}
-            {showEdit && (
-                <EditModal patient={patient} onSave={handleSave} onCancel={() => setShowEdit(false)} />
-            )}
             {showDelete && (
                 <DeleteModal
                     name={`${patient.prenom} ${patient.nom}`}
@@ -487,10 +433,12 @@ export default function PatientDetail() {
                             {saveError}
                         </span>
                     )}
-                    <button onClick={() => setShowEdit(true)}
-                            className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
-                        ✏️ Modifier
-                    </button>
+                    {!editing && (
+                        <button onClick={startEdit}
+                                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                            ✏️ Modifier
+                        </button>
+                    )}
                     <button onClick={() => setShowDelete(true)}
                             className="px-4 py-2 text-sm font-medium rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors">
                         🗑️
@@ -598,22 +546,124 @@ export default function PatientDetail() {
                     </div>
                 )}
 
-                {/* ── Infos personnelles ── */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5">
-                    <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Informations personnelles</h2>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                        <InfoRow label="Prénom" value={patient.prenom} />
-                        <InfoRow label="Nom" value={patient.nom} />
-                        <InfoRow label="Date de naissance" value={formatDate(patient.date_naissance)} />
-                        <InfoRow label="Âge" value={`${age} ans`} />
-                        <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
-                        <InfoRow label="Groupe sanguin" value={patient.groupe_sanguin || 'Non renseigné'} />
-                        {patient.telephone && <InfoRow label="Téléphone" value={patient.telephone} />}
-                        {patient.adresse && <InfoRow label="Adresse" value={patient.adresse} />}
-                        <InfoRow label="ID dossier" value={`#${patient.id}`} mono />
-                        <InfoRow label="Créé le" value={formatDate(patient.date_creation)} />
+                {/* ── Infos personnelles (lecture) ── */}
+                {!editing && (
+                    <div className="bg-white rounded-xl border border-gray-100 p-5">
+                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Informations personnelles</h2>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                            <InfoRow label="Prénom" value={patient.prenom} />
+                            <InfoRow label="Nom" value={patient.nom} />
+                            <InfoRow label="Date de naissance" value={formatDate(patient.date_naissance)} />
+                            <InfoRow label="Âge" value={`${age} ans`} />
+                            <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
+                            <InfoRow label="Groupe sanguin" value={patient.groupe_sanguin || 'Non renseigné'} />
+                            {patient.telephone && <InfoRow label="Téléphone" value={patient.telephone} />}
+                            {patient.adresse && <InfoRow label="Adresse" value={patient.adresse} />}
+                            <InfoRow label="Service" value={patient.service_nom || 'Non assigné'} />
+                            <InfoRow label="Médecin référent" value={patient.medecin_nom || 'Non assigné'} />
+                            <InfoRow label="ID dossier" value={`#${patient.id}`} mono />
+                            <InfoRow label="N° dossier" value={patient.numero_dossier || '—'} mono />
+                            <InfoRow label="Créé le" value={formatDate(patient.date_creation)} />
+                        </div>
                     </div>
-                </div>
+                )}
+
+                {/* ── Infos personnelles (édition, pleine page façon EmployeDetail) ── */}
+                {editing && (
+                    <div className="space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+                            {/* Identité */}
+                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                    👤 Informations personnelles
+                                </h3>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <EditField label="Prénom">
+                                        <input className={inputCls} value={form.prenom ?? ''} onChange={e => set('prenom', e.target.value)} />
+                                    </EditField>
+                                    <EditField label="Nom">
+                                        <input className={inputCls} value={form.nom ?? ''} onChange={e => set('nom', e.target.value)} />
+                                    </EditField>
+                                </div>
+                                <EditField label="Date de naissance">
+                                    <input type="date" className={inputCls} value={form.date_naissance ?? ''} onChange={e => set('date_naissance', e.target.value)} />
+                                </EditField>
+                                <EditField label="Sexe">
+                                    <select className={inputCls} value={form.sexe ?? ''} onChange={e => set('sexe', e.target.value)}>
+                                        <option value="M">♂ Masculin</option>
+                                        <option value="F">♀ Féminin</option>
+                                    </select>
+                                </EditField>
+                                <EditField label="Téléphone">
+                                    <input className={inputCls} value={form.telephone ?? ''} onChange={e => set('telephone', e.target.value)} placeholder="+221 7X XXX XX XX" />
+                                </EditField>
+                                <EditField label="Adresse">
+                                    <input className={inputCls} value={form.adresse ?? ''} onChange={e => set('adresse', e.target.value)} />
+                                </EditField>
+                            </div>
+
+                            {/* Médical & administratif */}
+                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                    🩺 Médical & administratif
+                                </h3>
+                                <EditField label="Groupe sanguin">
+                                    <select className={inputCls} value={form.groupe_sanguin ?? ''} onChange={e => set('groupe_sanguin', e.target.value)}>
+                                        <option value="">Inconnu</option>
+                                        {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => (
+                                            <option key={g} value={g}>{g}</option>
+                                        ))}
+                                    </select>
+                                </EditField>
+                                <EditField label="Allergies (séparées par des virgules)">
+                                    <input className={inputCls} value={form.allergies ?? ''} onChange={e => set('allergies', e.target.value)} placeholder="Ex : Pénicilline, Arachide" />
+                                </EditField>
+                                <EditField label="Service">
+                                    <select className={inputCls} value={form.service ?? ''} onChange={e => set('service', e.target.value ? Number(e.target.value) : null)}>
+                                        <option value="">— Aucun service —</option>
+                                        {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                                    </select>
+                                </EditField>
+                                <EditField label="Médecin référent">
+                                    <select className={inputCls} value={form.medecin_referent ?? ''} onChange={e => set('medecin_referent', e.target.value ? Number(e.target.value) : null)}>
+                                        <option value="">— Aucun —</option>
+                                        {medecins.map(m => <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom}</option>)}
+                                    </select>
+                                </EditField>
+                                <EditField label="Statut du dossier">
+                                    <select className={inputCls} value={form.actif ? '1' : '0'} onChange={e => set('actif', e.target.value === '1')}>
+                                        <option value="1">Actif</option>
+                                        <option value="0">Inactif</option>
+                                    </select>
+                                </EditField>
+                            </div>
+                        </div>
+
+                        {saveError && (
+                            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
+                                <p className="text-sm text-red-600">{saveError}</p>
+                            </div>
+                        )}
+
+                        <div className="flex gap-3">
+                            <button onClick={cancelEdit}
+                                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleSave}
+                                disabled={saving}
+                                className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-white transition-colors"
+                                style={{ backgroundColor: saving ? '#9ca3af' : '#003152' }}
+                                onMouseEnter={e => { if (!saving) e.currentTarget.style.backgroundColor = '#004070' }}
+                                onMouseLeave={e => { if (!saving) e.currentTarget.style.backgroundColor = '#003152' }}
+                            >
+                                {saving ? 'Enregistrement…' : 'Sauvegarder les modifications'}
+                            </button>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Consultations & Signes vitaux (2 colonnes) ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 items-start">

@@ -16,6 +16,9 @@ import AddHospitalisation from './pages/AddHospitalisation'
 import Urgences from './pages/Urgences'
 import AccesRefuse from './pages/AccesRefuse'
 import EmployeDetail from './pages/EmployeDetail'
+import RendezVousPage from './pages/RendezVous'
+import Laboratoire from './pages/Laboratoire'
+
 
 function App() {
     return (
@@ -62,10 +65,22 @@ function App() {
                     </ProtectedRoute>
                 } />
 
+                {/* ── Admin, laborantin ── */}
+                <Route path="/laboratoire" element={
+                    <ProtectedRoute roles={['admin', 'laborantin']}>
+                        <Laboratoire />
+                    </ProtectedRoute>
+                } />
+
                 {/* ── Admin, médecin, secrétaire ── */}
                 <Route path="/patients/newPatient" element={
                     <ProtectedRoute roles={['admin', 'medecin', 'secretaire']}>
                         <AddPatient />
+                    </ProtectedRoute>
+                } />
+                <Route path="/rendez_vous" element={
+                    <ProtectedRoute roles={['admin', 'medecin', 'secretaire']}>
+                        <RendezVousPage />
                     </ProtectedRoute>
                 } />
 

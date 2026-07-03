@@ -18,6 +18,23 @@ export interface Patient {
     medecin_nom?: string | null
 }
 
+// ─── Rendez-vous ────────────────────────────────────────────────────────────
+export type StatutRendezVous = 'planifie' | 'confirme' | 'annule' | 'termine'
+
+export interface RendezVous {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_prenom?: string
+    patient_dossier?: string
+    date_heure: string
+    motif: string
+    statut: StatutRendezVous
+    statut_label?: string
+    notes?: string
+    date_creation: string
+}
+
 export interface AuthTokens {
     access: string
     refresh: string
@@ -96,6 +113,7 @@ export interface CurrentUser {
     id?: number
     nom?: string
     prenom?: string
+    specialite?: string
     service_id?: number | null
     service_nom?: string | null
 }
@@ -198,4 +216,55 @@ export interface PassageUrgence {
     temps_attente_minutes?: number
     date_creation: string
     date_modification: string
+}
+
+// ─── Analyses de laboratoire ────────────────────────────────────────────────
+export type TypeAnalyse =
+    | 'nfs' | 'glycemie' | 'bilan_renal' | 'bilan_hepatique' | 'bilan_lipidique'
+    | 'ionogramme' | 'crp' | 'groupe_sanguin' | 'hemostase' | 'urine' | 'parasite' | 'autre'
+export type StatutAnalyse = 'en_attente' | 'en_cours' | 'terminee' | 'annulee'
+export type UrgenceAnalyse = 'normale' | 'urgente'
+
+export interface DemandeAnalyse {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_dossier?: string
+    patient_prenom?: string
+    patient_nom_famille?: string
+    patient_age?: number
+    patient_sexe?: 'M' | 'F'
+    patient_groupe_sanguin?: string
+    patient_allergies?: string
+    consultation: number | null
+    demandeur: number | null
+    demandeur_nom?: string | null
+    laborantin: number | null
+    laborantin_nom?: string | null
+    type_analyse: TypeAnalyse
+    type_label?: string
+    urgence: UrgenceAnalyse
+    urgence_label?: string
+    statut: StatutAnalyse
+    statut_label?: string
+    notes_medecin: string
+    resultats: string
+    valeurs_normales: string
+    date_demande: string
+    date_resultat: string | null
+}
+
+// ─── Alertes ─────────────────────────────────────────────────────────────────
+export type TypeAlerte = 'tension' | 'glycemie' | 'temperature' | 'frequence' | 'rdv' | 'resultat_analyse' | 'autre'
+export type StatutAlerte = 'non_lue' | 'lue' | 'traitee'
+
+export interface Alerte {
+    id: number
+    patient: number
+    patient_nom?: string
+    type: TypeAlerte
+    type_label?: string
+    message: string
+    statut: StatutAlerte
+    date_creation: string
 }

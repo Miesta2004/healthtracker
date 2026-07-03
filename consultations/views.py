@@ -3,7 +3,7 @@ from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, get_employe
+from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, PeutVoirRendezVous, get_employe
 from .models import Consultation, RendezVous
 from .serializers import ConsultSerializer, RdvSerializer
 from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
@@ -88,7 +88,7 @@ class RdvViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
-            return [IsLectureAutorisee()]
+            return [PeutVoirRendezVous()]
         if self.action == 'destroy':
             return [IsAdminRole()]
         return [IsAuthenticated()]

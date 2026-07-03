@@ -4,9 +4,11 @@ import { getPatients } from '../api/patients'
 import { getFileAttente } from '../api/urgences'
 import { getHospitalisationsEnCours } from '../api/hospitalisations'
 import { getConsultations } from '../api/consultations'
+import { getRendezVous } from '../api/rendezvous'
 import { getEmployes } from '../api/comptes'
 import { getServices } from '../api/services'
-import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri } from '../types'
+import { getDemandesEnAttente } from '../api/analyses'
+import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from '../types'
 import Navbar from '../components/NavBar'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiCard, SkeletonSimpleList } from '../components/Skeleton'
@@ -78,20 +80,27 @@ export default function Dashboard() {
     const canSeeUrgences = hasRole('admin', 'medecin', 'infirmier')
     const canSeeHospit   = hasRole('admin', 'medecin')
     const canSeeConsult  = hasRole('admin', 'medecin', 'infirmier')
+    const canSeeRdv      = hasRole('admin', 'medecin', 'secretaire')
     const isAdmin        = hasRole('admin')
     const isNurse        = hasRole('infirmier')
+    const isSecretaire   = hasRole('secretaire')
 
     const [patients,         setPatients]         = useState<Patient[] | null>(null)
     const [urgences,         setUrgences]         = useState<PassageUrgence[] | null>(null)
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null)
     const [consultations,    setConsultations]    = useState<Consultation[] | null>(null)
+    const [rendezVous,       setRendezVous]       = useState<RendezVous[] | null>(null)
     const [effectif,         setEffectif]         = useState<{ employes: number; services: number } | null>(null)
+    const [demandesEnAttente, setDemandesEnAttente] = useState<number | null>(null)
+
 
     useEffect(() => {
         if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]))
         if (canSeeUrgences) getFileAttente().then(setUrgences).catch(() => setUrgences([]))
         if (canSeeHospit) getHospitalisationsEnCours().then(setHospitalisations).catch(() => setHospitalisations([]))
         if (canSeeConsult)  getConsultations().then(setConsultations).catch(() => setConsultations([]))
+        if (canSeeRdv) getRendezVous().then(setRendezVous).catch(() => setRendezVous([]))
+        if (hasRole('laborantin')) getDemandesEnAttente().then(d => setDemandesEnAttente(d.length)).catch(() => setDemandesEnAttente(0))
         if (isAdmin) {
             Promise.all([getEmployes(), getServices()])
                 .then(([emps, servs]) => setEffectif({
@@ -124,6 +133,14 @@ export default function Dashboard() {
         const now = new Date()
         return d.toDateString() === now.toDateString()
     }) ?? []
+
+    const rdvAujourdhui = (rendezVous ?? [])
+        .filter(r => {
+            const d = new Date(r.date_heure)
+            const now = new Date()
+            return d.toDateString() === now.toDateString() && r.statut !== 'annule'
+        })
+        .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime())
 
     const calcAge = (dateStr: string) => {
         const today = new Date()
@@ -169,6 +186,14 @@ export default function Dashboard() {
                             onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
                         >
                             + Nouveau patient
+                        </button>
+                    )}
+                    {isSecretaire && (
+                        <button
+                            onClick={() => navigate('/rendez_vous')}
+                            className="text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                            📅 Gérer les rendez-vous
                         </button>
                     )}
                     {isNurse && (
@@ -228,6 +253,13 @@ export default function Dashboard() {
                             consultations === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="Consultations aujourd'hui" value={consultationsAujourdhui.length} icon="🩺"
                                           sub={consultationsAujourdhui.length > 0 ? 'programmées ou réalisées' : 'Aucune'} />
+                            )
+                        )}
+                        {canSeeRdv && (
+                            rendezVous === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Rendez-vous aujourd'hui" value={rdvAujourdhui.length} icon="📅"
+                                          sub={rdvAujourdhui.length > 0 ? 'planifiés aujourd\'hui' : 'Aucun'}
+                                          onClick={() => navigate('/rendez_vous')} />
                             )
                         )}
                         {isAdmin && (
@@ -330,6 +362,34 @@ export default function Dashboard() {
                         </WidgetCard>
                     )}
 
+                    {canSeeRdv && (
+                        <WidgetCard
+                            title="Rendez-vous du jour"
+                            count={rdvAujourdhui.length}
+                            loading={rendezVous === null}
+                            empty={rdvAujourdhui.length === 0}
+                            emptyLabel="Aucun rendez-vous prévu aujourd'hui"
+                            linkLabel="Voir tous les rendez-vous"
+                            onLink={() => navigate('/rendez_vous')}
+                        >
+                            <div className="divide-y divide-gray-50">
+                                {rdvAujourdhui.slice(0, 5).map(r => (
+                                    <div key={r.id} className="px-5 py-3 flex items-center gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                                {r.patient_prenom} {r.patient_nom}
+                                            </p>
+                                            <p className="text-xs text-gray-400 truncate">{r.motif}</p>
+                                        </div>
+                                        <span className="text-xs font-medium text-gray-500">
+                                            {new Date(r.date_heure).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </WidgetCard>
+                    )}
+
                     {canSeeConsult && (
                         <WidgetCard
                             title="Consultations du jour"
@@ -359,9 +419,28 @@ export default function Dashboard() {
                 </div>
 
                 {hasRole('laborantin') && (
-                    <div className="bg-white rounded-xl border border-gray-100 p-10 text-center">
-                        <p className="text-4xl mb-3">🧪</p>
-                        <p className="text-gray-500 text-sm">L'espace laboratoire arrive bientôt.</p>
+                    <div className="bg-white rounded-xl border border-gray-100 p-8 flex items-center justify-between gap-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                                 style={{ backgroundColor: '#f0f7ff' }}>
+                                🧪
+                            </div>
+                            <div>
+                                <p className="text-sm font-semibold text-gray-900">
+                                    {demandesEnAttente === null
+                                        ? 'Chargement des demandes…'
+                                        : demandesEnAttente === 0
+                                            ? 'Aucune demande en attente'
+                                            : `${demandesEnAttente} demande${demandesEnAttente > 1 ? 's' : ''} en attente de traitement`}
+                                </p>
+                                <p className="text-xs text-gray-400 mt-0.5">Retrouve toutes les demandes d'analyses de ton service</p>
+                            </div>
+                        </div>
+                        <button onClick={() => navigate('/laboratoire')}
+                                className="text-sm font-medium px-4 py-2.5 rounded-lg text-white transition-colors flex-shrink-0"
+                                style={{ backgroundColor: '#003152' }}>
+                            Ouvrir le laboratoire →
+                        </button>
                     </div>
                 )}
             </div>
