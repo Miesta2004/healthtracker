@@ -33,10 +33,9 @@ function ServiceModal({ service, onClose, onSave} : {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center"
-             style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+        <div className="ht-modal-overlay"
              onClick={onClose}>
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6"
+            <div className="ht-modal ht-modal-md"
                  onClick={e => e.stopPropagation()}>
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">
                     {service ? 'Modifier le service' : 'Nouveau service'}
@@ -55,9 +54,7 @@ function ServiceModal({ service, onClose, onSave} : {
                             type="text" required value={form.nom}
                             onChange={e => setForm({ ...form, nom: e.target.value })}
                             placeholder="Ex: Cardiologie"
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                            onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                            onBlur={e => e.target.style.boxShadow = 'none'}
+                            className="ht-input w-full px-3 py-2.5 text-sm"
                         />
                     </div>
                     <div>
@@ -66,19 +63,16 @@ function ServiceModal({ service, onClose, onSave} : {
                             value={form.description}
                             onChange={e => setForm({ ...form, description: e.target.value })}
                             rows={3} placeholder="Description du service..."
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none resize-none"
-                            onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                            onBlur={e => e.target.style.boxShadow = 'none'}
+                            className="ht-input w-full px-3 py-2.5 text-sm resize-none"
                         />
                     </div>
                     <div className="flex gap-3 justify-end pt-2">
                         <button type="button" onClick={onClose}
-                                className="px-4 py-2 text-sm text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50">
+                                className="btn btn-ghost">
                             Annuler
                         </button>
                         <button type="submit" disabled={loading}
-                                className="px-4 py-2 text-sm font-medium text-white rounded-lg"
-                                style={{ backgroundColor: loading ? '#5a8aaa' : '#003152' }}>
+                                className="btn btn-primary">
                             {loading ? 'Sauvegarde...' : service ? 'Modifier' : 'Créer'}
                         </button>
                     </div>
@@ -96,13 +90,11 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
     onToggle: () => void
 }) {
     return (
-        <div className={`bg-white rounded-xl border p-5 transition-all ${
-            service.actif ? 'border-gray-100' : 'border-gray-100 opacity-60'
-        }`}>
+        <div className={`ht-card ht-card-padded-sm ${service.actif ? '' : 'opacity-60'}`}>
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                         style={{ backgroundColor: '#EFF6FF' }}>
+                         style={{ backgroundColor: 'var(--ht-primary-light)' }}>
                         🏥
                     </div>
                     <div>
@@ -126,7 +118,7 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 mb-4">
                 <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold" style={{ color: '#003152' }}>
+                    <p className="text-lg font-bold" style={{ color: 'var(--ht-primary)' }}>
                         {service.nb_employes}
                     </p>
                     <p className="text-xs text-gray-400">Employés</p>
@@ -140,11 +132,11 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
             {/* Actions */}
             <div className="flex gap-2">
                 <button onClick={onEdit}
-                        className="flex-1 text-xs py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                        className="btn btn-ghost btn-sm flex-1">
                     ✏️ Modifier
                 </button>
                 <button onClick={onToggle}
-                        className="flex-1 text-xs py-1.5 border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors">
+                        className="btn btn-ghost btn-sm flex-1">
                     {service.actif ? '⏸ Désactiver' : '▶ Activer'}
                 </button>
                 <button onClick={onDelete}
@@ -201,7 +193,7 @@ export default function Services(){
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
 
             {/* Modal */}
             {modalOpen && (
@@ -236,7 +228,7 @@ export default function Services(){
                         { label: 'Employés total', value: stats.totalEmployes, icon: '👥' },
                         { label: 'Patients total', value: stats.totalPatients, icon: '🧑‍⚕️' },
                     ].map(s => (
-                        <div key={s.label} className="bg-white rounded-xl border border-gray-100 p-4 flex items-center gap-3">
+                        <div key={s.label} className="ht-card p-4 flex items-center gap-3">
                             <span className="text-2xl">{s.icon}</span>
                             <div>
                                 <p className="text-xs text-gray-400">{s.label}</p>
@@ -254,8 +246,7 @@ export default function Services(){
                         <p className="text-4xl mb-3">🏥</p>
                         <p className="text-gray-400 text-sm">Aucun service créé</p>
                         <button onClick={() => setModalOpen(true)}
-                                className="mt-4 text-sm font-medium px-4 py-2 rounded-lg text-white"
-                                style={{ backgroundColor: '#003152' }}>
+                                className="btn btn-primary mt-4">
                             Créer le premier service
                         </button>
                     </div>

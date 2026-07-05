@@ -95,10 +95,10 @@ function StatBox({ label, value, unit, highlight = false }: {
     label: string; value: string; unit: string; highlight?: boolean
 }) {
     return (
-        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: highlight ? '#003152' : '#f8fafc' }}>
-            <p className="text-xs mb-1" style={{ color: highlight ? '#ADDFF1' : '#9ca3af' }}>{label}</p>
-            <p className="text-lg font-bold" style={{ color: highlight ? 'white' : '#111827' }}>{value}</p>
-            <p className="text-xs" style={{ color: highlight ? '#ADDFF1' : '#6b7280' }}>{unit}</p>
+        <div className="rounded-xl p-3 text-center" style={{ backgroundColor: highlight ? 'var(--ht-primary)' : 'var(--ht-bg)' }}>
+            <p className="text-xs mb-1" style={{ color: highlight ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{label}</p>
+            <p className="text-lg font-bold" style={{ color: highlight ? 'white' : 'var(--ht-text)' }}>{value}</p>
+            <p className="text-xs" style={{ color: highlight ? 'var(--ht-primary-tint)' : 'var(--ht-muted)' }}>{unit}</p>
         </div>
     )
 }
@@ -188,7 +188,7 @@ function DetailSidebar({ signeKey, data, onClose }: {
                     {/* Alerte si hors norme */}
                     {isAlert && (
                         <div className="rounded-xl p-3 flex gap-2 items-start"
-                             style={{ backgroundColor: '#fff5f5', border: '1px solid #fecaca' }}>
+                             style={{ backgroundColor: 'var(--ht-danger-bg-light)', border: '1px solid #fecaca' }}>
                             <span>⚠️</span>
                             <div>
                                 <p className="text-xs font-semibold text-red-700">Valeur hors norme</p>
@@ -202,7 +202,7 @@ function DetailSidebar({ signeKey, data, onClose }: {
 
                     {/* Dernière valeur + tendance */}
                     <div className="rounded-2xl p-4 flex items-center justify-between"
-                         style={{ backgroundColor: '#003152' }}>
+                         style={{ backgroundColor: 'var(--ht-primary)' }}>
                         <div>
                             <p className="text-xs text-blue-300 mb-1">Dernière mesure</p>
                             <p className="text-3xl font-bold text-white">
@@ -256,8 +256,8 @@ function DetailSidebar({ signeKey, data, onClose }: {
                             {signeKey === 'tension' ? (
                                 <LineChart data={chartTension}>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} domain={[50, 200]} />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={[50, 200]} />
                                     <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                              formatter={(v, n) => [`${v} mmHg`, n === 'sys' ? 'Systolique' : 'Diastolique']} />
                                     {cfg.normal && <>
@@ -276,8 +276,8 @@ function DetailSidebar({ signeKey, data, onClose }: {
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} domain={cfg.domain} />
+                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={cfg.domain} />
                                     <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                              formatter={(v) => [`${v} ${cfg.unit}`, cfg.label]} />
                                     {cfg.normal && <>
@@ -315,8 +315,8 @@ function DetailSidebar({ signeKey, data, onClose }: {
                                         </linearGradient>
                                     </defs>
                                     <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                    <XAxis dataKey="heure" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                    <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} domain={cfg.domain} />
+                                    <XAxis dataKey="heure" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                    <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={cfg.domain} />
                                     <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                              formatter={(v) => [`${v} ${cfg.unit}`, cfg.label]} />
                                     <Area type="monotone" dataKey="val" stroke={cfg.color} strokeWidth={2}
@@ -328,11 +328,11 @@ function DetailSidebar({ signeKey, data, onClose }: {
 
                     {/* Infos cliniques */}
                     <div className="rounded-xl p-4 text-xs text-gray-600 leading-relaxed"
-                         style={{ backgroundColor: '#f0f8ff', border: '1px solid #ADDFF1' }}>
+                         style={{ backgroundColor: 'var(--ht-primary-light)', border: '1px solid var(--ht-primary-tint)' }}>
                         <p className="font-semibold text-gray-700 mb-1">ℹ️ Information clinique</p>
                         <p>{cfg.description}</p>
                         {cfg.normal && (
-                            <p className="mt-1 font-medium" style={{ color: '#003152' }}>
+                            <p className="mt-1 font-medium" style={{ color: 'var(--ht-primary)' }}>
                                 Valeurs normales : {cfg.normal.min} – {cfg.normal.max} {cfg.unit}
                             </p>
                         )}
@@ -347,10 +347,10 @@ function DetailSidebar({ signeKey, data, onClose }: {
                                 const isLow = cfg.alertMin && x.val < cfg.alertMin
                                 return (
                                     <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg"
-                                         style={{ backgroundColor: isHigh || isLow ? '#fff5f5' : '#f9fafb' }}>
+                                         style={{ backgroundColor: isHigh || isLow ? 'var(--ht-danger-bg-light)' : 'var(--ht-bg)' }}>
                                         <span className="text-xs text-gray-500">{fmtFull(x.date)}</span>
                                         <span className="text-sm font-semibold"
-                                              style={{ color: isHigh || isLow ? '#dc2626' : '#003152' }}>
+                                              style={{ color: isHigh || isLow ? '#dc2626' : 'var(--ht-primary)' }}>
                                             {x.val} {cfg.unit}
                                             {(isHigh || isLow) && <span className="ml-1 text-xs">⚠</span>}
                                         </span>
@@ -395,7 +395,7 @@ function SummaryCard({ signeKey, data, onClick }: {
         <div
             onClick={onClick}
             className="bg-white rounded-xl border p-4 cursor-pointer transition-all hover:shadow-md hover:-translate-y-0.5 group"
-            style={{ borderColor: isAlert ? '#fecaca' : '#f3f4f6' }}
+            style={{ borderColor: isAlert ? '#fecaca' : 'var(--ht-muted-bg)' }}
         >
             <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
@@ -420,14 +420,14 @@ function SummaryCard({ signeKey, data, onClick }: {
 
             <div className="flex items-end justify-between">
                 <div>
-                    <p className="text-2xl font-bold" style={{ color: isAlert ? '#dc2626' : '#111827' }}>
+                    <p className="text-2xl font-bold" style={{ color: isAlert ? '#dc2626' : 'var(--ht-text)' }}>
                         {last ?? '—'}
                     </p>
                     <p className="text-xs text-gray-400">{cfg.unit}</p>
                 </div>
                 <div className="text-right">
                     {diff !== null && (
-                        <p className="text-xs font-medium" style={{ color: diff > 0 ? '#ef4444' : diff < 0 ? '#10b981' : '#6b7280' }}>
+                        <p className="text-xs font-medium" style={{ color: diff > 0 ? '#ef4444' : diff < 0 ? '#10b981' : 'var(--ht-muted)' }}>
                             {diff > 0 ? '▲' : diff < 0 ? '▼' : '─'} {Math.abs(diff)}
                         </p>
                     )}
@@ -450,7 +450,7 @@ export default function SignesVitauxCharts({ data }: Props) {
     )
 
     if (data.length === 0) return (
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <div className="ht-card p-6">
             <p className="text-sm text-gray-400 text-center py-8">
                 Aucune mesure enregistrée pour ce patient
             </p>
@@ -481,7 +481,10 @@ export default function SignesVitauxCharts({ data }: Props) {
             <div className="space-y-5">
 
                 {/* ── Cards résumé cliquables ── */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                <h3 className="text-sm font-semibold text-gray-900 mb-4">
+                    Dernières mesures
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
                     {(Object.keys(SIGNES_CONFIG) as SigneKey[]).map(key => (
                         <SummaryCard
                             key={key}
@@ -497,8 +500,8 @@ export default function SignesVitauxCharts({ data }: Props) {
                     <ResponsiveContainer width="100%" height={200}>
                         <LineChart data={chart30}>
                             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#9ca3af' }} />
-                            <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} domain={[50, 200]} />
+                            <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--ht-text-muted)' }} />
+                            <YAxis tick={{ fontSize: 11, fill: 'var(--ht-text-muted)' }} domain={[50, 200]} />
                             <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #e5e7eb' }}
                                      formatter={(v, n) => [`${v} mmHg`, n === 'tension_systolique' ? 'Systolique' : 'Diastolique']} />
                             <ReferenceLine y={140} stroke="#fca5a5" strokeDasharray="4 2" />
@@ -521,8 +524,8 @@ export default function SignesVitauxCharts({ data }: Props) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} domain={[2, 12]} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={[2, 12]} />
                                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                          formatter={(v) => [`${v} mmol/L`, 'Glycémie']} />
                                 <ReferenceLine y={7.8} stroke="#fca5a5" strokeDasharray="4 2" />
@@ -542,8 +545,8 @@ export default function SignesVitauxCharts({ data }: Props) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} domain={[35, 42]} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={[35, 42]} />
                                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                          formatter={(v) => [`${v} °C`, 'Température']} />
                                 <ReferenceLine y={38} stroke="#fca5a5" strokeDasharray="4 2" />
@@ -566,8 +569,8 @@ export default function SignesVitauxCharts({ data }: Props) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
                                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                          formatter={(v) => [`${v} kg`, 'Poids']} />
                                 <Area type="monotone" dataKey="poids" stroke="#8B5CF6" strokeWidth={2} fill="url(#gradPoids)" dot={{ r: 2 }} connectNulls />
@@ -585,8 +588,8 @@ export default function SignesVitauxCharts({ data }: Props) {
                                     </linearGradient>
                                 </defs>
                                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
-                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: '#9ca3af' }} />
-                                <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} domain={[30, 150]} />
+                                <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={[30, 150]} />
                                 <Tooltip contentStyle={{ fontSize: 11, borderRadius: 8 }}
                                          formatter={(v) => [`${v} bpm`, 'FC']} />
                                 <ReferenceLine y={100} stroke="#fca5a5" strokeDasharray="4 2" />
@@ -608,7 +611,7 @@ function ChartCard({ title, unit, children, onClick }: {
     return (
         <div
             onClick={onClick}
-            className="bg-white rounded-xl border border-gray-100 p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
+            className="ht-card p-5 cursor-pointer hover:shadow-md hover:-translate-y-0.5 transition-all"
         >
             <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-medium text-gray-900">{title}</h3>

@@ -18,8 +18,8 @@ function formatDateTime(dateStr: string) {
 
 const STATUT_CONFIG: Record<StatutHospitalisation, { label: string; color: string; bg: string }> = {
     en_cours:   { label: 'En cours',   color: '#1d4ed8', bg: '#dbeafe' },
-    terminee:   { label: 'Terminée',   color: '#15803d', bg: '#dcfce7' },
-    transferee: { label: 'Transférée', color: '#b45309', bg: '#fef3c7' },
+    terminee:   { label: 'Terminée',   color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' },
+    transferee: { label: 'Transférée', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
 }
 
 function StatutBadge({ statut }: { statut: StatutHospitalisation }) {
@@ -46,13 +46,13 @@ function HospitalisationCard({
     const [expanded, setExpanded] = useState(false)
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="ht-card overflow-hidden">
             <button
                 className="w-full text-left px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
                 onClick={() => setExpanded(p => !p)}
             >
                 <div className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-sm"
-                     style={{ backgroundColor: '#003152', color: 'white' }}>
+                     style={{ backgroundColor: 'var(--ht-primary)', color: 'white' }}>
                     🏥
                 </div>
                 <div className="flex-1 min-w-0">
@@ -72,7 +72,7 @@ function HospitalisationCard({
                         <button
                             onClick={e => { e.stopPropagation(); onSortie(hosp) }}
                             className="px-2.5 py-1 text-xs font-medium rounded-lg transition-colors"
-                            style={{ color: '#15803d', backgroundColor: '#dcfce7' }}
+                            style={{ color: 'var(--ht-success)', backgroundColor: 'var(--ht-success-bg)' }}
                         >
                             Sortie
                         </button>
@@ -119,12 +119,12 @@ function HospitalisationCard({
 
 function DeleteModal({ onConfirm, onCancel, loading }: { onConfirm: () => void; onCancel: () => void; loading: boolean }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm">
                 <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer cette hospitalisation ?</h3>
                 <p className="text-sm text-gray-500 mb-6">Cette action est irréversible.</p>
                 <div className="flex gap-3">
-                    <button onClick={onCancel} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onCancel} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button onClick={onConfirm} disabled={loading}
@@ -147,28 +147,27 @@ function SortieModal({ hosp, onConfirm, onCancel }: {
     const [loading, setLoading] = useState(false)
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 space-y-4">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Enregistrer la sortie de {hosp.patient_nom}</h3>
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Diagnostic de sortie</label>
                     <textarea value={diagnosticSortie} onChange={e => setDiagnosticSortie(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                              className="ht-input w-full px-3 py-2.5 text-sm" />
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes</label>
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                              className="ht-input w-full px-3 py-2.5 text-sm" />
                 </div>
                 <div className="flex gap-3">
-                    <button onClick={onCancel} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onCancel} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button
                         onClick={() => { setLoading(true); onConfirm({ diagnostic_sortie: diagnosticSortie, notes }) }}
                         disabled={loading}
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                        style={{ backgroundColor: '#003152' }}
+                        className="btn btn-primary flex-1"
                     >
                         {loading ? 'Enregistrement…' : 'Confirmer la sortie'}
                     </button>
@@ -216,17 +215,14 @@ export default function Hospitalisations({
                 <h2 className="text-sm font-semibold text-gray-900">Hospitalisations</h2>
                 <button
                     onClick={() => navigate(`/patients/${patientId}/hospitalisations/new`)}
-                    className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors"
-                    style={{ backgroundColor: '#003152' }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                    className="btn btn-primary btn-sm"
                 >
                     + Nouvelle hospitalisation
                 </button>
             </div>
 
             {hospitalisations.length === 0 ? (
-                <div className="bg-white rounded-xl border border-gray-100 p-6 text-center text-sm text-gray-400">
+                <div className="ht-card p-6 text-center text-sm text-gray-400">
                     Aucune hospitalisation enregistrée.
                 </div>
             ) : (

@@ -15,17 +15,17 @@ import { SkeletonSimpleList } from '../components/Skeleton'
 
 // ─── Config triage ────────────────────────────────────────────────────────────
 const TRI_CONFIG: Record<number, { label: string; color: string; bg: string }> = {
-    1: { label: '1 — Vital',        color: '#fff', bg: '#dc2626' },
-    2: { label: '2 — Très urgent',  color: '#fff', bg: '#ea580c' },
-    3: { label: '3 — Urgent',       color: '#7c2d12', bg: '#fde68a' },
-    4: { label: '4 — Peu urgent',   color: '#166534', bg: '#bbf7d0' },
-    5: { label: '5 — Non urgent',   color: '#374151', bg: '#f3f4f6' },
+    1: { label: '1 — Vital',        color: 'var(--tri-1-text)', bg: 'var(--tri-1-bg)' },
+    2: { label: '2 — Très urgent',  color: 'var(--tri-2-text)', bg: 'var(--tri-2-bg)' },
+    3: { label: '3 — Urgent',       color: 'var(--tri-3-text)', bg: 'var(--tri-3-bg)' },
+    4: { label: '4 — Peu urgent',   color: 'var(--tri-4-text)', bg: 'var(--tri-4-bg)' },
+    5: { label: '5 — Non urgent',   color: 'var(--tri-5-text)', bg: 'var(--tri-5-bg)' },
 }
 
 const STATUT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    en_attente:      { label: 'En attente',      color: '#b45309', bg: '#fef3c7' },
+    en_attente:      { label: 'En attente',      color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
     en_consultation: { label: 'En consultation', color: '#1d4ed8', bg: '#dbeafe' },
-    sorti:           { label: 'Sorti',           color: '#6b7280', bg: '#f3f4f6' },
+    sorti:           { label: 'Sorti',           color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
 }
 
 const MODE_LABELS: Record<ModeArrivee, string> = {
@@ -34,10 +34,9 @@ const MODE_LABELS: Record<ModeArrivee, string> = {
 }
 
 function TriBadge({ niveau }: { niveau: NiveauTri | null }) {
-    const cfg = niveau ? TRI_CONFIG[niveau] : { label: 'Non trié', color: '#374151', bg: '#f3f4f6' }
+    const cfg = niveau ? TRI_CONFIG[niveau] : { label: 'Non trié', color: 'var(--ht-text)', bg: 'var(--ht-muted-bg)' }
     return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
-              style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+        <span className="badge" style={{ color: cfg.color, backgroundColor: cfg.bg }}>
             {cfg.label}
         </span>
     )
@@ -46,8 +45,7 @@ function TriBadge({ niveau }: { niveau: NiveauTri | null }) {
 function StatutBadge({ statut }: { statut: string }) {
     const cfg = STATUT_CONFIG[statut]
     return (
-        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
-              style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+        <span className="badge" style={{ color: cfg.color, backgroundColor: cfg.bg }}>
             {cfg.label}
         </span>
     )
@@ -113,8 +111,8 @@ function NouveauPassageModal({ onClose, onCreated }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto">
                 <h3 className="text-base font-semibold text-gray-900">Nouvel arrivant aux urgences</h3>
 
                 <div>
@@ -131,7 +129,7 @@ function NouveauPassageModal({ onClose, onCreated }: {
                                 placeholder="Rechercher un patient par nom, prénom ou n° de dossier…"
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                                className="ht-input w-full px-3 py-2.5 text-sm"
                             />
                             {search.trim().length >= 2 && (
                                 <div className="mt-1 border border-gray-100 rounded-lg overflow-hidden">
@@ -160,7 +158,7 @@ function NouveauPassageModal({ onClose, onCreated }: {
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Niveau de tri</label>
                         <select value={niveauTri} onChange={e => setNiveauTri(e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                                className="ht-input w-full px-3 py-2.5 text-sm">
                             <option value="">— À déterminer —</option>
                             {[1, 2, 3, 4, 5].map(n => (
                                 <option key={n} value={n}>{TRI_CONFIG[n].label}</option>
@@ -170,7 +168,7 @@ function NouveauPassageModal({ onClose, onCreated }: {
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Mode d'arrivée</label>
                         <select value={modeArrivee} onChange={e => setModeArrivee(e.target.value as ModeArrivee)}
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                                className="ht-input w-full px-3 py-2.5 text-sm">
                             {Object.entries(MODE_LABELS).map(([k, v]) => (
                                 <option key={k} value={k}>{v}</option>
                             ))}
@@ -181,20 +179,19 @@ function NouveauPassageModal({ onClose, onCreated }: {
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Motif de venue</label>
                     <textarea value={motif} onChange={e => setMotif(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                              className="ht-input w-full px-3 py-2.5 text-sm" />
                 </div>
 
                 {erreur && <p className="text-sm text-red-500">{erreur}</p>}
 
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={!patientId || !motif.trim() || submitting}
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                        style={{ backgroundColor: !patientId || !motif.trim() || submitting ? '#9ca3af' : '#003152' }}
+                        className="btn btn-primary flex-1"
                     >
                         {submitting ? 'Enregistrement…' : "Enregistrer l'arrivée"}
                     </button>
@@ -231,13 +228,13 @@ function SortieModal({ passage, onClose, onUpdated, onAdmettre }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Sortie de {passage.patient_nom}</h3>
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Décision</label>
                     <select value={decision} onChange={e => setDecision(e.target.value)}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                            className="ht-input w-full px-3 py-2.5 text-sm">
                         <option value="domicile">Retour à domicile</option>
                         <option value="hospitalisation">Hospitalisation</option>
                         <option value="transfert">Transfert vers un autre établissement</option>
@@ -250,12 +247,12 @@ function SortieModal({ passage, onClose, onUpdated, onAdmettre }: {
                         <div>
                             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Diagnostic</label>
                             <textarea value={diagnostic} onChange={e => setDiagnostic(e.target.value)} rows={2}
-                                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                                      className="ht-input w-full px-3 py-2.5 text-sm" />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes</label>
                             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                                      className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                                      className="ht-input w-full px-3 py-2.5 text-sm" />
                         </div>
                     </>
                 )}
@@ -263,14 +260,13 @@ function SortieModal({ passage, onClose, onUpdated, onAdmettre }: {
                     <p className="text-xs text-gray-400">Tu seras redirigé vers le formulaire d'admission pour préciser le service, la chambre et le lit.</p>
                 )}
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={submitting}
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                        style={{ backgroundColor: '#003152' }}
+                        className="btn btn-primary flex-1"
                     >
                         {decision === 'hospitalisation' ? 'Continuer' : (submitting ? 'Enregistrement…' : 'Confirmer la sortie')}
                     </button>
@@ -310,14 +306,14 @@ function AdmettreModal({ passage, services, onClose, onUpdated }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full space-y-4">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4">
                 <h3 className="text-base font-semibold text-gray-900">Admettre {passage.patient_nom}</h3>
                 <div className="grid grid-cols-2 gap-4">
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Service</label>
                         <select value={serviceId} onChange={e => setServiceId(e.target.value)}
-                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                                className="ht-input w-full px-3 py-2.5 text-sm">
                             <option value="">— Sélectionner —</option>
                             {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                         </select>
@@ -325,28 +321,27 @@ function AdmettreModal({ passage, services, onClose, onUpdated }: {
                     <div>
                         <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Chambre</label>
                         <input type="text" value={chambre} onChange={e => setChambre(e.target.value)}
-                               className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" placeholder="ex : 204" />
+                               className="ht-input w-full px-3 py-2.5 text-sm" placeholder="ex : 204" />
                     </div>
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Lit</label>
                     <input type="text" value={lit} onChange={e => setLit(e.target.value)}
-                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" placeholder="ex : B" />
+                           className="ht-input w-full px-3 py-2.5 text-sm" placeholder="ex : B" />
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Diagnostic d'entrée</label>
                     <textarea value={diagnosticEntree} onChange={e => setDiagnosticEntree(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                              className="ht-input w-full px-3 py-2.5 text-sm" />
                 </div>
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={submitting}
-                        className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                        style={{ backgroundColor: '#003152' }}
+                        className="btn btn-primary flex-1"
                     >
                         {submitting ? 'Admission…' : "Confirmer l'admission"}
                     </button>
@@ -364,7 +359,7 @@ function PassageCard({ passage, onPriseEnCharge, onSortie }: {
 }) {
     const navigate = useNavigate()
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-4 flex items-start gap-4">
+        <div className="ht-card p-4 flex items-start gap-4">
             <TriBadge niveau={passage.niveau_tri} />
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -386,15 +381,13 @@ function PassageCard({ passage, onPriseEnCharge, onSortie }: {
             <div className="flex flex-col gap-2 flex-shrink-0">
                 {passage.statut === 'en_attente' && (
                     <button onClick={() => onPriseEnCharge(passage)}
-                            className="px-3 py-1.5 text-xs font-medium rounded-lg text-white transition-colors"
-                            style={{ backgroundColor: '#003152' }}>
+                            className="btn btn-primary btn-sm">
                         Prendre en charge
                     </button>
                 )}
                 {passage.statut === 'en_consultation' && (
                     <button onClick={() => onSortie(passage)}
-                            className="px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
-                            style={{ color: '#15803d', backgroundColor: '#dcfce7' }}>
+                            className="btn btn-success btn-sm">
                         Enregistrer la sortie
                     </button>
                 )}
@@ -443,7 +436,7 @@ export default function Urgences() {
     const enConsultation = passages.filter(p => p.statut === 'en_consultation')
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
             <Navbar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
@@ -455,21 +448,18 @@ export default function Urgences() {
                     </div>
                     <button
                         onClick={() => setShowNouveau(true)}
-                        className="text-sm font-medium px-4 py-2.5 rounded-lg text-white transition-colors flex-shrink-0"
-                        style={{ backgroundColor: '#003152' }}
-                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                        className="btn btn-primary flex-shrink-0"
                     >
                         + Nouvel arrivant
                     </button>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                    <div className="ht-card p-4 text-center">
                         <p className="text-2xl font-bold text-gray-900">{enAttente.length}</p>
                         <p className="text-xs text-gray-400 mt-1">En attente</p>
                     </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-4 text-center">
+                    <div className="ht-card p-4 text-center">
                         <p className="text-2xl font-bold text-gray-900">{enConsultation.length}</p>
                         <p className="text-xs text-gray-400 mt-1">En consultation</p>
                     </div>
@@ -480,11 +470,11 @@ export default function Urgences() {
                         File d'attente (triée par gravité)
                     </h2>
                     {loading ? (
-                        <div className="bg-white rounded-xl border border-gray-100">
+                        <div className="ht-card">
                             <SkeletonSimpleList rows={4} />
                         </div>
                     ) : passages.length === 0 ? (
-                        <div className="bg-white rounded-xl border border-gray-100 p-6 text-center text-sm text-gray-400">
+                        <div className="ht-card p-6 text-center text-sm text-gray-400">
                             Aucun patient actuellement aux urgences.
                         </div>
                     ) : (

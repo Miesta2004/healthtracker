@@ -17,11 +17,11 @@ const ROLE_LABELS: Record<RoleEmploye, string> = {
     laborantin: 'Laborantin',
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
-    admin: '#003152',
-    medecin: '#0e7490',
-    infirmier: '#16a34a',
-    secretaire: '#9333ea',
-    laborantin: '#ea580c',
+    admin: 'var(--ht-primary)',
+    medecin: 'var(--role-medecin)',
+    infirmier: 'var(--role-infirmier)',
+    secretaire: 'var(--role-secretaire)',
+    laborantin: 'var(--role-laborantin)',
 }
 const ROLES: RoleEmploye[] = ['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin']
 
@@ -54,18 +54,18 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
         <div className="flex flex-col items-center gap-3">
             <svg width="100" height="100" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r={r} fill="none" stroke="#e5e7eb" strokeWidth="14" />
-                <circle cx="50" cy="50" r={r} fill="none" stroke="#003152" strokeWidth="14"
+                <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ht-primary)" strokeWidth="14"
                         strokeDasharray={`${dash} ${circ - dash}`}
                         strokeDashoffset={circ / 4} strokeLinecap="round"
                         style={{ transition: 'stroke-dasharray 1s ease' }}
                 />
-                <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#003152">
+                <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="bold" fill="var(--ht-primary)">
                     {Math.round(pct * 100)}%
                 </text>
             </svg>
             <div className="flex gap-4 text-xs text-gray-500">
                 <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: '#003152' }} />
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: 'var(--ht-primary)' }} />
                     Actifs ({actif})
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -84,14 +84,14 @@ function KpiCard({ label, value, sub, icon, accent }: {
     return (
         <div className="rounded-xl border p-5 flex items-start gap-4"
              style={accent
-                 ? { backgroundColor: '#003152', borderColor: '#003152' }
-                 : { backgroundColor: 'white', borderColor: '#f3f4f6' }
+                 ? { backgroundColor: 'var(--ht-primary)', borderColor: 'var(--ht-primary)' }
+                 : { backgroundColor: 'white', borderColor: 'var(--ht-muted-bg)' }
              }
         >
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
                  style={accent
-                     ? { backgroundColor: 'rgba(173,223,241,0.15)' }
-                     : { backgroundColor: '#f8fafc' }
+                     ? { backgroundColor: 'var(--ht-primary-tint-bg)' }
+                     : { backgroundColor: 'var(--ht-bg)' }
                  }>
                 {icon}
             </div>
@@ -205,12 +205,12 @@ export default function Employes() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="ht-page flex flex-col">
 
             {/* ── Navbar ── */}
             <Navbar />
 
-            <div className="max-w-6xl mx-auto px-6 py-8 w-full space-y-8">
+            <div className="ht-page-content w-full space-y-8">
 
                 {/* ── Titre ── */}
                 <div>
@@ -252,12 +252,12 @@ export default function Employes() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div className="bg-white rounded-xl border border-gray-100 p-6">
+                        <div className="ht-card p-6">
                             <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des comptes</h3>
                             <DonutChart actif={actif} inactif={inactif} />
                         </div>
 
-                        <div className="md:col-span-2 bg-white rounded-xl border border-gray-100 p-6">
+                        <div className="md:col-span-2 ht-card p-6">
                             <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par rôle</h3>
                             {(
                                 <div className="space-y-3">
@@ -272,7 +272,7 @@ export default function Employes() {
                 )}
 
                 {/* ── Tableau employés avec filtres ── */}
-                <div className="bg-white rounded-xl border border-gray-100">
+                <div className="ht-card">
 
                     {/* Header + filtres */}
                     <div className="px-6 py-4 border-b border-gray-100 space-y-3">
@@ -294,9 +294,7 @@ export default function Employes() {
                                     </button>
                                 )}
                                 <select value={sortBy} onChange={e => setSortBy(e.target.value as 'nom' | 'date')}
-                                        className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                        onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                        onBlur={e => e.target.style.boxShadow = 'none'}
+                                        className="ht-input text-xs px-2 py-1.5 text-gray-600"
                                 >
                                     <option value="nom">Trier : A → Z</option>
                                     <option value="date">Trier : plus récents</option>
@@ -313,9 +311,7 @@ export default function Employes() {
                                     type="text" value={search}
                                     onChange={e => setSearch(e.target.value)}
                                     placeholder="Rechercher un employé..."
-                                    className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                    onBlur={e => e.target.style.boxShadow = 'none'}
+                                    className="ht-input w-full pl-8 pr-3 py-1.5 text-sm"
                                 />
                             </div>
 
@@ -325,8 +321,8 @@ export default function Employes() {
                                     <button key={s} onClick={() => setFilterStatut(s)}
                                             className="px-3 py-1.5 transition-colors capitalize"
                                             style={filterStatut === s
-                                                ? { backgroundColor: '#003152', color: 'white' }
-                                                : { backgroundColor: 'white', color: '#6b7280' }
+                                                ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                                : { backgroundColor: 'white', color: 'var(--ht-muted)' }
                                             }>
                                         {s === 'tous' ? 'Tous' : s === 'actif' ? '● Actifs' : '○ Inactifs'}
                                     </button>
@@ -335,9 +331,7 @@ export default function Employes() {
 
                             {/* Rôle */}
                             <select value={filterRole} onChange={e => setFilterRole(e.target.value as 'tous' | RoleEmploye)}
-                                    className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                    onBlur={e => e.target.style.boxShadow = 'none'}
+                                    className="ht-input text-xs px-2 py-1.5 text-gray-600"
                             >
                                 <option value="tous">Tous les rôles</option>
                                 {ROLES.map(r => (
@@ -368,7 +362,7 @@ export default function Employes() {
                             <p className="text-gray-400 text-sm">Aucun employé pour le moment</p>
                             <button onClick={() => navigate('/employes/new')}
                                     className="mt-4 text-sm font-medium px-4 py-2 rounded-lg text-white"
-                                    style={{ backgroundColor: '#003152' }}>
+                                    style={{ backgroundColor: 'var(--ht-primary)' }}>
                                 Ajouter le premier employé
                             </button>
                         </div>
@@ -382,7 +376,7 @@ export default function Employes() {
                             </button>
                         </div>
                     ) : (
-                        <div className="divide-y divide-gray-50">
+                        <div>
                             {employesFiltres.map(employe => {
                                 const isSelf = currentUser?.username === employe.username
                                 return (
@@ -411,7 +405,7 @@ export default function Employes() {
                                                 onChange={e => handleRoleChange(employe, e.target.value as RoleEmploye)}
                                                 disabled={isSelf}
                                                 title={isSelf ? 'Tu ne peux pas changer ton propre rôle' : undefined}
-                                                className="text-xs font-semibold px-2 py-1 rounded-full border-none focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
+                                                className="ht-input text-xs font-semibold px-2 py-1 rounded-full border-none disabled:opacity-50 disabled:cursor-not-allowed"
                                                 style={{ backgroundColor: `${ROLE_COLORS[employe.role]}1A`, color: ROLE_COLORS[employe.role] }}
                                             >
                                                 {ROLES.map(r => (
@@ -442,8 +436,8 @@ export default function Employes() {
                                                 title={isSelf ? 'Tu ne peux pas désactiver ton propre compte' : 'Cliquer pour changer le statut'}
                                                 className="text-xs px-2.5 py-1 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                                 style={employe.actif
-                                                    ? { backgroundColor: '#003152', color: 'white' }
-                                                    : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
+                                                    ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                                    : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
                                                 }>
                                                 {employe.actif ? 'Actif' : 'Inactif'}
                                             </button>

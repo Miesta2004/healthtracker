@@ -25,9 +25,7 @@ function Field({ label, name, value, onChange, type = 'text', required = false, 
             <input
                 type={type} name={name} value={value} onChange={onChange}
                 required={required} placeholder={placeholder}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                onBlur={e => e.target.style.boxShadow = 'none'}
+                className="ht-input w-full px-3 py-2.5 text-sm"
             />
         </div>
     )
@@ -43,12 +41,12 @@ function RoleCard({ role, selected, onClick }: {
             onClick={onClick}
             className="flex flex-col items-center gap-2 px-3 py-3 rounded-xl border-2 transition-all text-center"
             style={selected
-                ? { backgroundColor: '#003152', borderColor: '#003152' }
-                : { backgroundColor: 'white', borderColor: '#e5e7eb' }
+                ? { backgroundColor: 'var(--ht-primary)', borderColor: 'var(--ht-primary)' }
+                : { backgroundColor: 'white', borderColor: 'var(--ht-border-input)' }
             }
         >
             <span className="text-xl">{role.icon}</span>
-            <span className="text-xs font-medium" style={{ color: selected ? 'white' : '#374151' }}>
+            <span className="text-xs font-medium" style={{ color: selected ? 'white' : 'var(--ht-text)' }}>
                 {role.label}
             </span>
         </button>
@@ -120,7 +118,7 @@ export default function AddEmploye() {
         (role === 'admin' || !!serviceId)
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
 
             {/* Navbar */}
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
@@ -146,7 +144,7 @@ export default function AddEmploye() {
                 <form onSubmit={handleSubmit} className="space-y-6">
 
                     {/* Identité */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <div className="ht-card p-6">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
                             Identité
                         </h2>
@@ -157,9 +155,7 @@ export default function AddEmploye() {
                             <div>
                                 <label className="block text-xs text-gray-500 mb-1">Sexe *</label>
                                 <select name="sexe" value={form.sexe} onChange={handleChange} required
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none bg-white"
-                                        onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                        onBlur={e => e.target.style.boxShadow = 'none'}
+                                        className="ht-input w-full px-3 py-2.5 text-sm"
                                 >
                                     <option value="">Sélectionner</option>
                                     <option value="M">Masculin</option>
@@ -170,7 +166,7 @@ export default function AddEmploye() {
                     </div>
 
                     {/* Contact */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <div className="ht-card p-6">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
                             Contact
                         </h2>
@@ -181,7 +177,7 @@ export default function AddEmploye() {
                     </div>
 
                     {/* Rôle */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <div className="ht-card p-6">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
                             Rôle dans l'équipe *
                         </h2>
@@ -199,9 +195,7 @@ export default function AddEmploye() {
                             <div className="mt-4">
                                 <label className="block text-xs text-gray-500 mb-1">Service *</label>
                                 <select value={serviceId} onChange={e => setServiceId(e.target.value)}
-                                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none bg-white"
-                                        onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                        onBlur={e => e.target.style.boxShadow = 'none'}
+                                        className="ht-input w-full px-3 py-2.5 text-sm"
                                 >
                                     <option value="">Sélectionner un service</option>
                                     {services.map(s => (
@@ -221,7 +215,7 @@ export default function AddEmploye() {
                     </div>
 
                     {/* Compte */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-6">
+                    <div className="ht-card p-6">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
                             Compte de connexion
                         </h2>
@@ -245,7 +239,7 @@ export default function AddEmploye() {
                         </button>
                         <button type="submit" disabled={!formValid || loading}
                                 className="px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
-                                style={{ backgroundColor: (!formValid || loading) ? '#5a8aaa' : '#003152' }}>
+                                style={{ backgroundColor: (!formValid || loading) ? '#5a8aaa' : 'var(--ht-primary)' }}>
                             {loading ? 'Création en cours...' : "Créer l'employé"}
                         </button>
                     </div>

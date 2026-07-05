@@ -12,8 +12,8 @@ const ROLE_LABELS: Record<RoleEmploye, string> = {
     secretaire: 'Secrétaire', laborantin: 'Laborantin',
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
-    admin: '#003152', medecin: '#0e7490', infirmier: '#16a34a',
-    secretaire: '#9333ea', laborantin: '#ea580c',
+    admin: 'var(--ht-primary)', medecin: 'var(--role-medecin)', infirmier: 'var(--role-infirmier)',
+    secretaire: 'var(--role-secretaire)', laborantin: 'var(--role-laborantin)',
 }
 const CONTRAT_LABELS: Record<string, string> = {
     cdi: 'CDI', cdd: 'CDD', stage: 'Stage', vacation: 'Vacation', benevolat: 'Bénévolat',
@@ -35,17 +35,17 @@ function dureeContrat(debut: string | null | undefined, fin: string | null | und
 }
 
 function statutContrat(fin: string | null | undefined, type: TypeContrat | undefined) {
-    if (!fin || type === 'cdi') return { label: 'En cours', color: '#15803d', bg: '#dcfce7' }
+    if (!fin || type === 'cdi') return { label: 'En cours', color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' }
     const reste = Math.ceil((new Date(fin).getTime() - Date.now()) / 86400000)
-    if (reste < 0)  return { label: 'Expiré',   color: '#6b7280', bg: '#f3f4f6' }
-    if (reste < 30) return { label: `Expire dans ${reste} j`, color: '#b45309', bg: '#fef3c7' }
-    return { label: 'En cours', color: '#15803d', bg: '#dcfce7' }
+    if (reste < 0)  return { label: 'Expiré',   color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' }
+    if (reste < 30) return { label: `Expire dans ${reste} j`, color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' }
+    return { label: 'En cours', color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' }
 }
 
 // ─── Composants UI ────────────────────────────────────────────────────────────
 function SectionCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
     return (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="ht-card overflow-hidden">
             <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2">
                 <span className="text-base">{icon}</span>
                 <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
@@ -73,7 +73,7 @@ function EditField({ label, children }: { label: string; children: React.ReactNo
     )
 }
 
-const inputCls = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+const inputCls = "ht-input"
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function EmployeDetail() {
@@ -148,11 +148,11 @@ export default function EmployeDetail() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="ht-page">
                 <Navbar />
                 <div className="max-w-4xl mx-auto px-6 py-12 space-y-4">
                     {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-32 bg-white rounded-xl border border-gray-100 animate-pulse" />
+                        <div key={i} className="h-32 ht-card animate-pulse" />
                     ))}
                 </div>
             </div>
@@ -165,13 +165,13 @@ export default function EmployeDetail() {
     const duree = dureeContrat(employe.date_debut_contrat, employe.date_fin_contrat)
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
             <Navbar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 
                 {/* ── En-tête ── */}
-                <div className="bg-white rounded-xl border border-gray-100 p-6 flex items-start gap-5">
+                <div className="ht-card p-6 flex items-start gap-5">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
                          style={{ backgroundColor: ROLE_COLORS[employe.role] }}>
                         {employe.prenom[0]}{employe.nom[0]}
@@ -187,8 +187,8 @@ export default function EmployeDetail() {
                             </span>
                             <span className="text-xs px-2.5 py-1 rounded-full font-medium"
                                   style={employe.actif
-                                      ? { backgroundColor: '#003152', color: 'white' }
-                                      : { backgroundColor: '#f3f4f6', color: '#9ca3af' }}>
+                                      ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                      : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }}>
                                 {employe.actif ? 'Actif' : 'Inactif'}
                             </span>
                         </div>
@@ -204,10 +204,7 @@ export default function EmployeDetail() {
                     {isAdmin && !editing && (
                         <button
                             onClick={startEdit}
-                            className="px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors flex-shrink-0"
-                            style={{ backgroundColor: '#003152' }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                            className="btn btn-primary flex-shrink-0"
                         >
                             ✏️ Modifier
                         </button>
@@ -278,7 +275,7 @@ export default function EmployeDetail() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                             {/* Infos personnelles */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                            <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                                     👤 Informations personnelles
                                 </h3>
@@ -308,7 +305,7 @@ export default function EmployeDetail() {
                             </div>
 
                             {/* Compte & rôle */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                            <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                                     🔐 Compte & accès
                                 </h3>
@@ -342,7 +339,7 @@ export default function EmployeDetail() {
                             </div>
 
                             {/* Contrat */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                            <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                                     📄 Contrat de travail
                                 </h3>
@@ -369,7 +366,7 @@ export default function EmployeDetail() {
                             </div>
 
                             {/* Description poste */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                            <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                                     📋 Description du poste
                                 </h3>
@@ -393,16 +390,14 @@ export default function EmployeDetail() {
 
                         <div className="flex gap-3 pb-8">
                             <button onClick={cancelEdit}
-                                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                    className="btn btn-ghost flex-1">
                                 Annuler
                             </button>
                             <button
                                 onClick={handleSave}
                                 disabled={saving}
                                 className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-white transition-colors"
-                                style={{ backgroundColor: saving ? '#9ca3af' : '#003152' }}
-                                onMouseEnter={e => { if (!saving) e.currentTarget.style.backgroundColor = '#004070' }}
-                                onMouseLeave={e => { if (!saving) e.currentTarget.style.backgroundColor = '#003152' }}
+                                style={{ backgroundColor: saving ? 'var(--ht-text-muted)' : 'var(--ht-primary)' }}
                             >
                                 {saving ? 'Enregistrement…' : 'Sauvegarder les modifications'}
                             </button>

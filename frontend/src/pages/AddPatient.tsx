@@ -42,8 +42,8 @@ function TagButton({
             onClick={onClick}
             className="px-3 py-1.5 rounded-full text-xs font-medium border transition-all"
             style={selected
-                ? { backgroundColor: '#003152', color: 'white', borderColor: '#003152' }
-                : { backgroundColor: 'white', color: '#374151', borderColor: '#e5e7eb' }
+                ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
+                : { backgroundColor: 'white', color: 'var(--ht-text)', borderColor: 'var(--ht-border-input)' }
             }
         >
             {selected ? '✓ ' : ''}{label}
@@ -66,16 +66,13 @@ function AutreInput({
                     if (e.key === 'Enter') { e.preventDefault(); if (val.trim()) { onAdd(val.trim()); setVal('') } }
                 }}
                 placeholder={placeholder}
-                className="flex-1 px-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none"
+                className="ht-input flex-1 px-3 py-1.5 text-xs"
                 style={{ boxShadow: 'none' }}
-                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                onBlur={e => e.target.style.boxShadow = 'none'}
             />
             <button
                 type="button"
                 onClick={() => { if (val.trim()) { onAdd(val.trim()); setVal('') } }}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg text-white"
-                style={{ backgroundColor: '#003152' }}
+                className="btn btn-primary btn-sm"
             >
                 Ajouter
             </button>
@@ -95,9 +92,7 @@ function Field({ label, name, value, onChange, type = 'text', required = false, 
             <input
                 type={type} name={name} value={value} onChange={onChange}
                 required={required} placeholder={placeholder}
-                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                onBlur={e => e.target.style.boxShadow = 'none'}
+                className="ht-input w-full px-3 py-2.5 text-sm"
             />
         </div>
     )
@@ -175,11 +170,11 @@ export default function AddPatient() {
     const step1Valid = form.prenom && form.nom && form.date_naissance && form.sexe
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
 
             {/* Navbar */}
             <Navbar />
-            
+
             <div className="max-w-2xl mx-auto px-6 py-8">
                 <div className="mb-6">
                     <h1 className="text-2xl font-bold text-gray-900">Ajouter un patient</h1>
@@ -199,7 +194,7 @@ export default function AddPatient() {
                     {/* ── ÉTAPE 1 : infos personnelles ── */}
                     {step === 1 && (
                         <div className="space-y-6">
-                            <div className="bg-white rounded-xl border border-gray-100 p-6">
+                            <div className="ht-card p-6">
                                 <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
                                     Identité
                                 </h2>
@@ -210,9 +205,7 @@ export default function AddPatient() {
                                     <div>
                                         <label className="block text-xs text-gray-500 mb-1">Sexe *</label>
                                         <select name="sexe" value={form.sexe} onChange={handleChange} required
-                                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                                onBlur={e => e.target.style.boxShadow = 'none'}
+                                                className="ht-input w-full px-3 py-2.5 text-sm"
                                         >
                                             <option value="">Sélectionner</option>
                                             <option value="M">Masculin</option>
@@ -222,9 +215,7 @@ export default function AddPatient() {
                                     <div>
                                         <label className="block text-xs text-gray-500 mb-1">Groupe sanguin</label>
                                         <select name="groupe_sanguin" value={form.groupe_sanguin} onChange={handleChange}
-                                                className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                                onBlur={e => e.target.style.boxShadow = 'none'}
+                                                className="ht-input w-full px-3 py-2.5 text-sm"
                                         >
                                             <option value="">Inconnu</option>
                                             {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => (
@@ -238,9 +229,7 @@ export default function AddPatient() {
                                     <label className="block text-xs text-gray-500 mb-1">Adresse</label>
                                     <input name="adresse" value={form.adresse}
                                            onChange={e => setForm({ ...form, adresse: e.target.value })}
-                                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                           onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                           onBlur={e => e.target.style.boxShadow = 'none'}
+                                           className="ht-input w-full px-3 py-2.5 text-sm"
                                            placeholder="Quartier, Ville"
                                     />
                                 </div>
@@ -251,10 +240,7 @@ export default function AddPatient() {
                                     type="button"
                                     disabled={!step1Valid}
                                     onClick={() => setStep(2)}
-                                    className="px-6 py-2.5 text-white text-sm font-medium rounded-lg transition-all disabled:opacity-40"
-                                    style={{ backgroundColor: '#003152' }}
-                                    onMouseEnter={e => { if (step1Valid) (e.currentTarget.style.backgroundColor = '#004070') }}
-                                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                                    className="btn btn-primary"
                                 >
                                     Suivant : Dossier médical →
                                 </button>
@@ -267,13 +253,13 @@ export default function AddPatient() {
                         <div className="space-y-6">
 
                             {/* Allergies */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-6">
+                            <div className="ht-card p-6">
                                 <div className="flex items-center justify-between mb-1">
                                     <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                                         Allergies connues
                                     </h2>
                                     {allAllergies.length > 0 && (
-                                        <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: '#003152' }}>
+                                        <span className="badge badge-primary">
                                             {allAllergies.length} sélectionnée{allAllergies.length > 1 ? 's' : ''}
                                         </span>
                                     )}
@@ -282,17 +268,16 @@ export default function AddPatient() {
 
                                 {/* Sélections actuelles */}
                                 {allAllergies.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 p-3 rounded-lg mb-4" style={{ backgroundColor: '#f0f8ff', border: '1px solid #ADDFF1' }}>
+                                    <div className="flex flex-wrap gap-2 p-3 rounded-lg mb-4" style={{ backgroundColor: 'var(--ht-primary-light)', border: '1px solid var(--ht-primary-tint)' }}>
                                         {selectedAllergies.map(a => (
-                                            <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white"
-                                                  style={{ backgroundColor: '#003152' }}>
+                                            <span key={a} className="badge badge-primary gap-1">
                                                 {a}
                                                 <button type="button" onClick={() => toggleAllergie(a)} className="ml-1 opacity-70 hover:opacity-100">×</button>
                                             </span>
                                         ))}
                                         {customAllergies.map(a => (
                                             <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border"
-                                                  style={{ borderColor: '#003152', color: '#003152' }}>
+                                                  style={{ borderColor: 'var(--ht-primary)', color: 'var(--ht-primary)' }}>
                                                 {a} <span className="text-xs opacity-50">(autre)</span>
                                                 <button type="button" onClick={() => removeCustomAllergie(a)} className="ml-1 opacity-70 hover:opacity-100">×</button>
                                             </span>
@@ -303,9 +288,7 @@ export default function AddPatient() {
                                 {/* Recherche */}
                                 <input type="text" value={searchAllergie} onChange={e => setSearchAllergie(e.target.value)}
                                        placeholder="🔍 Rechercher une allergie..."
-                                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs mb-3 focus:outline-none"
-                                       onFocus={e => e.target.style.boxShadow = '0 0 0 2px #ADDFF1'}
-                                       onBlur={e => e.target.style.boxShadow = 'none'}
+                                       className="ht-input w-full px-3 py-2 text-xs mb-3"
                                 />
 
                                 {/* Tags */}
@@ -341,13 +324,13 @@ export default function AddPatient() {
                             </div>
 
                             {/* Antécédents */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-6">
+                            <div className="ht-card p-6">
                                 <div className="flex items-center justify-between mb-1">
                                     <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                                         Antécédents médicaux
                                     </h2>
                                     {allAntecedents.length > 0 && (
-                                        <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: '#003152' }}>
+                                        <span className="badge badge-primary">
                                             {allAntecedents.length} sélectionné{allAntecedents.length > 1 ? 's' : ''}
                                         </span>
                                     )}
@@ -356,17 +339,16 @@ export default function AddPatient() {
 
                                 {/* Sélections actuelles */}
                                 {allAntecedents.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 p-3 rounded-lg mb-4" style={{ backgroundColor: '#f0f8ff', border: '1px solid #ADDFF1' }}>
+                                    <div className="flex flex-wrap gap-2 p-3 rounded-lg mb-4" style={{ backgroundColor: 'var(--ht-primary-light)', border: '1px solid var(--ht-primary-tint)' }}>
                                         {selectedAntecedents.map(a => (
-                                            <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium text-white"
-                                                  style={{ backgroundColor: '#003152' }}>
+                                            <span key={a} className="badge badge-primary gap-1">
                                                 {a}
                                                 <button type="button" onClick={() => toggleAntecedent(a)} className="ml-1 opacity-70 hover:opacity-100">×</button>
                                             </span>
                                         ))}
                                         {customAntecedents.map(a => (
                                             <span key={a} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border"
-                                                  style={{ borderColor: '#003152', color: '#003152' }}>
+                                                  style={{ borderColor: 'var(--ht-primary)', color: 'var(--ht-primary)' }}>
                                                 {a} <span className="text-xs opacity-50">(autre)</span>
                                                 <button type="button" onClick={() => removeCustomAntecedent(a)} className="ml-1 opacity-70 hover:opacity-100">×</button>
                                             </span>
@@ -377,9 +359,7 @@ export default function AddPatient() {
                                 {/* Recherche */}
                                 <input type="text" value={searchAntecedent} onChange={e => setSearchAntecedent(e.target.value)}
                                        placeholder="🔍 Rechercher un antécédent..."
-                                       className="w-full px-3 py-2 border border-gray-200 rounded-lg text-xs mb-3 focus:outline-none"
-                                       onFocus={e => e.target.style.boxShadow = '0 0 0 2px #ADDFF1'}
-                                       onBlur={e => e.target.style.boxShadow = 'none'}
+                                       className="ht-input w-full px-3 py-2 text-xs mb-3"
                                 />
 
                                 {/* Catégories groupées */}
@@ -408,19 +388,17 @@ export default function AddPatient() {
                             {/* Boutons */}
                             <div className="flex gap-3 justify-between">
                                 <button type="button" onClick={() => setStep(1)}
-                                        className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                        className="btn btn-ghost">
                                     ← Retour
                                 </button>
                                 <div className="flex gap-3">
                                     <button type="button" onClick={() => navigate('/dashboard')}
-                                            className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                            className="btn btn-ghost">
                                         Annuler
                                     </button>
                                     <button type="submit" disabled={loading}
                                             className="px-5 py-2.5 text-white rounded-lg text-sm font-medium transition-all"
-                                            style={{ backgroundColor: loading ? '#5a8aaa' : '#003152' }}
-                                            onMouseEnter={e => { if (!loading) (e.currentTarget.style.backgroundColor = '#004070') }}
-                                            onMouseLeave={e => { if (!loading) (e.currentTarget.style.backgroundColor = '#003152') }}
+                                            style={{ backgroundColor: loading ? '#5a8aaa' : 'var(--ht-primary)' }}
                                     >
                                         {loading ? 'Enregistrement...' : '✓ Enregistrer le patient'}
                                     </button>

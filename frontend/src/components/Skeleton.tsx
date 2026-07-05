@@ -47,7 +47,7 @@ export function SkeletonKpiGrid({ count = 4 }: { count?: number }) {
 // ─── Petit graphique (donut / barres) ───────────────────────────────────────
 export function SkeletonChartCard() {
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-6">
+        <div className="ht-card p-6">
             <SkeletonText width="50%" height={14} />
             <div className="flex items-center justify-center py-6">
                 <SkeletonCircle size={100} />
@@ -78,7 +78,7 @@ export function SkeletonRow({ columns = 6 }: { columns?: number }) {
 
 export function SkeletonTable({ rows = 5, columns = 6 }: { rows?: number; columns?: number }) {
     return (
-        <div className="divide-y divide-gray-50">
+        <div>
             {Array.from({ length: rows }).map((_, i) => <SkeletonRow key={i} columns={columns} />)}
         </div>
     )
@@ -87,7 +87,7 @@ export function SkeletonTable({ rows = 5, columns = 6 }: { rows?: number; column
 // ─── Liste simple (recherche infirmier, urgences, services...) ─────────────
 export function SkeletonSimpleList({ rows = 4 }: { rows?: number }) {
     return (
-        <div className="divide-y divide-gray-50">
+        <div>
             {Array.from({ length: rows }).map((_, i) => (
                 <div key={i} className="px-6 py-3.5 flex items-center gap-3">
                     <SkeletonCircle size={36} />
@@ -115,20 +115,20 @@ export function SkeletonDetailPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="md:col-span-2 space-y-4">
-                    <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-3">
+                    <div className="ht-card p-6 space-y-3">
                         <SkeletonText width="30%" height={12} />
                         <SkeletonText width="90%" height={12} />
                         <SkeletonText width="80%" height={12} />
                         <SkeletonText width="60%" height={12} />
                     </div>
-                    <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-3">
+                    <div className="ht-card p-6 space-y-3">
                         <SkeletonText width="35%" height={12} />
                         <SkeletonText width="95%" height={12} />
                         <SkeletonText width="70%" height={12} />
                     </div>
                 </div>
                 <div className="space-y-4">
-                    <div className="bg-white rounded-xl border border-gray-100 p-6 space-y-3">
+                    <div className="ht-card p-6 space-y-3">
                         <SkeletonText width="50%" height={12} />
                         <SkeletonText width="100%" height={12} />
                         <SkeletonText width="80%" height={12} />
@@ -142,7 +142,7 @@ export function SkeletonDetailPage() {
 // ─── Grille de cartes (services...) ─────────────────────────────────────────
 export function SkeletonCard() {
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-3">
+        <div className="ht-card p-5 space-y-3">
             <div className="flex items-center gap-3">
                 <SkeletonCircle size={40} />
                 <div className="flex-1 space-y-2">
@@ -168,12 +168,12 @@ export function SkeletonCardGrid({ count = 6, cols = 'md:grid-cols-2 lg:grid-col
 // ─── Page entière (chargement du profil / auth) ─────────────────────────────
 export function SkeletonFullPage() {
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
             <div className="h-16 bg-white border-b border-gray-100 px-6 flex items-center gap-4">
                 <SkeletonCircle size={32} />
                 <SkeletonText width={140} height={14} />
             </div>
-            <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+            <div className="ht-page-content space-y-6">
                 <SkeletonText width={260} height={22} />
                 <SkeletonKpiGrid />
             </div>

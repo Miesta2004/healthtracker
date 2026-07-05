@@ -15,11 +15,11 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
     autre:             'Autre',
 }
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: '#0e7490',
-    chirurgie:         '#ea580c',
-    allergie:          '#dc2626',
-    familial:          '#9333ea',
-    autre:             '#6b7280',
+    maladie_chronique: 'var(--role-medecin)',
+    chirurgie:         'var(--role-laborantin)',
+    allergie:          'var(--tri-1-bg)',
+    familial:          'var(--role-secretaire)',
+    autre:             'var(--ht-muted)',
 }
 
 // ─── Config types & statuts ──────────────────────────────────────────────────
@@ -31,21 +31,17 @@ const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: string }> = {
 }
 
 const STATUT_CONFIG: Record<ConsultationStatut, { label: string; color: string; bg: string }> = {
-    planifiee: { label: 'Planifiée', color: '#b45309', bg: '#fef3c7' },
+    planifiee: { label: 'Planifiée', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
     en_cours:  { label: 'En cours',  color: '#1d4ed8', bg: '#dbeafe' },
-    terminee:  { label: 'Terminée',  color: '#15803d', bg: '#dcfce7' },
-    annulee:   { label: 'Annulée',   color: '#6b7280', bg: '#f3f4f6' },
+    terminee:  { label: 'Terminée',  color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' },
+    annulee:   { label: 'Annulée',   color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
     return <label className="block text-xs text-gray-500 mb-1">{children}</label>
 }
 
-const inputCls = "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-const focusHandlers = {
-    onFocus: (e: React.FocusEvent<HTMLElement>) => (e.currentTarget as HTMLElement).style.boxShadow = '0 0 0 2px #003152',
-    onBlur:  (e: React.FocusEvent<HTMLElement>) => (e.currentTarget as HTMLElement).style.boxShadow = 'none',
-}
+const inputCls = "ht-input"
 
 // ─── Sélecteur de type d'événement ───────────────────────────────────────────
 function TypeSelector({ value, onChange }: { value: TypeEvenement; onChange: (t: TypeEvenement) => void }) {
@@ -58,8 +54,8 @@ function TypeSelector({ value, onChange }: { value: TypeEvenement; onChange: (t:
                     onClick={() => onChange(key)}
                     className="flex flex-col items-center gap-1.5 py-3 rounded-xl border text-sm font-medium transition-all"
                     style={value === key
-                        ? { backgroundColor: '#003152', color: 'white', borderColor: '#003152' }
-                        : { backgroundColor: 'white', color: '#374151', borderColor: '#e5e7eb' }
+                        ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
+                        : { backgroundColor: 'white', color: 'var(--ht-text)', borderColor: 'var(--ht-border-input)' }
                     }
                 >
                     <span className="text-xl">{cfg.icon}</span>
@@ -75,14 +71,14 @@ function DeleteModal({ onConfirm, onCancel, loading }: {
     onConfirm: () => void; onCancel: () => void; loading: boolean
 }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm">
                 <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-4">🗑️</div>
                 <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer cet événement ?</h3>
                 <p className="text-sm text-gray-500 mb-6">Cette action est irréversible.</p>
                 <div className="flex gap-3">
                     <button onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button onClick={onConfirm} disabled={loading}
@@ -101,9 +97,9 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
     onConfirm: () => void; onCancel: () => void; loading: boolean
 }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl mb-4" style={{ backgroundColor: '#ADDFF1' }}>📌</div>
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl mb-4" style={{ backgroundColor: 'var(--ht-primary-tint)' }}>📌</div>
                 <h3 className="text-base font-semibold text-gray-900 mb-1">Ajouter aux antécédents ?</h3>
                 <p className="text-sm text-gray-500 mb-2">
                     Voulez-vous ajouter ceci au dossier médical permanent du patient :
@@ -115,9 +111,7 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
                 <select
                     value={type}
                     onChange={e => onTypeChange(e.target.value as TypeAntecedent)}
-                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none mb-6"
-                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                    onBlur={e => e.target.style.boxShadow = 'none'}
+                    className="ht-input w-full px-3 py-2 text-sm mb-6"
                 >
                     {(Object.entries(TYPE_ANTECEDENT_LABELS) as [TypeAntecedent, string][]).map(([k, label]) => (
                         <option key={k} value={k}>{label}</option>
@@ -125,12 +119,11 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
                 </select>
                 <div className="flex gap-3">
                     <button onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            className="btn btn-ghost flex-1">
                         Non, merci
                     </button>
                     <button onClick={onConfirm} disabled={loading}
-                            className="flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
-                            style={{ backgroundColor: '#003152' }}>
+                            className="btn btn-primary flex-1">
                         {loading ? 'Ajout...' : 'Oui, ajouter'}
                     </button>
                 </div>
@@ -290,13 +283,13 @@ export default function ConsultationDetail() {
     }
 
     if (loading) return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
             <SkeletonDetailPage />
         </div>
     )
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
 
             {showDelete && (
                 <DeleteModal onConfirm={handleDelete} onCancel={() => setShowDelete(false)} loading={deleteLoading} />
@@ -314,8 +307,8 @@ export default function ConsultationDetail() {
             )}
 
             {antecedentAjoute && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                    <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4 text-center">
+                <div className="ht-modal-overlay">
+                    <div className="ht-modal ht-modal-sm text-center">
                         <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl mb-3 mx-auto">✓</div>
                         <p className="text-sm font-medium text-gray-900">Antécédent ajouté au dossier</p>
                     </div>
@@ -353,7 +346,7 @@ export default function ConsultationDetail() {
 
                 {/* Antécédents existants — contexte */}
                 {patient && (
-                    <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <div className="ht-card p-5">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                             Antécédents médicaux connus
                         </h2>
@@ -389,7 +382,7 @@ export default function ConsultationDetail() {
                 <form onSubmit={handleSubmit} className="space-y-6">
 
                     {/* Type d'événement */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-5">
+                    <div className="ht-card p-5">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                             Type d'événement
                         </h2>
@@ -397,17 +390,17 @@ export default function ConsultationDetail() {
                     </div>
 
                     {/* Informations générales */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                    <div className="ht-card p-5 space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <FieldLabel>Date et heure</FieldLabel>
                                 <input type="datetime-local" name="date" value={form.date} onChange={handleChange}
-                                       className={inputCls} {...focusHandlers} />
+                                       className={inputCls} />
                             </div>
                             <div>
                                 <FieldLabel>Statut</FieldLabel>
                                 <select name="statut" value={form.statut} onChange={handleChange}
-                                        className={inputCls} {...focusHandlers}>
+                                        className={inputCls}>
                                     {(Object.entries(STATUT_CONFIG) as [ConsultationStatut, { label: string }][]).map(([k, v]) => (
                                         <option key={k} value={k}>{v.label}</option>
                                     ))}
@@ -418,12 +411,12 @@ export default function ConsultationDetail() {
                             <FieldLabel>Motif <span className="text-red-400">*</span></FieldLabel>
                             <input type="text" name="motif" value={form.motif} onChange={handleChange}
                                    placeholder="Ex : Douleurs abdominales, Échographie de contrôle, Appendicectomie..."
-                                   className={inputCls} {...focusHandlers} />
+                                   className={inputCls} />
                         </div>
                     </div>
 
                     {/* Observations cliniques */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                    <div className="ht-card p-5 space-y-4">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                             Observations cliniques
                         </h2>
@@ -431,19 +424,19 @@ export default function ConsultationDetail() {
                             <FieldLabel>Symptômes observés</FieldLabel>
                             <textarea name="symptomes" value={form.symptomes} onChange={handleChange} rows={3}
                                       placeholder="Fièvre, douleur, fatigue..."
-                                      className={inputCls + " resize-none"} {...focusHandlers} />
+                                      className={inputCls + " resize-none"} />
                         </div>
                         <div>
                             <FieldLabel>Examens réalisés</FieldLabel>
                             <textarea name="examens_realises" value={form.examens_realises} onChange={handleChange} rows={3}
                                       placeholder="Bilan sanguin, radiographie, échographie..."
-                                      className={inputCls + " resize-none"} {...focusHandlers} />
+                                      className={inputCls + " resize-none"} />
                         </div>
                         <div>
                             <FieldLabel>Diagnostic</FieldLabel>
                             <textarea name="diagnostic" value={form.diagnostic} onChange={handleChange} rows={2}
                                       placeholder="Diagnostic posé..."
-                                      className={inputCls + " resize-none"} {...focusHandlers} />
+                                      className={inputCls + " resize-none"} />
                             <p className="text-xs text-gray-300 mt-1">
                                 Si rempli et que le statut est "Terminée", on vous proposera de l'ajouter aux antécédents du patient.
                             </p>
@@ -451,7 +444,7 @@ export default function ConsultationDetail() {
                     </div>
 
                     {/* Suivi */}
-                    <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                    <div className="ht-card p-5 space-y-4">
                         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
                             Suivi
                         </h2>
@@ -459,27 +452,24 @@ export default function ConsultationDetail() {
                             <FieldLabel>Ordonnance</FieldLabel>
                             <textarea name="ordonnance" value={form.ordonnance} onChange={handleChange} rows={2}
                                       placeholder="Médicaments, posologie..."
-                                      className={inputCls + " resize-none"} {...focusHandlers} />
+                                      className={inputCls + " resize-none"} />
                         </div>
                         <div>
                             <FieldLabel>Notes</FieldLabel>
                             <textarea name="notes" value={form.notes} onChange={handleChange} rows={2}
                                       placeholder="Observations complémentaires..."
-                                      className={inputCls + " resize-none"} {...focusHandlers} />
+                                      className={inputCls + " resize-none"} />
                         </div>
                     </div>
 
                     {/* Actions */}
                     <div className="flex gap-3 justify-end">
                         <button type="button" onClick={() => navigate(`/patients/${patientId}`)}
-                                className="px-5 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                className="btn btn-ghost">
                             Annuler
                         </button>
                         <button type="submit" disabled={saving}
-                                className="px-5 py-2.5 text-white rounded-lg text-sm font-medium transition-all disabled:opacity-50"
-                                style={{ backgroundColor: '#003152' }}
-                                onMouseEnter={e => { if (!saving) (e.currentTarget.style.backgroundColor = '#004070') }}
-                                onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                                className="btn btn-primary"
                         >
                             {saving ? 'Enregistrement...' : '✓ Enregistrer'}
                         </button>

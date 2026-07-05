@@ -14,7 +14,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 }
 
 const inputClass =
-    "w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none transition-all"
+    "ht-input"
 
 export default function AddHospitalisation() {
     const { id } = useParams<{ id: string }>()
@@ -79,7 +79,7 @@ export default function AddHospitalisation() {
 
     if (succes) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="ht-page flex items-center justify-center">
                 <div className="text-center space-y-3">
                     <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center text-3xl mx-auto">
                         ✓
@@ -92,7 +92,7 @@ export default function AddHospitalisation() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
                 <button
                     onClick={() => navigate(`/patients/${patientId}`)}
@@ -106,7 +106,7 @@ export default function AddHospitalisation() {
 
             <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
 
-                <div className="bg-white rounded-xl border border-gray-100 p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="ht-card p-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <FieldLabel>Date et heure d'admission</FieldLabel>
                         <input
@@ -173,7 +173,7 @@ export default function AddHospitalisation() {
                     </div>
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
+                <div className="ht-card p-5 space-y-4">
                     <div>
                         <FieldLabel>Motif d'admission</FieldLabel>
                         <textarea
@@ -213,21 +213,14 @@ export default function AddHospitalisation() {
                 <div className="flex gap-3 pb-8">
                     <button
                         onClick={() => navigate(`/patients/${patientId}`)}
-                        className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                        className="btn btn-ghost flex-1"
                     >
                         Annuler
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={!formulaireValide || submitting}
-                        className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-white transition-all"
-                        style={{ backgroundColor: !formulaireValide || submitting ? '#9ca3af' : '#003152' }}
-                        onMouseEnter={e => {
-                            if (formulaireValide && !submitting) e.currentTarget.style.backgroundColor = '#004070'
-                        }}
-                        onMouseLeave={e => {
-                            if (formulaireValide && !submitting) e.currentTarget.style.backgroundColor = '#003152'
-                        }}
+                        className="btn btn-primary flex-1"
                     >
                         {submitting ? 'Enregistrement…' : "Enregistrer l'hospitalisation"}
                     </button>

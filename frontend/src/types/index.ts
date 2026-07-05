@@ -1,4 +1,5 @@
 export interface Patient {
+    photo_path: string;
     id: number
     nom: string
     prenom: string
@@ -190,6 +191,7 @@ export type DecisionSortie = 'domicile' | 'hospitalisation' | 'transfert' | 'par
 export interface PassageUrgence {
     id: number
     patient: number
+    patient_prenom?: string
     patient_nom?: string
     patient_dossier?: string
     patient_age?: number

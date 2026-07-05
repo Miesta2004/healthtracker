@@ -18,17 +18,17 @@ function formatDateTime(dateStr: string) {
 }
 
 const STATUT_CONFIG: Record<ConsultationStatut, { label: string; color: string; bg: string }> = {
-    planifiee: { label: 'Planifiée', color: '#b45309', bg: '#fef3c7' },
+    planifiee: { label: 'Planifiée', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
     en_cours:  { label: 'En cours',  color: '#1d4ed8', bg: '#dbeafe' },
-    terminee:  { label: 'Terminée',  color: '#15803d', bg: '#dcfce7' },
-    annulee:   { label: 'Annulée',   color: '#6b7280', bg: '#f3f4f6' },
+    terminee:  { label: 'Terminée',  color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' },
+    annulee:   { label: 'Annulée',   color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
 }
 
 const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: string; color: string; bg: string }> = {
-    consultation: { label: 'Consultation', icon: '🩺', color: '#003152', bg: '#ADDFF1' },
+    consultation: { label: 'Consultation', icon: '🩺', color: 'var(--ht-primary)', bg: 'var(--ht-primary-tint)' },
     examen:       { label: 'Examen',        icon: '🔬', color: '#6d28d9', bg: '#ede9fe' },
-    operation:    { label: 'Opération',     icon: '🏥', color: '#b91c1c', bg: '#fee2e2' },
-    autre:        { label: 'Autre',         icon: '📋', color: '#374151', bg: '#f3f4f6' },
+    operation:    { label: 'Opération',     icon: '🏥', color: 'var(--ht-danger)', bg: 'var(--ht-danger-bg)' },
+    autre:        { label: 'Autre',         icon: '📋', color: 'var(--ht-text)', bg: 'var(--ht-muted-bg)' },
 }
 
 // ─── Badge statut ─────────────────────────────────────────────────────────────
@@ -106,8 +106,8 @@ function Pagination({
                         onClick={() => onPageChange(p)}
                         className={btnBase}
                         style={p === currentPage
-                            ? { backgroundColor: '#003152', color: 'white' }
-                            : { color: '#374151' }
+                            ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                            : { color: 'var(--ht-text)' }
                         }
                         onMouseEnter={e => { if (p !== currentPage) e.currentTarget.style.backgroundColor = '#f9fafb' }}
                         onMouseLeave={e => { if (p !== currentPage) e.currentTarget.style.backgroundColor = 'transparent' }}
@@ -144,7 +144,7 @@ function ConsultCard({
     const typeCfg = TYPE_CONFIG[consult.type_evenement] ?? TYPE_CONFIG.autre
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+        <div className="ht-card overflow-hidden">
             <button
                 className="w-full text-left px-5 py-4 flex items-start gap-3 hover:bg-gray-50 transition-colors"
                 onClick={() => hasDetails && setExpanded(p => !p)}
@@ -260,14 +260,14 @@ export default function Consultations({
     return (
         <div>
             {confirmDelete !== null && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-                    <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
+                <div className="ht-modal-overlay">
+                    <div className="ht-modal ht-modal-sm">
                         <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-4">🗑️</div>
                         <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer cet événement ?</h3>
                         <p className="text-sm text-gray-500 mb-6">Cette action est irréversible.</p>
                         <div className="flex gap-3">
                             <button onClick={() => setConfirmDelete(null)}
-                                    className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                                    className="btn btn-ghost flex-1">
                                 Annuler
                             </button>
                             <button onClick={() => handleDelete(confirmDelete)} disabled={deleteLoading}
@@ -288,10 +288,7 @@ export default function Consultations({
                 </div>
                 <button
                     onClick={openCreate}
-                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                    style={{ backgroundColor: '#003152' }}
-                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                    className="btn btn-primary flex items-center gap-1.5"
                 >
                     <span>+</span> Nouveau
                 </button>

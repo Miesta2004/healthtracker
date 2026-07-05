@@ -87,7 +87,7 @@ function ChampSaisie({
     const valide = value === '' || (!isNaN(num) && num >= champ.min && num <= champ.max)
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-4 space-y-2">
+        <div className="ht-card p-4 space-y-2">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <span className="text-lg">{champ.icon}</span>
@@ -107,15 +107,15 @@ function ChampSaisie({
                     onChange={e => onChange(champ.key, e.target.value)}
                     onFocus={() => setFocused(true)}
                     onBlur={() => setFocused(false)}
-                    className="w-full px-3 py-2.5 border rounded-lg text-sm font-mono focus:outline-none transition-all"
+                    className="ht-input w-full px-3 py-2.5 text-sm font-mono"
                     style={{
                         borderColor: !valide
                             ? '#ef4444'
                             : focused
-                                ? '#003152'
-                                : '#e5e7eb',
+                                ? 'var(--ht-primary)'
+                                : 'var(--ht-border-input)',
                         boxShadow: focused
-                            ? `0 0 0 2px ${!valide ? '#fee2e2' : '#e0eaf3'}`
+                            ? `0 0 0 2px ${!valide ? 'var(--ht-danger-bg)' : '#e0eaf3'}`
                             : 'none',
                     }}
                 />
@@ -184,7 +184,7 @@ export default function SaisieSignesVitaux() {
 
     if (succes) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="ht-page flex items-center justify-center">
                 <div className="text-center space-y-3">
                     <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center text-3xl mx-auto">
                         ✓
@@ -197,7 +197,7 @@ export default function SaisieSignesVitaux() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
 
             {/* Navbar */}
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
@@ -214,7 +214,7 @@ export default function SaisieSignesVitaux() {
             <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
 
                 {/* Date de mesure */}
-                <div className="bg-white rounded-xl border border-gray-100 p-5">
+                <div className="ht-card p-5">
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
                         Date et heure de la mesure
                     </label>
@@ -222,10 +222,8 @@ export default function SaisieSignesVitaux() {
                         type="datetime-local"
                         value={date}
                         onChange={e => setDate(e.target.value)}
-                        className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                        onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #e0eaf3')}
-                        onBlur={e => (e.target.style.boxShadow = 'none')}
-                        style={{ borderColor: '#e5e7eb' }}
+                        className="ht-input w-full px-3 py-2.5 text-sm"
+                        style={{ borderColor: 'var(--ht-border-input)' }}
                     />
                     <p className="text-xs text-gray-400 mt-2">
                         Par défaut : maintenant. Modifiez si la mesure a été prise plus tôt.
@@ -260,28 +258,14 @@ export default function SaisieSignesVitaux() {
                 <div className="flex gap-3 pb-8">
                     <button
                         onClick={() => navigate(`/patients/${patientId}`)}
-                        className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                        className="btn btn-ghost flex-1"
                     >
                         Annuler
                     </button>
                     <button
                         onClick={handleSubmit}
                         disabled={!formulaireValide || !toutesValeursValides || submitting}
-                        className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-white transition-all"
-                        style={{
-                            backgroundColor:
-                                !formulaireValide || !toutesValeursValides || submitting
-                                    ? '#9ca3af'
-                                    : '#003152',
-                        }}
-                        onMouseEnter={e => {
-                            if (formulaireValide && toutesValeursValides && !submitting)
-                                e.currentTarget.style.backgroundColor = '#004070'
-                        }}
-                        onMouseLeave={e => {
-                            if (formulaireValide && toutesValeursValides && !submitting)
-                                e.currentTarget.style.backgroundColor = '#003152'
-                        }}
+                        className="btn btn-primary flex-1"
                     >
                         {submitting ? 'Enregistrement…' : 'Enregistrer les constantes'}
                     </button>

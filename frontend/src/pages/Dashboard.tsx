@@ -15,7 +15,7 @@ import { SkeletonKpiCard, SkeletonSimpleList } from '../components/Skeleton'
 
 // ─── Config triage ────────────────────────────────────────────────────────────
 const TRI_COLORS: Record<NiveauTri, string> = {
-    1: '#b91c1c', 2: '#ea580c', 3: '#ca8a04', 4: '#16a34a', 5: '#6b7280',
+    1: 'var(--tri-1-bg)', 2: 'var(--tri-2-bg)', 3: '#ca8a04', 4: 'var(--role-infirmier)', 5: 'var(--ht-muted)',
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
@@ -25,18 +25,14 @@ function StatCard({ label, value, sub, icon, accent, onClick }: {
     return (
         <div
             onClick={onClick}
-            className={`rounded-xl border p-5 flex items-start gap-4 ${onClick ? 'cursor-pointer hover:shadow-sm transition-shadow' : ''}`}
-            style={accent
-                ? { backgroundColor: '#003152', borderColor: '#003152' }
-                : { backgroundColor: 'white', borderColor: '#f3f4f6' }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                 style={accent ? { backgroundColor: 'rgba(173,223,241,0.15)' } : { backgroundColor: '#f8fafc' }}>
+            className={`ht-kpi ${accent ? 'accent' : ''} ${onClick ? 'cursor-pointer hover:shadow-sm transition-shadow' : ''}`}>
+            <div className="ht-kpi-icon">
                 {icon}
             </div>
             <div>
-                <p className={`text-xs font-medium ${accent ? 'text-blue-200' : 'text-gray-400'}`}>{label}</p>
-                <p className={`text-2xl font-bold mt-0.5 ${accent ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-                {sub && <p className={`text-xs mt-0.5 ${accent ? 'text-blue-300' : 'text-gray-400'}`}>{sub}</p>}
+                <p className="ht-kpi-label">{label}</p>
+                <p className="ht-kpi-value">{value}</p>
+                {sub && <p className="ht-kpi-sub">{sub}</p>}
             </div>
         </div>
     )
@@ -48,16 +44,16 @@ function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty,
     children: React.ReactNode; loading: boolean; empty: boolean; emptyLabel: string
 }) {
     return (
-        <div className="bg-white rounded-xl border border-gray-100">
-            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                <h3 className="text-sm font-semibold text-gray-700">
+        <div className="ht-card">
+            <div className="ht-card-header justify-between">
+                <h3>
                     {title}
                     {typeof count === 'number' && !loading && (
-                        <span className="ml-1.5 text-gray-400 font-normal">({count})</span>
+                        <span className="ml-1.5 font-normal" style={{ color: 'var(--ht-text-muted)' }}>({count})</span>
                     )}
                 </h3>
                 {onLink && (
-                    <button onClick={onLink} className="text-xs font-medium hover:underline" style={{ color: '#003152' }}>
+                    <button onClick={onLink} className="text-xs font-medium hover:underline" style={{ color: 'var(--ht-primary)' }}>
                         {linkLabel} →
                     </button>
                 )}
@@ -65,7 +61,7 @@ function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty,
             {loading ? (
                 <SkeletonSimpleList rows={3} />
             ) : empty ? (
-                <div className="px-5 py-10 text-center text-sm text-gray-300">{emptyLabel}</div>
+                <div className="ht-empty">{emptyLabel}</div>
             ) : children}
         </div>
     )
@@ -152,21 +148,21 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="ht-page flex flex-col">
             <Navbar />
 
-            <div className="max-w-6xl mx-auto px-6 py-8 w-full space-y-8">
+            <div className="ht-page-content space-y-8">
 
                 {/* ── Titre ── */}
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">
+                    <h1 className="text-2xl font-semibold" style={{ color: 'var(--ht-text)' }}>
                         {hasRole('admin')      && 'Tableau de bord — Administration'}
                         {hasRole('medecin')    && `Bonjour Dr. ${user?.nom} 👋`}
                         {hasRole('infirmier')  && `Bonjour ${user?.prenom} 👋`}
                         {hasRole('secretaire') && 'Accueil & Secrétariat'}
                         {hasRole('laborantin') && 'Espace Laboratoire'}
                     </h1>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <p className="text-sm mt-1" style={{ color: 'var(--ht-text-muted)' }}>
                         {hasRole('admin')      && "Vue globale de l'établissement"}
                         {hasRole('medecin')    && 'Vos patients et consultations du jour'}
                         {hasRole('infirmier')  && 'Suivi des patients et signes vitaux'}
@@ -180,10 +176,7 @@ export default function Dashboard() {
                     {hasRole('admin', 'medecin', 'secretaire') && (
                         <button
                             onClick={() => navigate('/patients/newPatient')}
-                            className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                            style={{ backgroundColor: '#003152' }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                            className="btn btn-primary"
                         >
                             + Nouveau patient
                         </button>
@@ -191,7 +184,7 @@ export default function Dashboard() {
                     {isSecretaire && (
                         <button
                             onClick={() => navigate('/rendez_vous')}
-                            className="text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+                            className="btn btn-ghost"
                         >
                             📅 Gérer les rendez-vous
                         </button>
@@ -199,10 +192,7 @@ export default function Dashboard() {
                     {isNurse && (
                         <button
                             onClick={() => navigate('/patients')}
-                            className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                            style={{ backgroundColor: '#003152' }}
-                            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                            className="btn btn-primary"
                         >
                             🔍 Rechercher un patient
                         </button>
@@ -210,8 +200,7 @@ export default function Dashboard() {
                     {canSeeUrgences && (
                         <button
                             onClick={() => navigate('/urgences')}
-                            className="text-sm font-medium px-4 py-2 rounded-lg border transition-colors"
-                            style={{ borderColor: '#fecaca', color: '#b91c1c', backgroundColor: '#fef2f2' }}
+                            className="btn btn-danger"
                         >
                             🚨 Voir les urgences
                         </button>
@@ -219,7 +208,7 @@ export default function Dashboard() {
                     {canSeePatients && (
                         <button
                             onClick={() => navigate('/patients')}
-                            className="text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
+                            className="btn btn-ghost"
                         >
                             Voir tous les patients
                         </button>
@@ -285,20 +274,20 @@ export default function Dashboard() {
                             linkLabel="Voir tout"
                             onLink={() => navigate('/urgences')}
                         >
-                            <div className="divide-y divide-gray-50">
+                            <div>
                                 {urgencesTriees.map(u => (
-                                    <div key={u.id} className="px-5 py-3 flex items-center gap-3">
+                                    <div key={u.id} className="ht-table-row" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
                                         <span className="w-2 h-2 rounded-full flex-shrink-0"
                                               style={{ backgroundColor: u.niveau_tri ? TRI_COLORS[u.niveau_tri] : '#d1d5db' }} />
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
                                                 {u.patient_nom || `Patient #${u.patient}`}
                                             </p>
-                                            <p className="text-xs text-gray-400">
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                                 {u.niveau_tri_label || 'Non trié'} · {u.motif}
                                             </p>
                                         </div>
-                                        <span className="text-xs px-2 py-0.5 rounded-full font-medium text-gray-500 bg-gray-100">
+                                        <span className="badge badge-muted">
                                             {u.statut_label || u.statut}
                                         </span>
                                     </div>
@@ -315,19 +304,19 @@ export default function Dashboard() {
                             empty={(hospitalisations?.length ?? 0) === 0}
                             emptyLabel="Aucune hospitalisation en cours"
                         >
-                            <div className="divide-y divide-gray-50">
+                            <div>
                                 {(hospitalisations ?? []).slice(0, 5).map(h => (
-                                    <div key={h.id} className="px-5 py-3 flex items-center gap-3">
+                                    <div key={h.id} className="ht-table-row" style={{ gridTemplateColumns: '1fr auto', cursor: 'default' }}>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
                                                 {h.patient_nom || `Patient #${h.patient}`}
                                             </p>
-                                            <p className="text-xs text-gray-400">
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                                 {h.chambre ? `Chambre ${h.chambre}` : 'Chambre non assignée'}
                                                 {h.lit ? ` · Lit ${h.lit}` : ''}
                                             </p>
                                         </div>
-                                        <span className="text-xs text-gray-400">{h.duree_jours ?? 0} j</span>
+                                        <span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{h.duree_jours ?? 0} j</span>
                                     </div>
                                 ))}
                             </div>
@@ -343,18 +332,17 @@ export default function Dashboard() {
                             linkLabel="Voir tous les patients"
                             onLink={() => navigate('/patients')}
                         >
-                            <div className="divide-y divide-gray-50">
+                            <div>
                                 {patientsRecents.map(p => (
                                     <div key={p.id}
                                          onClick={() => navigate(`/patients/${p.id}`)}
-                                         className="px-5 py-3 flex items-center gap-3 hover:bg-gray-50 cursor-pointer transition-colors">
-                                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-                                             style={{ backgroundColor: '#003152' }}>
+                                         className="ht-table-row" style={{ gridTemplateColumns: 'auto 1fr' }}>
+                                        <div className="ht-avatar ht-avatar-sm">
                                             {p.prenom[0]}{p.nom[0]}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-900 truncate">{p.prenom} {p.nom}</p>
-                                            <p className="text-xs text-gray-400">{calcAge(p.date_naissance)} ans</p>
+                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>{p.prenom} {p.nom}</p>
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{calcAge(p.date_naissance)} ans</p>
                                         </div>
                                     </div>
                                 ))}
@@ -372,16 +360,16 @@ export default function Dashboard() {
                             linkLabel="Voir tous les rendez-vous"
                             onLink={() => navigate('/rendez_vous')}
                         >
-                            <div className="divide-y divide-gray-50">
+                            <div>
                                 {rdvAujourdhui.slice(0, 5).map(r => (
-                                    <div key={r.id} className="px-5 py-3 flex items-center gap-3">
+                                    <div key={r.id} className="ht-table-row" style={{ gridTemplateColumns: '1fr auto', cursor: 'default' }}>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-900 truncate">
+                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
                                                 {r.patient_prenom} {r.patient_nom}
                                             </p>
-                                            <p className="text-xs text-gray-400 truncate">{r.motif}</p>
+                                            <p className="text-xs truncate" style={{ color: 'var(--ht-text-muted)' }}>{r.motif}</p>
                                         </div>
-                                        <span className="text-xs font-medium text-gray-500">
+                                        <span className="text-xs font-medium" style={{ color: 'var(--ht-text-secondary)' }}>
                                             {new Date(r.date_heure).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                     </div>
@@ -398,17 +386,17 @@ export default function Dashboard() {
                             empty={consultationsAujourdhui.length === 0}
                             emptyLabel="Aucune consultation prévue aujourd'hui"
                         >
-                            <div className="divide-y divide-gray-50">
+                            <div>
                                 {consultationsAujourdhui.slice(0, 5).map(c => (
-                                    <div key={c.id} className="px-5 py-3 flex items-center gap-3">
+                                    <div key={c.id} className="ht-table-row" style={{ gridTemplateColumns: '1fr auto', cursor: 'default' }}>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium text-gray-900 truncate">{c.motif}</p>
-                                            <p className="text-xs text-gray-400">
+                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>{c.motif}</p>
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                                 {new Date(c.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                                 {' · '}{c.type_evenement}
                                             </p>
                                         </div>
-                                        <span className="text-xs px-2 py-0.5 rounded-full font-medium text-gray-500 bg-gray-100 capitalize">
+                                        <span className="badge badge-muted capitalize">
                                             {c.statut.replace('_', ' ')}
                                         </span>
                                     </div>
@@ -419,26 +407,25 @@ export default function Dashboard() {
                 </div>
 
                 {hasRole('laborantin') && (
-                    <div className="bg-white rounded-xl border border-gray-100 p-8 flex items-center justify-between gap-6">
+                    <div className="ht-card ht-card-padded flex items-center justify-between gap-6">
                         <div className="flex items-center gap-4">
                             <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                                 style={{ backgroundColor: '#f0f7ff' }}>
+                                 style={{ backgroundColor: 'var(--ht-primary-light)' }}>
                                 🧪
                             </div>
                             <div>
-                                <p className="text-sm font-semibold text-gray-900">
+                                <p className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
                                     {demandesEnAttente === null
                                         ? 'Chargement des demandes…'
                                         : demandesEnAttente === 0
                                             ? 'Aucune demande en attente'
                                             : `${demandesEnAttente} demande${demandesEnAttente > 1 ? 's' : ''} en attente de traitement`}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-0.5">Retrouve toutes les demandes d'analyses de ton service</p>
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>Retrouve toutes les demandes d'analyses de ton service</p>
                             </div>
                         </div>
                         <button onClick={() => navigate('/laboratoire')}
-                                className="text-sm font-medium px-4 py-2.5 rounded-lg text-white transition-colors flex-shrink-0"
-                                style={{ backgroundColor: '#003152' }}>
+                                className="btn btn-primary flex-shrink-0">
                             Ouvrir le laboratoire →
                         </button>
                     </div>

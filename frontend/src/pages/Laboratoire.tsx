@@ -29,17 +29,16 @@ const TYPES: { value: TypeAnalyse; label: string }[] = [
 ]
 
 const STATUT_CONFIG: Record<StatutAnalyse, { label: string; color: string; bg: string }> = {
-    en_attente: { label: 'En attente', color: '#b45309', bg: '#fef3c7' },
+    en_attente: { label: 'En attente', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
     en_cours: { label: 'En cours', color: '#1d4ed8', bg: '#dbeafe' },
-    terminee: { label: 'Terminée', color: '#166534', bg: '#dcfce7' },
-    annulee: { label: 'Annulée', color: '#6b7280', bg: '#f3f4f6' },
+    terminee: { label: 'Terminée', color: '#166534', bg: 'var(--ht-success-bg)' },
+    annulee: { label: 'Annulée', color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
 }
 
 function StatutBadge({ statut }: { statut: StatutAnalyse }) {
     const cfg = STATUT_CONFIG[statut]
     return (
-        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold"
-              style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+        <span className="badge" style={{ color: cfg.color, backgroundColor: cfg.bg }}>
             {cfg.label}
         </span>
     )
@@ -91,8 +90,8 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto">
                 <h3 className="text-base font-semibold text-gray-900">Nouvelle demande d'analyse</h3>
 
                 <div>
@@ -106,7 +105,7 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
                         <>
                             <input type="text" placeholder="Rechercher un patient par nom…" value={search}
                                    onChange={e => setSearch(e.target.value)}
-                                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                                   className="ht-input w-full px-3 py-2.5 text-sm" />
                             {results.length > 0 && (
                                 <div className="mt-1 border border-gray-100 rounded-lg overflow-hidden">
                                     {results.map(p => (
@@ -124,7 +123,7 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Type d'analyse</label>
                     <select value={typeAnalyse} onChange={e => setTypeAnalyse(e.target.value as TypeAnalyse)}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                            className="ht-input w-full px-3 py-2.5 text-sm">
                         {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                 </div>
@@ -133,11 +132,11 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Urgence</label>
                     <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
                         <button type="button" onClick={() => setUrgence('normale')} className="flex-1 py-2 transition-colors"
-                                style={urgence === 'normale' ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                                style={urgence === 'normale' ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
                             Normale
                         </button>
                         <button type="button" onClick={() => setUrgence('urgente')} className="flex-1 py-2 transition-colors"
-                                style={urgence === 'urgente' ? { backgroundColor: '#b91c1c', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                                style={urgence === 'urgente' ? { backgroundColor: 'var(--ht-danger)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
                             🚨 Urgente
                         </button>
                     </div>
@@ -146,19 +145,18 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes pour le laboratoire (optionnel)</label>
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                              className="ht-input w-full px-3 py-2.5 text-sm"
                               placeholder="Contexte clinique, suspicion diagnostique..." />
                 </div>
 
                 {erreur && <p className="text-sm text-red-500">{erreur}</p>}
 
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button onClick={handleSubmit} disabled={!patientId || submitting}
-                            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                            style={{ backgroundColor: !patientId || submitting ? '#9ca3af' : '#003152' }}>
+                            className="btn btn-primary flex-1">
                         {submitting ? 'Envoi…' : 'Envoyer la demande'}
                     </button>
                 </div>
@@ -190,8 +188,8 @@ function ResultatsModal({ demande, onClose, onUpdated }: {
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto">
                 <div>
                     <h3 className="text-base font-semibold text-gray-900">
                         {demande.type_label} — {demande.patient_prenom || demande.patient_nom} {demande.patient_nom_famille || ''}
@@ -204,25 +202,24 @@ function ResultatsModal({ demande, onClose, onUpdated }: {
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Résultats *</label>
                     <textarea value={resultats} onChange={e => setResultats(e.target.value)} rows={5}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                              className="ht-input w-full px-3 py-2.5 text-sm"
                               placeholder="Ex : Hémoglobine 13.2 g/dL, Globules blancs 7200/mm³..." />
                 </div>
                 <div>
                     <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Valeurs normales de référence (optionnel)</label>
                     <textarea value={valeursNormales} onChange={e => setValeursNormales(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                              className="ht-input w-full px-3 py-2.5 text-sm"
                               placeholder="Ex : Hémoglobine : 12–16 g/dL" />
                 </div>
 
                 {erreur && <p className="text-sm text-red-500">{erreur}</p>}
 
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                    <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button onClick={handleSubmit} disabled={!resultats.trim() || submitting}
-                            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                            style={{ backgroundColor: !resultats.trim() || submitting ? '#9ca3af' : '#003152' }}>
+                            className="btn btn-primary flex-1">
                         {submitting ? 'Envoi…' : 'Valider les résultats'}
                     </button>
                 </div>
@@ -261,19 +258,19 @@ function DemandeRow({ demande, isLab, canManage, onPrendreEnCharge, onAnnuler, o
             <div className="flex gap-2">
                 {isLab && demande.statut === 'en_attente' && (
                     <button onClick={() => onPrendreEnCharge(demande)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: '#003152' }}>
+                            className="btn btn-primary btn-sm">
                         Prendre en charge
                     </button>
                 )}
                 {isLab && demande.statut === 'en_cours' && (
                     <button onClick={() => onSaisirResultats(demande)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg text-white" style={{ backgroundColor: '#003152' }}>
+                            className="btn btn-primary btn-sm">
                         Saisir résultats
                     </button>
                 )}
                 {demande.statut === 'terminee' && (
                     <button onClick={() => onVoirResultats(demande)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+                            className="btn btn-ghost btn-sm">
                         Voir résultats
                     </button>
                 )}
@@ -344,7 +341,7 @@ export default function Laboratoire() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="ht-page flex flex-col">
             <Navbar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 w-full space-y-6">
@@ -358,8 +355,7 @@ export default function Laboratoire() {
                     </div>
                     {canRequest && (
                         <button onClick={() => setShowNouvelle(true)}
-                                className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                                style={{ backgroundColor: '#003152' }}>
+                                className="btn btn-primary">
                             + Nouvelle demande
                         </button>
                     )}
@@ -377,14 +373,14 @@ export default function Laboratoire() {
                         <button key={s} onClick={() => setFiltreStatut(s)}
                                 className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
                                 style={filtreStatut === s
-                                    ? { backgroundColor: '#003152', color: 'white', borderColor: '#003152' }
-                                    : { backgroundColor: 'white', color: '#6b7280', borderColor: '#e5e7eb' }}>
+                                    ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
+                                    : { backgroundColor: 'white', color: 'var(--ht-muted)', borderColor: 'var(--ht-border-input)' }}>
                             {s === 'tous' ? `Toutes (${demandes?.length ?? 0})` : `${STATUT_CONFIG[s].label} (${compteurs[s] ?? 0})`}
                         </button>
                     ))}
                 </div>
 
-                <div className="bg-white rounded-xl border border-gray-100">
+                <div className="ht-card">
                     {demandes === null ? (
                         <SkeletonSimpleList rows={4} />
                     ) : demandesFiltrees.length === 0 ? (
@@ -395,7 +391,7 @@ export default function Laboratoire() {
                             </p>
                         </div>
                     ) : (
-                        <div className="divide-y divide-gray-50">
+                        <div>
                             {demandesFiltrees.map(d => (
                                 <DemandeRow key={d.id} demande={d} isLab={isLab} canManage={canManage}
                                             onPrendreEnCharge={handlePrendreEnCharge}
@@ -417,9 +413,9 @@ export default function Laboratoire() {
             )}
 
             {resultatsCible && resultatsCible.statut === 'terminee' && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+                <div className="ht-modal-overlay"
                      onClick={() => setResultatsCible(null)}>
-                    <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto"
+                    <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto"
                          onClick={e => e.stopPropagation()}>
                         <div>
                             <h3 className="text-base font-semibold text-gray-900">{resultatsCible.type_label}</h3>
@@ -439,7 +435,7 @@ export default function Laboratoire() {
                             </div>
                         )}
                         <button onClick={() => setResultatsCible(null)}
-                                className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                                className="btn btn-ghost w-full">
                             Fermer
                         </button>
                     </div>

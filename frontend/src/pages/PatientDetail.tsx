@@ -10,6 +10,10 @@ import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
 import { getDemandesPatient, createDemande } from '../api/analyses'
 import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
+import { getRendezVousPatient } from '../api/rendezvous'
+import { getUrgencesPatient } from '../api/urgences'
+import { getHospitalisations } from '../api/hospitalisations'
+import type { RendezVous, PassageUrgence, Hospitalisation } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonDetailPage } from '../components/Skeleton'
 //import Navbar from '../components/NavBar'
@@ -34,6 +38,34 @@ const STATUT_ANALYSE_CONFIG: Record<string, { label: string; color: string; bg: 
     en_cours: { label: 'En cours', color: '#1d4ed8', bg: '#dbeafe' },
     terminee: { label: 'Terminée', color: '#166534', bg: '#dcfce7' },
     annulee: { label: 'Annulée', color: '#6b7280', bg: '#f3f4f6' },
+}
+
+// ─── Config rendez-vous / urgences / hospitalisations (badges génériques) ────
+const STATUT_RDV_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    planifie: { label: 'Planifié', color: '#b45309', bg: '#fef3c7' },
+    confirme: { label: 'Confirmé', color: '#1d4ed8', bg: '#dbeafe' },
+    termine:  { label: 'Terminé',  color: '#166534', bg: '#dcfce7' },
+    annule:   { label: 'Annulé',   color: '#6b7280', bg: '#f3f4f6' },
+}
+const STATUT_URGENCE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    en_attente:      { label: 'En attente',      color: '#b45309', bg: '#fef3c7' },
+    en_consultation: { label: 'En consultation', color: '#1d4ed8', bg: '#dbeafe' },
+    sorti:           { label: 'Sorti',           color: '#6b7280', bg: '#f3f4f6' },
+}
+const STATUT_HOSPIT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
+    en_cours:  { label: 'En cours',         color: '#1d4ed8', bg: '#dbeafe' },
+    sortie:    { label: 'Sortie effectuée', color: '#166534', bg: '#dcfce7' },
+    transfert: { label: 'Transféré',        color: '#7c2d12', bg: '#fde68a' },
+}
+
+function StatutMini({ statut, config }: { statut: string; config: Record<string, { label: string; color: string; bg: string }> }) {
+    const cfg = config[statut] ?? { label: statut, color: '#6b7280', bg: '#f3f4f6' }
+    return (
+        <span className="text-[11px] px-2 py-1 rounded-full font-medium flex-shrink-0"
+              style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+            {cfg.label}
+        </span>
+    )
 }
 
 // ─── Types d'antécédents ───────────────────────────────────────────────────────
@@ -65,6 +97,12 @@ function calcAge(dateStr: string) {
 function formatDate(dateStr: string) {
     return new Date(dateStr).toLocaleDateString('fr-FR', {
         day: 'numeric', month: 'long', year: 'numeric'
+    })
+}
+
+function formatDateHeure(iso: string) {
+    return new Date(iso).toLocaleString('fr-FR', {
+        day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
     })
 }
 
@@ -344,6 +382,106 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
     )
 }
 
+// ─── Panel historique des rendez-vous ────────────────────────────────────────
+function RendezVousPanel({ rendezVous, onVoirTous }: { rendezVous: RendezVous[]; onVoirTous: () => void }) {
+    const tries = [...rendezVous].sort((a, b) => new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime())
+    return (
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    Rendez-vous {tries.length > 0 && `(${tries.length})`}
+                </h2>
+                {tries.length > 0 && (
+                    <button onClick={onVoirTous} className="text-xs font-medium text-gray-400 hover:text-gray-700">
+                        Voir dans l'agenda →
+                    </button>
+                )}
+            </div>
+            {tries.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucun rendez-vous enregistré</span></div>
+            ) : (
+                <div className="space-y-2">
+                    {tries.map(r => (
+                        <div key={r.id} className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{r.motif}</p>
+                                <p className="text-[11px] text-gray-300 mt-0.5">{formatDateHeure(r.date_heure)}</p>
+                            </div>
+                            <StatutMini statut={r.statut} config={STATUT_RDV_CONFIG} />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ─── Panel historique des passages aux urgences ──────────────────────────────
+function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
+    const tries = [...passages].sort((a, b) => new Date(b.date_arrivee).getTime() - new Date(a.date_arrivee).getTime())
+    return (
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Passages aux urgences {tries.length > 0 && `(${tries.length})`}
+            </h2>
+            {tries.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucun passage aux urgences</span></div>
+            ) : (
+                <div className="space-y-2">
+                    {tries.map(p => (
+                        <div key={p.id} className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">{p.motif}</p>
+                                <p className="text-[11px] text-gray-300 mt-0.5">
+                                    {formatDateHeure(p.date_arrivee)}
+                                    {p.medecin_nom && ` · Dr ${p.medecin_nom}`}
+                                </p>
+                            </div>
+                            <StatutMini statut={p.statut} config={STATUT_URGENCE_CONFIG} />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ─── Panel historique des hospitalisations ───────────────────────────────────
+function HospitalisationsPanel({ hospitalisations }: { hospitalisations: Hospitalisation[] }) {
+    const tries = [...hospitalisations].sort((a, b) => new Date(b.date_admission).getTime() - new Date(a.date_admission).getTime())
+    return (
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Hospitalisations {tries.length > 0 && `(${tries.length})`}
+            </h2>
+            {tries.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucune hospitalisation enregistrée</span></div>
+            ) : (
+                <div className="space-y-2">
+                    {tries.map(h => (
+                        <div key={h.id} className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50">
+                            <div className="min-w-0">
+                                <p className="text-sm font-medium text-gray-800 truncate">
+                                    {h.motif_admission || 'Motif non précisé'}
+                                </p>
+                                <p className="text-[11px] text-gray-300 mt-0.5">
+                                    {h.service_nom && `${h.service_nom} · `}
+                                    {h.chambre && `Chambre ${h.chambre}`}{h.lit && ` · Lit ${h.lit}`}
+                                </p>
+                                <p className="text-[11px] text-gray-300 mt-0.5">
+                                    Admis le {formatDate(h.date_admission)}
+                                    {h.date_sortie && ` · Sorti le ${formatDate(h.date_sortie)}`}
+                                </p>
+                            </div>
+                            <StatutMini statut={h.statut} config={STATUT_HOSPIT_CONFIG} />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ─── Modale : demander une analyse (patient déjà connu) ───────────────────────
 function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
     onSave: (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => void
@@ -473,6 +611,9 @@ export default function PatientDetail() {
     const [demandeLoading, setDemandeLoading] = useState(false)
     const [demandeError, setDemandeError] = useState('')
     const [resultatsAffiches, setResultatsAffiches] = useState<DemandeAnalyse | null>(null)
+    const [rendezVous, setRendezVous] = useState<RendezVous[]>([])
+    const [urgences, setUrgences] = useState<PassageUrgence[]>([])
+    const [hospitalisations, setHospitalisations] = useState<Hospitalisation[]>([])
     const { hasRole } = useAuth()
     const canRequestAnalyse = hasRole('admin', 'medecin')
     const canSeeAnalyses = hasRole('admin', 'medecin')
@@ -491,8 +632,11 @@ export default function PatientDetail() {
         getAntecedents(Number(id)).then(setAntecedents).catch(() => {})
         getServices().then(setServices).catch(() => {})
         getEmployes().then(emps => setMedecins(emps.filter(e => e.role === 'medecin' && e.actif))).catch(() => {})
-        }, [id])
+        getRendezVousPatient(Number(id)).then(setRendezVous).catch(() => {})
+        getUrgencesPatient(Number(id)).then(setUrgences).catch(() => {})
+        getHospitalisations(Number(id)).then(setHospitalisations).catch(() => {})
         if (canSeeAnalyses) getDemandesPatient(Number(id)).then(setDemandesAnalyses).catch(() => {})
+    }, [id])
 
     const handleDemandeAnalyse = async (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => {
         if (!patient) return
@@ -523,6 +667,7 @@ export default function PatientDetail() {
             service: patient.service ?? null,
             medecin_referent: patient.medecin_referent ?? null,
             actif: patient.actif,
+            photo_path: patient.photo_path ?? '',
         })
         setSaveError('')
         setEditing(true)
@@ -684,12 +829,21 @@ export default function PatientDetail() {
                 {/* ── Header patient ── */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6">
                     <div className="flex items-start gap-5">
-                        <div
-                            className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white flex-shrink-0"
-                            style={{ backgroundColor: '#003152' }}
-                        >
-                            {patient.prenom[0]}{patient.nom[0]}
-                        </div>
+                        {patient.photo_path ? (
+                            <img
+                                src={patient.photo_path}
+                                alt={`${patient.prenom} ${patient.nom}`}
+                                className="w-20 h-20 rounded-2xl object-cover flex-shrink-0"
+                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                            />
+                        ) : (
+                            <div
+                                className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white flex-shrink-0"
+                                style={{ backgroundColor: '#003152' }}
+                            >
+                                {patient.prenom[0]}{patient.nom[0]}
+                            </div>
+                        )}
 
                         <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-4">
@@ -713,12 +867,12 @@ export default function PatientDetail() {
                             </div>
 
                             <div className="flex flex-wrap gap-2 mt-3">
-                                {patient.groupe_sanguin && (
-                                    <span className="px-3 py-1 rounded-full text-xs font-semibold"
-                                          style={{ backgroundColor: '#ADDFF1', color: '#003152' }}>
-                                        🩸 Groupe {patient.groupe_sanguin}
-                                    </span>
-                                )}
+                                <span className="px-3 py-1 rounded-full text-xs font-semibold"
+                                      style={patient.groupe_sanguin
+                                          ? { backgroundColor: '#ADDFF1', color: '#003152' }
+                                          : { backgroundColor: '#f3f4f6', color: '#9ca3af' }}>
+                                    🩸 {patient.groupe_sanguin ? `Groupe ${patient.groupe_sanguin}` : 'Groupe sanguin non renseigné'}
+                                </span>
                                 {patient.telephone && (
                                     <span className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
                                         📞 {patient.telephone}
@@ -810,7 +964,7 @@ export default function PatientDetail() {
                     </div>
                 )}
 
-                {/* ── Infos personnelles (édition, pleine page façon EmployeDetail) ── */}
+                {/* ── Infos personnelles  ── */}
                 {editing && (
                     <div className="space-y-5">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -842,6 +996,9 @@ export default function PatientDetail() {
                                 </EditField>
                                 <EditField label="Adresse">
                                     <input className={inputCls} value={form.adresse ?? ''} onChange={e => set('adresse', e.target.value)} />
+                                </EditField>
+                                <EditField label="Photo (URL)">
+                                    <input className={inputCls} value={form.photo_path ?? ''} onChange={e => set('photo_path', e.target.value)} placeholder="https://…" />
                                 </EditField>
                             </div>
 
@@ -907,27 +1064,31 @@ export default function PatientDetail() {
                     </div>
                 )}
 
-                {/* ── Consultations & Signes vitaux (2 colonnes) ── */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6 items-start">
-
-                    {/* Colonne gauche : Consultations */}
-                    <div>
-                        <Consultations
-                            patientId={patient.id}
-                            consultations={consultations}
-                            onUpdate={setConsultations}
-                        />
-                    </div>
-
-                    {/* Colonne droite : Signes vitaux */}
-                    <div>
-                        <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                            Suivi des signes vitaux
-                        </h2>
-                        <SignesVitauxCharts data={signes} />
-                    </div>
-
+                {/* ── Signes vitaux (au-dessus) ── */}
+                <div>
+                    <h2 className="text-sm font-semibold text-gray-900 mb-4">
+                        Suivi des signes vitaux
+                    </h2>
+                    <SignesVitauxCharts data={signes} />
                 </div>
+
+                {/* ── Historique médical (consultations) ── */}
+                <div>
+                    <Consultations
+                        patientId={patient.id}
+                        consultations={consultations}
+                        onUpdate={setConsultations}
+                    />
+                </div>
+
+                {/* ── Rendez-vous ── */}
+                <RendezVousPanel rendezVous={rendezVous} onVoirTous={() => navigate('/rendez_vous')} />
+
+                {/* ── Passages aux urgences ── */}
+                <UrgencesPanel passages={urgences} />
+
+                {/* ── Hospitalisations ── */}
+                <HospitalisationsPanel hospitalisations={hospitalisations} />
 
             </div>
         </div>

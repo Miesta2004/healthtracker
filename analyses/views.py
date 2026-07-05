@@ -37,12 +37,18 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
 
             qs = DemandeAnalyse.objects.select_related(
                 'patient', 'demandeur', 'laborantin'
-            ).filter(patient__service=emp.service)
+            )
 
             if emp.role == 'laborantin':
+                # Le laborantin voit toutes les demandes — tous services confondus
                 qs = qs.filter(statut__in=['en_attente', 'en_cours', 'terminee'])
+            elif emp.role == 'medecin' and emp.service_id:
+                # Le médecin voit uniquement les demandes de son service
+                qs = qs.filter(patient__service=emp.service)
+            else:
+                # Admin voit tout
+                qs = qs.all()
 
-        # Filtre optionnel par patient (utilisé par le dossier patient)
         patient_id = self.request.query_params.get('patient')
         if patient_id:
             qs = qs.filter(patient_id=patient_id)

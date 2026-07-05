@@ -31,17 +31,17 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
         <div className="flex flex-col items-center gap-3">
             <svg width="100" height="100" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r={r} fill="none" stroke="#e5e7eb" strokeWidth="14" />
-                <circle cx="50" cy="50" r={r} fill="none" stroke="#003152" strokeWidth="14"
+                <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ht-primary)" strokeWidth="14"
                         strokeDasharray={`${dash} ${circ - dash}`}
                         strokeDashoffset={circ / 4} strokeLinecap="round"
                         style={{ transition: 'stroke-dasharray 1s ease' }} />
-                <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="bold" fill="#003152">
+                <text x="50" y="54" textAnchor="middle" fontSize="16" fontWeight="bold" fill="var(--ht-primary)">
                     {Math.round(pct * 100)}%
                 </text>
             </svg>
             <div className="flex gap-4 text-xs text-gray-500">
                 <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: '#003152' }} />
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: 'var(--ht-primary)' }} />
                     Actifs ({actif})
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -57,18 +57,14 @@ function KpiCard({ label, value, sub, icon, accent }: {
     label: string; value: string | number; sub?: string; icon: string; accent?: boolean
 }) {
     return (
-        <div className="rounded-xl border p-5 flex items-start gap-4"
-             style={accent
-                 ? { backgroundColor: '#003152', borderColor: '#003152' }
-                 : { backgroundColor: 'white', borderColor: '#f3f4f6' }}>
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                 style={accent ? { backgroundColor: 'rgba(173,223,241,0.15)' } : { backgroundColor: '#f8fafc' }}>
+        <div className={`ht-kpi ${accent ? 'accent' : ''}`}>
+            <div className="ht-kpi-icon">
                 {icon}
             </div>
             <div>
-                <p className={`text-xs font-medium ${accent ? 'text-blue-200' : 'text-gray-400'}`}>{label}</p>
-                <p className={`text-2xl font-bold mt-0.5 ${accent ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-                {sub && <p className={`text-xs mt-0.5 ${accent ? 'text-blue-300' : 'text-gray-400'}`}>{sub}</p>}
+                <p className="ht-kpi-label">{label}</p>
+                <p className="ht-kpi-value">{value}</p>
+                {sub && <p className="ht-kpi-sub">{sub}</p>}
             </div>
         </div>
     )
@@ -166,9 +162,9 @@ export default function Patients() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="ht-page flex flex-col">
             <Navbar />
-            <div className="max-w-6xl mx-auto px-6 py-8 w-full space-y-8">
+            <div className="ht-page-content w-full space-y-8">
 
                 {/* ── Titre ── */}
                 <div>
@@ -184,9 +180,9 @@ export default function Patients() {
                 {isNurse && (
                     <div className="space-y-6">
                         {/* Bandeau service */}
-                        <div className="bg-white rounded-xl border border-gray-100 p-5 flex items-center gap-4">
+                        <div className="ht-card p-5 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                                 style={{ backgroundColor: '#e8f0f5' }}>🏥</div>
+                                 style={{ backgroundColor: 'var(--ht-primary-light)' }}>🏥</div>
                             <div>
                                 <p className="text-xs text-gray-400 mb-0.5">Votre service</p>
                                 <p className="text-sm font-semibold text-gray-800">
@@ -199,7 +195,7 @@ export default function Patients() {
                         </div>
 
                         {/* Champ de recherche */}
-                        <div className="bg-white rounded-xl border border-gray-100 p-6">
+                        <div className="ht-card p-6">
                             <h2 className="text-sm font-semibold text-gray-700 mb-1">Rechercher un patient</h2>
                             <p className="text-xs text-gray-400 mb-4">
                                 Tapez un nom, prénom ou numéro de dossier (au moins 2 caractères).
@@ -211,15 +207,13 @@ export default function Patients() {
                                     value={nurseQuery}
                                     onChange={e => setNurseQuery(e.target.value)}
                                     placeholder="Ex : Diallo, Fatou, P123456..."
-                                    className="w-full pl-9 pr-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                    onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                    onBlur={e => (e.target.style.boxShadow = 'none')}
+                                    className="ht-input w-full pl-9 pr-3 py-2.5 text-sm"
                                 />
                             </div>
                         </div>
 
                         {/* Résultats */}
-                        <div className="bg-white rounded-xl border border-gray-100">
+                        <div className="ht-card">
                             {nurseQuery.trim().length < 2 ? (
                                 <div className="px-6 py-16 text-center">
                                     <p className="text-4xl mb-3">🔍</p>
@@ -233,13 +227,12 @@ export default function Patients() {
                                     <p className="text-gray-400 text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-gray-50">
+                                <div>
                                     {patients.map(p => (
                                         <div key={p.id}
                                              onClick={() => navigate(`/patients/${p.id}`)}
-                                             className="px-6 py-3.5 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer group">
-                                            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                                                 style={{ backgroundColor: '#003152' }}>
+                                             className="ht-table-row group" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
+                                            <div className="ht-avatar ht-avatar-md">
                                                 {p.prenom[0]}{p.nom[0]}
                                             </div>
                                             <div className="min-w-0 flex-1">
@@ -251,8 +244,7 @@ export default function Patients() {
                                                 </p>
                                             </div>
                                             {p.groupe_sanguin && (
-                                                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                                                      style={{ backgroundColor: '#ADDFF1', color: '#003152' }}>
+                                                <span className="badge badge-tint font-semibold">
                                                     🩸 {p.groupe_sanguin}
                                                 </span>
                                             )}
@@ -272,10 +264,7 @@ export default function Patients() {
                             <div className="flex items-center gap-2">
                                 <button
                                     onClick={() => navigate('/patients/newPatient')}
-                                    className="text-sm font-medium px-4 py-2 rounded-lg text-white transition-colors"
-                                    style={{ backgroundColor: '#003152' }}
-                                    onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#004070')}
-                                    onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#003152')}
+                                    className="btn btn-primary"
                                 >
                                     + Nouveau patient
                                 </button>
@@ -309,28 +298,28 @@ export default function Patients() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                                <div className="ht-card p-6">
                                     <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des patients</h3>
                                     <DonutChart actif={actif} inactif={inactif} />
                                 </div>
-                                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                                <div className="ht-card p-6">
                                     <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par sexe</h3>
                                     <div className="space-y-4 pt-2">
-                                        <MiniBar label="Masculin" value={hommes} max={total} color="#003152" />
-                                        <MiniBar label="Féminin"  value={femmes} max={total} color="#ADDFF1" />
+                                        <MiniBar label="Masculin" value={hommes} max={total} color="var(--ht-primary)" />
+                                        <MiniBar label="Féminin"  value={femmes} max={total} color="var(--ht-primary-tint)" />
                                         <div className="pt-2 border-t border-gray-50 flex justify-between text-xs text-gray-400">
                                             <span>Total : {total} patient{total > 1 ? 's' : ''}</span>
                                             {total > 0 && <span>{Math.round(hommes / total * 100)}% H · {Math.round(femmes / total * 100)}% F</span>}
                                         </div>
                                     </div>
                                 </div>
-                                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                                <div className="ht-card p-6">
                                     <h3 className="text-sm font-semibold text-gray-700 mb-4">Groupes sanguins</h3>
                                     {groupCounts.length === 0
                                         ? <div className="text-center text-gray-300 text-sm py-8">Aucune donnée</div>
                                         : <div className="space-y-3">
                                             {groupCounts.map(({ g, count }) => (
-                                                <MiniBar key={g} label={g} value={count} max={maxGroup} color="#ADDFF1" />
+                                                <MiniBar key={g} label={g} value={count} max={maxGroup} color="var(--ht-primary-tint)" />
                                             ))}
                                         </div>}
                                 </div>
@@ -338,7 +327,7 @@ export default function Patients() {
                         )}
 
                         {/* Tableau */}
-                        <div className="bg-white rounded-xl border border-gray-100">
+                        <div className="ht-card">
                             <div className="px-6 py-4 border-b border-gray-100 space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div>
@@ -357,9 +346,7 @@ export default function Patients() {
                                             </button>
                                         )}
                                         <select value={sortBy} onChange={e => setSortBy(e.target.value as 'nom' | 'date')}
-                                                className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                                onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                                onBlur={e => (e.target.style.boxShadow = 'none')}>
+                                                className="ht-input text-xs px-2 py-1.5 text-gray-600">
                                             <option value="nom">Trier : A → Z</option>
                                             <option value="date">Trier : plus récents</option>
                                         </select>
@@ -370,14 +357,12 @@ export default function Patients() {
                                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
                                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                                                placeholder="Rechercher un patient..."
-                                               className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                               onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                               onBlur={e => (e.target.style.boxShadow = 'none')} />
+                                               className="ht-input w-full pl-8 pr-3 py-1.5 text-sm"/>
                                     </div>
                                     <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                                         {(['tous', 'M', 'F'] as const).map(s => (
                                             <button key={s} onClick={() => setFilterSexe(s)} className="px-3 py-1.5 transition-colors"
-                                                    style={filterSexe === s ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                                                    style={filterSexe === s ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
                                                 {s === 'tous' ? 'Tous' : s === 'M' ? '♂ Hommes' : '♀ Femmes'}
                                             </button>
                                         ))}
@@ -385,15 +370,13 @@ export default function Patients() {
                                     <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
                                         {(['tous', 'actif', 'inactif'] as const).map(s => (
                                             <button key={s} onClick={() => setFilterStatut(s)} className="px-3 py-1.5 transition-colors capitalize"
-                                                    style={filterStatut === s ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                                                    style={filterStatut === s ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
                                                 {s === 'tous' ? 'Tous' : s === 'actif' ? '● Actifs' : '○ Inactifs'}
                                             </button>
                                         ))}
                                     </div>
                                     <select value={filterGroupe} onChange={e => setFilterGroupe(e.target.value)}
-                                            className="text-xs border border-gray-200 rounded-lg px-2 py-1.5 text-gray-600 focus:outline-none"
-                                            onFocus={e => (e.target.style.boxShadow = '0 0 0 2px #003152')}
-                                            onBlur={e => (e.target.style.boxShadow = 'none')}>
+                                            className="ht-input text-xs px-2 py-1.5 text-gray-600">
                                         <option value="">Groupe sanguin</option>
                                         {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(g => (
                                             <option key={g} value={g}>{g}</option>
@@ -403,7 +386,7 @@ export default function Patients() {
                             </div>
 
                             {!loading && patientsFiltres.length > 0 && (
-                                <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 grid grid-cols-12 gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                <div className="ht-table-header grid-cols-12">
                                     <div className="col-span-4">Patient</div>
                                     <div className="col-span-1 text-center">Âge</div>
                                     <div className="col-span-2 text-center">Groupe</div>
@@ -429,7 +412,7 @@ export default function Patients() {
                                     </button>
                                 </div>
                             ) : (
-                                <div className="divide-y divide-gray-50">
+                                <div>
                                     {patientsFiltres.map(patient => {
                                         const allergies = patient.allergies
                                             ? patient.allergies.split(',').map(s => s.trim()).filter(Boolean)
@@ -437,10 +420,9 @@ export default function Patients() {
                                         return (
                                             <div key={patient.id}
                                                  onClick={() => navigate(`/patients/${patient.id}`)}
-                                                 className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors cursor-pointer group">
+                                                 className="ht-table-row grid-cols-12 group">
                                                 <div className="col-span-4 flex items-center gap-3">
-                                                    <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
-                                                         style={{ backgroundColor: '#003152' }}>
+                                                    <div className="ht-avatar ht-avatar-md">
                                                         {patient.prenom[0]}{patient.nom[0]}
                                                     </div>
                                                     <div className="min-w-0">
@@ -458,8 +440,7 @@ export default function Patients() {
                                                 </div>
                                                 <div className="col-span-2 flex justify-center">
                                                     {patient.groupe_sanguin
-                                                        ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                                                                style={{ backgroundColor: '#ADDFF1', color: '#003152' }}>
+                                                        ? <span className="badge badge-tint font-semibold">
                                                             🩸 {patient.groupe_sanguin}
                                                           </span>
                                                         : <span className="text-xs text-gray-300">—</span>}
@@ -472,15 +453,12 @@ export default function Patients() {
                                                 <div className="col-span-2">
                                                     {allergies.length === 0
                                                         ? <span className="text-xs text-gray-300">Aucune</span>
-                                                        : <span className="text-xs font-medium text-red-500 bg-red-50 px-2 py-0.5 rounded-full">
+                                                        : <span className="badge badge-danger">
                                                             ⚠ {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
                                                           </span>}
                                                 </div>
                                                 <div className="col-span-1 flex justify-center">
-                                                    <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                                                          style={patient.actif
-                                                              ? { backgroundColor: '#003152', color: 'white' }
-                                                              : { backgroundColor: '#f3f4f6', color: '#9ca3af' }}>
+                                                    <span className={`badge ${patient.actif ? 'badge-primary' : 'badge-muted'}`}>
                                                         {patient.actif ? 'Actif' : 'Inactif'}
                                                     </span>
                                                 </div>
