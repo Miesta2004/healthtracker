@@ -1,19 +1,20 @@
 """
-seed.py — Données de démonstration HealthTracker (Supabase)
-Génère un dataset complet et cohérent avec tous les modèles du projet.
+seed.py — Données de démonstration HealthTracker
+Données très réalistes : profils cliniques cohérents, évolutions temporelles,
+scénarios médicaux typiques du contexte sénégalais.
 Usage : python3 seed.py
 """
 
 import django, os, random
 from decimal import Decimal
-from collections import defaultdict
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'healthtracker.settings')
 django.setup()
 
 from django.utils import timezone
 from django.contrib.auth.models import User
-from datetime import timedelta, date
+from datetime import timedelta, date, datetime
+from collections import defaultdict
 
 from patients.models import Patient
 from consultations.models import Consultation, RendezVous
@@ -22,30 +23,28 @@ from alertes.models import Alerte
 from services.models import Service
 from hospitalisations.models import Hospitalisation, StatutHospitalisation
 from urgences.models import PassageUrgence, NiveauTri, ModeArrivee, StatutUrgence, DecisionSortie
-from comptes.models import Employe, TypeContrat
-from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
-from analyses.models import DemandeAnalyse
+from comptes.models import Employe
 
 random.seed(42)
 
-# ─── CONFIG ──────────────────────────────────────────────────────────────────
-JOURS_HISTORIQUE = 90
-NB_PATIENTS      = 60
-NB_MESURES_MIN   = 5
-NB_MESURES_MAX   = 20
+# ─── CONFIG ───────────────────────────────────────────────────────────────────
+JOURS_HISTORIQUE = 180   # 6 mois de données
+NB_PATIENTS      = 80
+NB_URGENCES      = 150   # passages aux urgences totaux
+NB_MESURES_MIN   = 6
+NB_MESURES_MAX   = 25
 
-# ─── NETTOYAGE ───────────────────────────────────────────────────────────────
-print("🗑️  Nettoyage des anciennes données...")
+now = timezone.now()
 
+# ─── NETTOYAGE ────────────────────────────────────────────────────────────────
+print("🗑️  Nettoyage...")
 for Model, label in [
-    (DemandeAnalyse,  "demande(s) d'analyse"),
-    (Antecedent,      "antécédent(s)"),
-    (PassageUrgence,  "passage(s) aux urgences"),
+    (PassageUrgence,  "passage(s) urgences"),
     (Hospitalisation, "hospitalisation(s)"),
     (Alerte,          "alerte(s)"),
     (RendezVous,      "rendez-vous"),
     (Consultation,    "consultation(s)"),
-    (SignesVitaux,    "mesure(s) de signes vitaux"),
+    (SignesVitaux,    "signes vitaux"),
     (Patient,         "patient(s)"),
     (Employe,         "employé(s)"),
     (Service,         "service(s)"),
@@ -55,757 +54,886 @@ for Model, label in [
         Model.objects.all().delete()
         print(f"   - {nb} {label} supprimé(s)")
 
-users_suppr = User.objects.filter(is_superuser=False).delete()
-print(f"   - {users_suppr[0]} user(s) Django supprimé(s)")
-print("✅ Base nettoyée.\n")
+nb, _ = User.objects.filter(is_superuser=False).delete()
+print(f"   - {nb} user(s) Django supprimé(s)\n✅ Nettoyé.\n")
 
-# ─── HELPERS ─────────────────────────────────────────────────────────────────
-def tel():
-    return f"+221 7{random.randint(0,9)} {random.randint(100,999)} {random.randint(10,99)} {random.randint(10,99)}"
-
-def varier(val, ecart, mini=None, maxi=None):
-    result = val + random.gauss(0, ecart)
-    if mini is not None: result = max(result, mini)
-    if maxi is not None: result = min(result, maxi)
-    return result
-
-now = timezone.now()
-
-QUARTIERS = [
-    "Plateau", "Médina", "Yoff", "Parcelles Assainies", "Grand Dakar",
-    "Ouakam", "Liberté 6", "HLM", "Point E", "Mermoz", "Fann",
-    "Sicap Baobab", "Guédiawaye", "Pikine", "Rufisque",
-    "Thiès", "Saint-Louis", "Ziguinchor", "Touba", "Kaolack"
-]
-
-# ─── SERVICES ────────────────────────────────────────────────────────────────
-print("🏥 Création des services...")
-
+# ─── SERVICES ─────────────────────────────────────────────────────────────────
+print("🏥 Services...")
 SERVICES_DATA = [
-    ("Cardiologie",             "Prise en charge des pathologies cardiovasculaires"),
-    ("Médecine générale",       "Consultations de premier recours"),
-    ("Pédiatrie",               "Suivi médical des enfants et nourrissons"),
-    ("Diabétologie",            "Suivi des patients diabétiques et endocriniens"),
-    ("Urgences",                "Accueil et tri des urgences médicales"),
-    ("Chirurgie générale",      "Interventions chirurgicales et suivi post-opératoire"),
-    ("Gynécologie-Obstétrique", "Suivi de grossesse et santé de la femme"),
-    ("Neurologie",              "Pathologies du système nerveux"),
-    ("ORL",                     "Oto-rhino-laryngologie"),
-    ("Laboratoire",             "Analyses biologiques et examens de laboratoire"),
+    ("Cardiologie",              "Prise en charge des pathologies cardiovasculaires"),
+    ("Médecine interne",         "Consultations de médecine générale et de premier recours"),
+    ("Pédiatrie",                "Suivi médical des enfants, nourrissons et adolescents"),
+    ("Diabétologie-Endocrinologie", "Suivi des patients diabétiques, thyroïdiens et endocriniens"),
+    ("Urgences",                 "Accueil, triage et prise en charge des urgences médicales"),
+    ("Chirurgie générale",       "Interventions chirurgicales programmées et urgentes"),
+    ("Gynécologie-Obstétrique",  "Suivi de grossesse, accouchement et santé de la femme"),
+    ("Neurologie",               "Pathologies du système nerveux central et périphérique"),
+    ("Pneumologie",              "Maladies respiratoires, asthme, BPCO, tuberculose"),
+    ("Néphro-dialyse",           "Insuffisance rénale, dialyse et transplantation rénale"),
+    ("ORL-Ophtalmologie",        "Oto-rhino-laryngologie et pathologies oculaires"),
+    ("Laboratoire",              "Analyses biologiques, hématologie et biochimie"),
 ]
+services = {}
+for nom, desc in SERVICES_DATA:
+    services[nom] = Service.objects.create(nom=nom, description=desc, actif=True)
+print(f"✅ {len(services)} services\n")
 
-services_crees = {}
-for nom, description in SERVICES_DATA:
-    service = Service.objects.create(nom=nom, description=description, actif=True)
-    services_crees[nom] = service
-
-print(f"✅ {len(services_crees)} services créés.\n")
-
-# ─── DONNÉES TEXTUELLES ──────────────────────────────────────────────────────
+# ─── DONNÉES NOMS/PRÉNOMS SÉNÉGALAIS ─────────────────────────────────────────
 PRENOMS_F = [
-    "Fatou", "Aïssatou", "Mariama", "Rokhaya", "Khady", "Ndèye",
-    "Aminata", "Sokhna", "Coumba", "Astou", "Dieynaba", "Yaye",
-    "Mame", "Binta", "Awa", "Soda", "Rama", "Seynabou", "Ndeye",
-    "Oumou", "Adja", "Kiné", "Nabou", "Penda", "Salimata"
+    "Fatou", "Aïssatou", "Mariama", "Rokhaya", "Khady", "Ndèye", "Aminata",
+    "Sokhna", "Coumba", "Astou", "Dieynaba", "Yaye Khady", "Binta", "Awa",
+    "Soda", "Rama", "Seynabou", "Oumou", "Adja", "Kiné", "Nabou", "Penda",
+    "Salimata", "Dieumba", "Mame Diarra", "Fatoumata", "Diariatou", "Aida",
+    "Codou", "Gnima", "Bigué", "Ngoné", "Thioro", "Yandé",
 ]
 PRENOMS_M = [
-    "Moussa", "Ibrahima", "Abdoulaye", "Cheikh", "Mamadou", "Oumar",
-    "Modou", "Babacar", "Pape", "Serigne", "Aliou", "Seydou",
-    "Lamine", "Assane", "Saliou", "Boubacar", "Idrissa", "Malick",
-    "Tapha", "Djibril", "Issa", "Fallou", "Demba"
+    "Moussa", "Ibrahima", "Abdoulaye", "Cheikh", "Mamadou", "Oumar", "Modou",
+    "Babacar", "Pape", "Serigne", "Aliou", "Seydou", "Lamine", "Assane",
+    "Saliou", "Boubacar", "Idrissa", "Malick", "Tapha", "Djibril", "Issa",
+    "Fallou", "Demba", "Mor", "Bamba", "Tidiane", "Alioune", "Daouda",
+    "Gorgui", "Makane", "Ndiaga", "Birane", "Thierno", "Elhadji",
 ]
 NOMS = [
-    "Diop", "Fall", "Ndiaye", "Sow", "Mbaye", "Sarr", "Faye",
-    "Diallo", "Gueye", "Ndour", "Thiam", "Ba", "Diouf", "Kane",
-    "Cissé", "Sy", "Tall", "Thiongane", "Badji", "Mendy",
-    "Toure", "Camara", "Beye", "Lo", "Dème"
+    "Diop", "Fall", "Ndiaye", "Sow", "Mbaye", "Sarr", "Faye", "Diallo",
+    "Gueye", "Ndour", "Thiam", "Ba", "Diouf", "Kane", "Cissé", "Sy",
+    "Tall", "Thiongane", "Badji", "Mendy", "Touré", "Camara", "Beye",
+    "Lo", "Dème", "Sène", "Samb", "Boye", "Diagne", "Ndoye", "Tine",
+    "Gomis", "Tendeng", "Manga", "Biaye",
 ]
-GROUPES_SANGUINS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']
-POIDS_GROUPES    = [0.45, 0.05, 0.10, 0.02, 0.03, 0.01, 0.30, 0.04]
-
-ALLERGIES_POOL = [
-    "Pénicilline", "Amoxicilline", "Aspirine", "Ibuprofène",
-    "Sulfamides", "Codéine", "Latex", "Arachides",
-    "Fruits de mer", "Pollen", "Acariens", "Iode"
-]
-
-MOTIFS = [
-    "Consultation de routine", "Fièvre et frissons", "Céphalées persistantes",
-    "Douleurs abdominales", "Contrôle tension artérielle", "Suivi diabète",
-    "Toux chronique", "Douleurs thoraciques", "Fatigue générale",
-    "Contrôle glycémie", "Renouvellement ordonnance", "Douleurs articulaires",
-    "Palpitations cardiaques", "Trouble du sommeil", "Perte de poids inexpliquée",
-    "Suivi post-opératoire", "Vaccination adulte", "Bilan de santé annuel",
-    "Douleurs lombaires", "Vertige et nausées"
-]
-MOTIFS_EXAMEN = [
-    "Bilan sanguin de routine", "Échographie abdominale", "Radiographie thoracique",
-    "Électrocardiogramme", "Glycémie à jeun", "Bilan lipidique",
-    "Échographie cardiaque", "Scanner cérébral", "IRM lombaire",
-    "Test d'effort cardiaque",
-]
-MOTIFS_OPERATION = [
-    "Appendicectomie", "Cholécystectomie", "Hernie inguinale",
-    "Césarienne", "Amygdalectomie", "Réduction de fracture",
-    "Pose de plâtre", "Extraction dentaire chirurgicale",
-]
-SYMPTOMES_POOL = [
-    "Fièvre, frissons et courbatures",
-    "Douleur abdominale diffuse, sans vomissement",
-    "Toux sèche persistante depuis plusieurs jours",
-    "Céphalées frontales avec photophobie légère",
-    "Fatigue généralisée et essoufflement à l'effort",
-    "Douleurs articulaires migratrices",
-    "Palpitations et sensation de malaise",
-    "Aucun symptôme particulier — contrôle systématique",
-]
-EXAMENS_POOL = [
-    "Bilan sanguin complet (NFS, ionogramme, glycémie)",
-    "Échographie abdominale sans anomalie notable",
-    "Radiographie pulmonaire — pas d'infiltrat visible",
-    "Électrocardiogramme — rythme sinusal normal",
-    "Tension artérielle et fréquence cardiaque mesurées",
-    "Glycémie capillaire et bilan lipidique",
-    "Aucun examen complémentaire réalisé",
-]
-DIAGNOSTICS = [
-    "Paludisme simple — traitement Coartem prescrit",
-    "Hypertension artérielle contrôlée — continuer traitement",
-    "Gastro-entérite aiguë — réhydratation orale",
-    "Infection urinaire — Amoxicilline 7 jours",
-    "Anémie ferriprive — supplémentation en fer",
-    "Diabète type 2 équilibré — continuer Metformine",
-    "Bronchite aiguë — Azithromycine 5 jours",
-    "Lombalgie mécanique — anti-inflammatoires et repos",
-    "Rhinopharyngite virale — traitement symptomatique",
-    "Crise d'asthme modérée — Salbutamol + corticoïdes",
-    "Tension artérielle élevée — ajustement traitement",
-    "Dermatose allergique — antihistaminiques",
-    "Conjonctivite infectieuse — collyre antibiotique",
-    "Entorse de cheville — bandage et RICE",
-    "Bilan normal — aucune anomalie détectée"
-]
-ORDONNANCES = [
-    "Coartem 20/120mg — 1 cp matin et soir pendant 3 jours",
-    "Amlodipine 5mg — 1 cp/jour le matin",
-    "SRO — 1 sachet dans 1L d'eau, boire régulièrement",
-    "Amoxicilline 500mg — 1 cp 3x/jour pendant 7 jours",
-    "Sulfate ferreux 200mg — 1 cp/jour pendant 3 mois",
-    "Metformine 1000mg — 1 cp matin et soir",
-    "Azithromycine 500mg — 1 cp/jour pendant 5 jours",
-    "Ibuprofène 400mg — 1 cp 3x/jour avec repas",
-    "Paracétamol 500mg — 2 cp toutes les 8h si fièvre",
-    "Salbutamol 100μg — 2 bouffées en cas de crise",
-    "Losartan 50mg — 1 cp/jour le soir",
-    "Cétirizine 10mg — 1 cp/jour le soir",
-    "Aucune ordonnance — conseil hygiéno-diététique"
-]
-MOTIFS_URGENCE = [
-    "Douleur thoracique aiguë", "Traumatisme suite à accident",
-    "Fièvre élevée chez l'enfant", "Crise d'asthme sévère",
-    "Plaie nécessitant suture", "Malaise avec perte de connaissance",
-    "Brûlure du second degré", "Douleur abdominale intense",
-    "Arrêt cardio-respiratoire", "Accident de la voie publique",
-    "Intoxication médicamenteuse", "Crise convulsive",
-    "Hémorragie importante", "Choc anaphylactique",
-]
-MOTIFS_ADMISSION = [
-    "Décompensation cardiaque", "Crise hyperglycémique sévère",
-    "Pneumopathie aiguë", "Post-opératoire chirurgie digestive",
-    "AVC ischémique", "Insuffisance rénale aiguë",
-    "Sepsis sévère", "Fracture nécessitant immobilisation prolongée",
+QUARTIERS = [
+    "Plateau", "Médina", "Yoff", "Parcelles Assainies", "Grand Dakar",
+    "Ouakam", "Liberté 6", "HLM", "Point E", "Mermoz", "Fann Résidence",
+    "Sicap Baobab", "Guédiawaye", "Pikine Ancien", "Rufisque Est",
+    "Niary Tally", "Colobane", "Rebeuss", "Biscuiterie", "Dieuppeul",
+    "Almadies", "Ngor", "Cambérène", "Yeumbeul", "Thiaroye",
 ]
 
-# Antécédents structurés (libellé → type)
-ANTECEDENTS_STRUCTURES = [
-    ("Diabète type 2",               TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Hypertension artérielle",      TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Asthme",                       TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Drépanocytose",                TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Paludisme chronique",          TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Hépatite B",                   TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Insuffisance rénale chronique",TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Epilepsie",                    TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Coronaropathie",               TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Hypothyroïdie",                TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Tuberculose traitée",          TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Dépression",                   TypeAntecedent.MALADIE_CHRONIQUE),
-    ("VIH sous traitement",          TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Anémie chronique",             TypeAntecedent.MALADIE_CHRONIQUE),
-    ("Appendicectomie",              TypeAntecedent.CHIRURGIE),
-    ("Cholécystectomie",             TypeAntecedent.CHIRURGIE),
-    ("Césarienne antérieure",        TypeAntecedent.CHIRURGIE),
-    ("Allergie à la Pénicilline",    TypeAntecedent.ALLERGIE),
-    ("Allergie aux Sulfamides",      TypeAntecedent.ALLERGIE),
-    ("Diabète familial (père)",      TypeAntecedent.FAMILIAL),
-    ("Hypertension familiale",       TypeAntecedent.FAMILIAL),
+def tel():
+    op = random.choice(["70", "76", "77", "78"])
+    return f"+221 {op} {random.randint(100,999)} {random.randint(10,99)} {random.randint(10,99)}"
+
+def prenom_nom(sexe):
+    pool = PRENOMS_F if sexe == 'F' else PRENOMS_M
+    return random.choice(pool), random.choice(NOMS)
+
+# ─── EMPLOYÉS ─────────────────────────────────────────────────────────────────
+print("👔 Employés...")
+
+# (prenom, nom, sexe, role, specialite, username, password, age, service_nom,
+#  type_contrat, date_debut, description_poste)
+EMPLOYES_DATA = [
+    # Admin
+    ("Mamadou",   "Kane",     "M", "admin",      "",                           "admin.kane",     "admin123",      48, None,
+     "cdi", date(2015, 3, 1), "Directeur médical et administrateur du système d'information hospitalier. Supervise l'ensemble des services, coordonne les équipes médicales et paramédicales, et assure la conformité réglementaire de l'établissement."),
+
+    # Cardiologie
+    ("Aminata",   "Diop",     "F", "medecin",    "Cardiologie interventionnelle", "dr.adiop",    "medecin123",    44, "Cardiologie",
+     "cdi", date(2016, 9, 1), "Cardiologue interventionnelle spécialisée dans le cathétérisme cardiaque et la pose de stents coronariens. Assure les consultations spécialisées, les échographies cardiaques, et la prise en charge des syndromes coronariens aigus. Chef de service."),
+    ("Modou",     "Sy",       "M", "medecin",    "Rythmologie",                "dr.msy",         "medecin123",    51, "Cardiologie",
+     "cdi", date(2012, 1, 15), "Cardiologue spécialisé en rythmologie et troubles du rythme cardiaque. Pose de stimulateurs cardiaques, ablation par radiofréquence, suivi des patients sous anticoagulants."),
+    ("Ndèye",     "Ba",       "F", "infirmier",  "",                           "inf.nba",        "infirmier123",  31, "Cardiologie",
+     "cdi", date(2019, 6, 1), "Infirmière de cardiologie. Surveillance hémodynamique des patients hospitalisés, préparation et administration des traitements intraveineux, éducation thérapeutique des patients hypertendus et insuffisants cardiaques."),
+    ("Mariama",   "Mbaye",    "F", "secretaire", "",                           "sec.mbaye",      "secretaire123", 28, "Cardiologie",
+     "cdd", date(2023, 1, 2), "Secrétaire médicale en cardiologie. Gestion des rendez-vous, accueil des patients, saisie des comptes rendus médicaux, facturation des actes."),
+
+    # Médecine interne
+    ("Ibrahima",  "Sow",      "M", "medecin",    "Médecine interne",           "dr.isow",        "medecin123",    40, "Médecine interne",
+     "cdi", date(2017, 4, 1), "Médecin interniste. Consultations de médecine générale et spécialisée, bilan de pathologies complexes, coordination des prises en charge multidisciplinaires. Référent pour les maladies infectieuses tropicales."),
+    ("Khady",     "Faye",     "F", "medecin",    "Médecine interne",           "dr.kfaye",       "medecin123",    43, "Médecine interne",
+     "cdi", date(2014, 7, 1), "Médecin interniste avec expertise en maladies infectieuses. Prise en charge du VIH, de la tuberculose et des infections opportunistes. Formation universitaire à Dakar et Paris."),
+    ("Cheikh",    "Sarr",     "M", "infirmier",  "",                           "inf.csarr",      "infirmier123",  35, "Médecine interne",
+     "cdi", date(2018, 2, 1), "Infirmier principal en médecine interne. Soins infirmiers complexes, prélèvements biologiques, pose de voies veineuses, gestion des perfusions et des traitements parentéraux."),
+    ("Abdoulaye", "Diallo",   "M", "secretaire", "",                           "sec.adiallo",    "secretaire123", 33, "Médecine interne",
+     "cdi", date(2020, 9, 1), "Secrétaire médical. Gestion administrative des dossiers patients, prise de rendez-vous, archivage des résultats d'examens."),
+
+    # Pédiatrie
+    ("Fatou",     "Ndiaye",   "F", "medecin",    "Pédiatrie générale",         "dr.fndiaye",     "medecin123",    37, "Pédiatrie",
+     "cdi", date(2015, 11, 1), "Pédiatre généraliste. Suivi de croissance et développement de l'enfant, prise en charge des maladies infectieuses pédiatriques (paludisme, méningite, gastro-entérite sévère), malnutrition sévère, anémie falciforme."),
+    ("Babacar",   "Cissé",    "M", "medecin",    "Néonatologie",               "dr.bcisse",      "medecin123",    41, "Pédiatrie",
+     "cdi", date(2016, 3, 1), "Pédiatre néonatologiste. Prise en charge des nouveau-nés à terme et prématurés, détresses respiratoires néonatales, ictère du nouveau-né, infections néonatales."),
+    ("Awa",       "Ndour",    "F", "infirmier",  "",                           "inf.andour",     "infirmier123",  29, "Pédiatrie",
+     "cdi", date(2020, 1, 6), "Infirmière pédiatrique. Administration des vaccins, surveillance nutritionnelle, éducation des parents, soins aux nourrissons et aux jeunes enfants."),
+
+    # Diabétologie
+    ("Moussa",    "Fall",     "M", "medecin",    "Diabétologie",               "dr.mfall",       "medecin123",    52, "Diabétologie-Endocrinologie",
+     "cdi", date(2010, 6, 1), "Diabétologue endocrinologue. Expert en prise en charge du diabète de type 1 et 2, insuffisance thyroïdienne, troubles de l'axe corticotrope. Consultant régional pour l'OMS sur le diabète en Afrique subsaharienne."),
+    ("Coumba",    "Thiam",    "F", "medecin",    "Endocrinologie",             "dr.cthiam",      "medecin123",    46, "Diabétologie-Endocrinologie",
+     "cdi", date(2013, 9, 1), "Endocrinologue spécialisée dans les maladies de la thyroïde et les troubles hormonaux. Prise en charge des grossesses diabétiques, éducation thérapeutique en diabétologie."),
+    ("Astou",     "Sarr",     "F", "infirmier",  "",                           "inf.asarr",      "infirmier123",  33, "Diabétologie-Endocrinologie",
+     "cdd", date(2022, 4, 1), "Infirmière diabétologue. Éducation thérapeutique des patients diabétiques, apprentissage de l'auto-surveillance glycémique, gestion des pompes à insuline, suivi des plaies diabétiques."),
+
+    # Urgences
+    ("Pape",      "Diouf",    "M", "medecin",    "Médecine d'urgence",         "dr.pdiouf",      "medecin123",    42, "Urgences",
+     "cdi", date(2015, 8, 1), "Médecin urgentiste. Prise en charge des urgences vitales, réanimation cardio-pulmonaire, triage CIMU, gestion des polytraumatismes et des urgences chirurgicales. Formateur ACLS."),
+    ("Adja",      "Camara",   "F", "medecin",    "Médecine d'urgence",         "dr.acamara",     "medecin123",    39, "Urgences",
+     "cdi", date(2018, 2, 1), "Médecin urgentiste. Spécialisée dans les urgences pédiatriques et obstétricales. Gestion des urgences toxicologiques et des intoxications médicamenteuses."),
+    ("Rokhaya",   "Gueye",    "F", "infirmier",  "",                           "inf.rgueye",     "infirmier123",  28, "Urgences",
+     "cdi", date(2021, 3, 1), "Infirmière urgentiste. Triage des patients à l'accueil, pose de voies veineuses, préparation des chariots d'urgence, assistance aux gestes techniques urgents."),
+    ("Demba",     "Touré",    "M", "infirmier",  "",                           "inf.dtoure",     "infirmier123",  36, "Urgences",
+     "cdi", date(2017, 7, 1), "Infirmier urgentiste expérimenté. Gestion de la salle de déchoquage, massage cardiaque externe, défibrillation, intubation assistée."),
+    ("Issa",      "Beye",     "M", "secretaire", "",                           "sec.ibeye",      "secretaire123", 27, "Urgences",
+     "cdd", date(2023, 10, 1), "Secrétaire médicale aux urgences. Enregistrement des arrivées, gestion administrative des passages, liaison avec les services d'hospitalisation."),
+
+    # Chirurgie
+    ("Aliou",     "Mendy",    "M", "medecin",    "Chirurgie digestive",        "dr.amendy",      "medecin123",    49, "Chirurgie générale",
+     "cdi", date(2011, 5, 1), "Chirurgien digestif. Chirurgie laparoscopique, appendicectomies, cholécystectomies, hernies abdominales. Prise en charge des occlusions intestinales et des péritonites."),
+    ("Soda",      "Lo",       "F", "medecin",    "Chirurgie orthopédique",     "dr.slo",         "medecin123",    45, "Chirurgie générale",
+     "cdi", date(2014, 2, 1), "Chirurgienne orthopédiste. Réduction des fractures ouvertes et fermées, pose de fixateurs externes, prothèses de hanche et de genou, traumatologie sportive."),
+    ("Malick",    "Dème",     "M", "infirmier",  "",                           "inf.mdeme",      "infirmier123",  34, "Chirurgie générale",
+     "cdi", date(2019, 1, 2), "Infirmier de bloc opératoire diplômé d'État. Instrumentation chirurgicale, préparation du champ opératoire, gestion de la stérilisation et du matériel chirurgical."),
+
+    # Gynécologie
+    ("Kiné",      "Ndiaye",   "F", "medecin",    "Gynécologie-Obstétrique",    "dr.kndiaye",     "medecin123",    48, "Gynécologie-Obstétrique",
+     "cdi", date(2012, 10, 1), "Gynécologue obstétricienne. Suivi de grossesse normale et à risque, accouchements eutociques et dystociques, césariennes, chirurgie gynécologique (fibrome, kyste ovarien). Chef de service."),
+    ("Nabou",     "Diallo",   "F", "infirmier",  "",                           "inf.ndiallo",    "infirmier123",  32, "Gynécologie-Obstétrique",
+     "cdi", date(2018, 5, 1), "Sage-femme infirmière. Surveillance du travail et de l'accouchement, soins au nouveau-né en salle de naissance, éducation à l'allaitement maternel et à la contraception."),
+    ("Saliou",    "Ba",       "M", "secretaire", "",                           "sec.sba",        "secretaire123", 30, "Gynécologie-Obstétrique",
+     "cdd", date(2022, 11, 1), "Secrétaire médical en gynécologie. Gestion des dossiers obstétricaux, prise de rendez-vous d'échographie, saisie des comptes rendus opératoires."),
+
+    # Neurologie
+    ("Idrissa",   "Sy",       "M", "medecin",    "Neurologie vasculaire",      "dr.isy",         "medecin123",    50, "Neurologie",
+     "cdi", date(2010, 4, 1), "Neurologue vasculaire. Expert en accidents vasculaires cérébraux (AVC ischémique et hémorragique), épilepsie, maladie de Parkinson, sclérose en plaques. Coordonnateur de l'unité neurovasculaire."),
+    ("Penda",     "Fall",     "F", "infirmier",  "",                           "inf.pfall",      "infirmier123",  31, "Neurologie",
+     "cdi", date(2019, 9, 1), "Infirmière en neurologie. Surveillance neurologique des patients post-AVC, rééducation des fonctions cognitives, prévention des escarres, gestion des sondes gastriques."),
+
+    # Pneumologie
+    ("Boubacar",  "Diallo",   "M", "medecin",    "Pneumologie-Infectiologie",  "dr.bdiallo",     "medecin123",    47, "Pneumologie",
+     "cdi", date(2013, 3, 1), "Pneumologue infectiologue. Prise en charge de la tuberculose pulmonaire et extrapulmonaire, BPCO, asthme sévère, pneumonies communautaires. Référent tuberculose de la région de Dakar."),
+    ("Aïssatou",  "Sarr",     "F", "infirmier",  "",                           "inf.asrr",       "infirmier123",  29, "Pneumologie",
+     "cdd", date(2023, 4, 1), "Infirmière en pneumologie. Aérosolthérapie, spirométrie, éducation à l'utilisation des inhalateurs, surveillance des patients sous oxygénothérapie."),
+
+    # Néphro-dialyse
+    ("Lamine",    "Gueye",    "M", "medecin",    "Néphro-dialyse",             "dr.lgueye",      "medecin123",    44, "Néphro-dialyse",
+     "cdi", date(2016, 1, 4), "Néphrologue. Prise en charge de l'insuffisance rénale chronique et aiguë, dialyse hémodialyse et dialyse péritonéale, bilan pré-transplantation rénale."),
+    ("Seynabou",  "Mbaye",    "F", "infirmier",  "",                           "inf.smbaye",     "infirmier123",  30, "Néphro-dialyse",
+     "cdi", date(2020, 7, 1), "Infirmière néphrologue dialyse. Pose et surveillance des fistules artério-veineuses, gestion des séances de dialyse, éducation des patients sur le régime alimentaire et hydrique."),
+
+    # ORL-Ophtalmo
+    ("Fatoumata", "Sow",      "F", "medecin",    "ORL-Chirurgie cervico-faciale", "dr.fsow",     "medecin123",    38, "ORL-Ophtalmologie",
+     "cdi", date(2018, 8, 1), "ORL chirurgienne. Amygdalectomies, adénoïdectomies, rhinoplasties, chirurgie des sinus, otites chroniques. Suivi des cancers ORL en coopération avec l'oncologie."),
+    ("Dieynaba",  "Ndour",    "F", "infirmier",  "",                           "inf.dndour",     "infirmier123",  27, "ORL-Ophtalmologie",
+     "cdd", date(2024, 1, 8), "Infirmière ORL et ophtalmologie. Préparation des consultations spécialisées, instillations oculaires, soins post-opératoires ORL, audiométrie de dépistage."),
+
+    # Laboratoire
+    ("Oumar",     "Thiam",    "M", "laborantin", "Biologie médicale",          "lab.othiam",     "labo123",       38, "Laboratoire",
+     "cdi", date(2016, 6, 1), "Biologiste médical responsable du laboratoire. Supervision des analyses hématologiques, biochimiques et microbiologiques. Validation et interprétation des résultats critiques. Gestion du contrôle qualité."),
+    ("Djibril",   "Tall",     "M", "laborantin", "Biochimie clinique",         "lab.dtall",      "labo123",       36, "Laboratoire",
+     "cdi", date(2018, 3, 1), "Laborantin spécialisé en biochimie. Dosages enzymatiques, bilan lipidique, marqueurs cardiaques (troponine, BNP), bilan rénal et hépatique, HbA1c."),
+    ("Oumou",     "Badji",    "F", "laborantin", "Hématologie biologique",     "lab.obadji",     "labo123",       34, "Laboratoire",
+     "cdi", date(2019, 5, 1), "Laborantine hématologue. Numération formule sanguine, bilan de coagulation, électrophorèse de l'hémoglobine (drépanocytose), tests de paludisme par goutte épaisse et TDR."),
 ]
 
-# ─── PROFILS DE PATHOLOGIE ───────────────────────────────────────────────────
+employes = []
+for (prenom, nom, sexe, role, specialite, username, password, age,
+     svc_nom, type_contrat, date_debut, desc) in EMPLOYES_DATA:
+    annee = date.today().year - age
+    dnaiss = date(annee, random.randint(1, 12), random.randint(1, 28))
+    if User.objects.filter(username=username).exists():
+        continue
+    user = User.objects.create_user(
+        username=username, email=f"{username}@healthtracker.sn",
+        password=password, first_name=prenom, last_name=nom,
+        is_staff=(role == 'admin'),
+    )
+    # date_fin pour CDD : 2 ans après début
+    date_fin = date(date_debut.year + 2, date_debut.month, date_debut.day) if type_contrat == 'cdd' else None
+    emp = Employe.objects.create(
+        user=user, nom=nom, prenom=prenom, date_naissance=dnaiss,
+        sexe=sexe, telephone=tel(),
+        adresse=f"{random.choice(QUARTIERS)}, Dakar",
+        role=role, specialite=specialite,
+        service=services.get(svc_nom) if svc_nom else None,
+        type_contrat=type_contrat,
+        date_debut_contrat=date_debut,
+        date_fin_contrat=date_fin,
+        description_poste=desc,
+    )
+    employes.append(emp)
+
+print(f"✅ {len(employes)} employés\n")
+
+# ── Chefs de service ──────────────────────────────────────────────────────────
+print("🩺 Chefs de service...")
+for svc_obj in services.values():
+    medecins_svc = [e for e in employes if e.role == 'medecin' and e.service_id == svc_obj.id]
+    if medecins_svc:
+        chef = medecins_svc[0]
+        svc_obj.chef_de_service = chef
+        svc_obj.save()
+        print(f"   {svc_obj.nom} → Dr {chef.prenom} {chef.nom}")
+print()
+
+# ── Tableau de connexion ──────────────────────────────────────────────────────
+print("┌──────────────────────────────────────────────────────────────────┐")
+print("│              COMPTES DE DÉMONSTRATION                            │")
+print("├──────────────────┬──────────────────────────┬────────────────────┤")
+print("│ Rôle             │ Username                  │ Mot de passe       │")
+print("├──────────────────┼──────────────────────────┼────────────────────┤")
+for rl, us, pw in [
+    ("Admin",        "admin.kane",                   "admin123"),
+    ("Médecin",      "dr.adiop / dr.mfall / ...",    "medecin123"),
+    ("Infirmier(e)", "inf.nba / inf.csarr / ...",    "infirmier123"),
+    ("Secrétaire",   "sec.mbaye / sec.sba / ...",    "secretaire123"),
+    ("Laborantin",   "lab.othiam / lab.dtall / ...", "labo123"),
+]:
+    print(f"│ {rl:<16}│ {us:<25} │ {pw:<18} │")
+print("└──────────────────┴──────────────────────────┴────────────────────┘\n")
+
+# ─── PROFILS CLINIQUES ────────────────────────────────────────────────────────
+# Chaque profil définit les valeurs basales avec variabilité physiologique réaliste
 PROFILS = {
     "sain": {
-        "ts": (115, 4), "td": (75, 3), "temp": (37.0, 0.3),
-        "poids_min": 55, "poids_max": 80, "glyc": (5.0, 0.3), "fc": (68, 6),
-        "alerte_chance": 0.02
+        "ts": (118, 6), "td": (74, 4), "temp": (37.0, 0.25),
+        "poids": (68, 8), "glyc": (4.8, 0.35), "fc": (70, 8),
+        "p_alerte": 0.02, "p_episode": 0.04,
     },
-    "hypertendu": {
-        "ts": (155, 8), "td": (95, 5), "temp": (37.0, 0.3),
-        "poids_min": 70, "poids_max": 100, "glyc": (5.5, 0.4), "fc": (78, 8),
-        "alerte_chance": 0.15
+    "hypertendu_controle": {
+        "ts": (148, 8), "td": (92, 5), "temp": (37.0, 0.25),
+        "poids": (82, 10), "glyc": (5.4, 0.5), "fc": (76, 7),
+        "p_alerte": 0.12, "p_episode": 0.10,
     },
-    "diabetique": {
-        "ts": (130, 6), "td": (82, 4), "temp": (37.1, 0.3),
-        "poids_min": 65, "poids_max": 95, "glyc": (8.5, 1.2), "fc": (75, 7),
-        "alerte_chance": 0.20
+    "hypertendu_non_controle": {
+        "ts": (168, 12), "td": (102, 7), "temp": (37.1, 0.3),
+        "poids": (90, 12), "glyc": (5.8, 0.6), "fc": (82, 9),
+        "p_alerte": 0.28, "p_episode": 0.18,
+    },
+    "diabetique_t2_equilibre": {
+        "ts": (132, 7), "td": (83, 5), "temp": (37.1, 0.25),
+        "poids": (78, 10), "glyc": (7.2, 0.8), "fc": (74, 7),
+        "p_alerte": 0.15, "p_episode": 0.12,
+    },
+    "diabetique_t2_desequilibre": {
+        "ts": (145, 10), "td": (90, 6), "temp": (37.2, 0.3),
+        "poids": (85, 12), "glyc": (11.5, 2.5), "fc": (80, 9),
+        "p_alerte": 0.35, "p_episode": 0.25,
     },
     "drepanocytaire": {
-        "ts": (110, 5), "td": (68, 4), "temp": (37.3, 0.5),
-        "poids_min": 45, "poids_max": 65, "glyc": (4.8, 0.3), "fc": (88, 10),
-        "alerte_chance": 0.25
+        "ts": (108, 6), "td": (65, 5), "temp": (37.4, 0.5),
+        "poids": (54, 7), "glyc": (4.6, 0.3), "fc": (92, 12),
+        "p_alerte": 0.30, "p_episode": 0.35,
     },
-    "senior": {
-        "ts": (145, 10), "td": (88, 6), "temp": (36.8, 0.3),
-        "poids_min": 55, "poids_max": 85, "glyc": (6.2, 0.8), "fc": (72, 8),
-        "alerte_chance": 0.12
+    "insuffisant_renal": {
+        "ts": (152, 10), "td": (96, 6), "temp": (37.0, 0.3),
+        "poids": (72, 8), "glyc": (6.0, 0.8), "fc": (78, 8),
+        "p_alerte": 0.22, "p_episode": 0.15,
+    },
+    "senior_fragile": {
+        "ts": (150, 12), "td": (90, 7), "temp": (36.8, 0.35),
+        "poids": (62, 8), "glyc": (6.5, 1.0), "fc": (74, 9),
+        "p_alerte": 0.18, "p_episode": 0.14,
+    },
+    "enfant_adolescent": {
+        "ts": (105, 8), "td": (62, 5), "temp": (37.2, 0.4),
+        "poids": (32, 15), "glyc": (4.4, 0.3), "fc": (88, 12),
+        "p_alerte": 0.08, "p_episode": 0.12,
+    },
+    "femme_enceinte": {
+        "ts": (112, 7), "td": (68, 5), "temp": (37.1, 0.3),
+        "poids": (68, 10), "glyc": (4.6, 0.5), "fc": (85, 8),
+        "p_alerte": 0.10, "p_episode": 0.08,
     },
 }
 
-def choisir_profil(age, antecedents_libelles):
-    joined = ", ".join(antecedents_libelles)
-    if "Drépanocytose" in joined:        return "drepanocytaire"
-    if "Diabète" in joined and "Hypertension" in joined:
-        return "diabetique" if random.random() > 0.5 else "hypertendu"
-    if "Diabète" in joined:              return "diabetique"
-    if "Hypertension" in joined:         return "hypertendu"
-    if age > 60:                         return "senior"
+def choisir_profil(age, sexe, antecedents_str):
+    ant = antecedents_str.lower()
+    if "drépanocytose" in ant:
+        return "drepanocytaire"
+    if "insuffisance rénale" in ant:
+        return "insuffisant_renal"
+    if "diabète" in ant and "hypertension" in ant:
+        return random.choice(["diabetique_t2_desequilibre", "hypertendu_non_controle"])
+    if "diabète" in ant:
+        return random.choice(["diabetique_t2_equilibre", "diabetique_t2_desequilibre"])
+    if "hypertension" in ant:
+        return random.choice(["hypertendu_controle", "hypertendu_non_controle"])
+    if age < 18:
+        return "enfant_adolescent"
+    if age > 65:
+        return "senior_fragile"
+    if sexe == "F" and 18 <= age <= 40 and random.random() < 0.12:
+        return "femme_enceinte"
     return "sain"
 
-# ─── EMPLOYÉS ────────────────────────────────────────────────────────────────
-print("👔 Création des employés...")
+def varier(mu, sigma, lo=None, hi=None):
+    v = mu + random.gauss(0, sigma)
+    if lo is not None: v = max(v, lo)
+    if hi is not None: v = min(v, hi)
+    return v
 
-EMPLOYES_DATA = [
-    # (prenom, nom, sexe, role, specialite, username, email, password, age, service_nom, contrat)
-    ("Mamadou",  "Kane",   "M", "admin",      "",                        "admin.kane",   "kane@healthtracker.sn",    "admin123",      45, None,                    TypeContrat.CDI),
+# ─── PATIENTS ─────────────────────────────────────────────────────────────────
+print(f"👤 Création de {NB_PATIENTS} patients...")
 
-    # Cardiologie
-    ("Aminata",  "Diop",   "F", "medecin",    "Cardiologie",             "dr.diop",      "diop@healthtracker.sn",    "medecin123",    42, "Cardiologie",           TypeContrat.CDI),
-    ("Modou",    "Sy",     "M", "medecin",    "Cardiologie",             "dr.sy",        "sy@healthtracker.sn",      "medecin123",    49, "Cardiologie",           TypeContrat.CDI),
-    ("Ndèye",    "Ba",     "F", "infirmier",  "",                        "inf.ba",       "ba@healthtracker.sn",      "infirmier123",  29, "Cardiologie",           TypeContrat.CDD),
-    ("Mariama",  "Mbaye",  "F", "secretaire", "",                        "sec.mbaye",    "mbaye@healthtracker.sn",   "secretaire123", 26, "Cardiologie",           TypeContrat.CDD),
+GROUPES_SANGUINS  = ['A+','A-','B+','B-','AB+','AB-','O+','O-']
+POIDS_GROUPES     = [0.43, 0.05, 0.10, 0.02, 0.03, 0.01, 0.32, 0.04]
 
-    # Médecine générale
-    ("Ibrahima", "Sow",    "M", "medecin",    "Médecine générale",       "dr.sow",       "sow@healthtracker.sn",     "medecin123",    38, "Médecine générale",     TypeContrat.CDI),
-    ("Khady",    "Faye",   "F", "medecin",    "Médecine générale",       "dr.faye",      "faye@healthtracker.sn",    "medecin123",    41, "Médecine générale",     TypeContrat.CDI),
-    ("Cheikh",   "Sarr",   "M", "infirmier",  "",                        "inf.sarr",     "sarr@healthtracker.sn",    "infirmier123",  33, "Médecine générale",     TypeContrat.CDI),
-    ("Abdoulaye","Diallo",  "M", "secretaire", "",                       "sec.diallo",   "diallo@healthtracker.sn",  "secretaire123", 31, "Médecine générale",     TypeContrat.CDD),
-
-    # Pédiatrie
-    ("Fatou",    "Ndiaye", "F", "medecin",    "Pédiatrie",               "dr.ndiaye",    "ndiaye@healthtracker.sn",  "medecin123",    35, "Pédiatrie",             TypeContrat.CDI),
-    ("Babacar",  "Cissé",  "M", "medecin",    "Pédiatrie",               "dr.cisse",     "cisse@healthtracker.sn",   "medecin123",    39, "Pédiatrie",             TypeContrat.CDI),
-    ("Awa",      "Ndour",  "F", "infirmier",  "",                        "inf.ndour",    "ndour@healthtracker.sn",   "infirmier123",  28, "Pédiatrie",             TypeContrat.STAGE),
-    ("Seydou",   "Kane",   "M", "secretaire", "",                        "sec.kane",     "skane@healthtracker.sn",   "secretaire123", 30, "Pédiatrie",             TypeContrat.CDD),
-
-    # Diabétologie
-    ("Moussa",   "Fall",   "M", "medecin",    "Diabétologie",            "dr.fall",      "fall@healthtracker.sn",    "medecin123",    50, "Diabétologie",          TypeContrat.CDI),
-    ("Coumba",   "Thiam",  "F", "medecin",    "Diabétologie",            "dr.thiam",     "drthiam@healthtracker.sn", "medecin123",    44, "Diabétologie",          TypeContrat.CDI),
-    ("Astou",    "Sarr",   "F", "infirmier",  "",                        "inf.asarr",    "asarr@healthtracker.sn",   "infirmier123",  31, "Diabétologie",          TypeContrat.CDD),
-
-    # Urgences
-    ("Pape",     "Diouf",  "M", "medecin",    "Médecine d'urgence",      "dr.diouf",     "diouf@healthtracker.sn",   "medecin123",    40, "Urgences",              TypeContrat.CDI),
-    ("Adja",     "Camara", "F", "medecin",    "Médecine d'urgence",      "dr.camara",    "camara@healthtracker.sn",  "medecin123",    37, "Urgences",              TypeContrat.CDI),
-    ("Rokhaya",  "Gueye",  "F", "infirmier",  "",                        "inf.gueye",    "gueye@healthtracker.sn",   "infirmier123",  27, "Urgences",              TypeContrat.CDD),
-    ("Demba",    "Toure",  "M", "infirmier",  "",                        "inf.toure",    "toure@healthtracker.sn",   "infirmier123",  34, "Urgences",              TypeContrat.CDI),
-    ("Issa",     "Beye",   "M", "secretaire", "",                        "sec.beye",     "beye@healthtracker.sn",    "secretaire123", 25, "Urgences",              TypeContrat.STAGE),
-
-    # Chirurgie générale
-    ("Aliou",    "Mendy",  "M", "medecin",    "Chirurgie générale",      "dr.mendy",     "mendy@healthtracker.sn",   "medecin123",    47, "Chirurgie générale",    TypeContrat.CDI),
-    ("Soda",     "Lo",     "F", "medecin",    "Chirurgie générale",      "dr.lo",        "lo@healthtracker.sn",      "medecin123",    43, "Chirurgie générale",    TypeContrat.CDI),
-    ("Malick",   "Dème",   "M", "infirmier",  "",                        "inf.deme",     "deme@healthtracker.sn",    "infirmier123",  32, "Chirurgie générale",    TypeContrat.CDD),
-
-    # Gynécologie-Obstétrique
-    ("Kiné",     "Ndiaye", "F", "medecin",    "Gynécologie-Obstétrique", "dr.kndiaye",   "kndiaye@healthtracker.sn", "medecin123",    46, "Gynécologie-Obstétrique", TypeContrat.CDI),
-    ("Nabou",    "Diallo", "F", "infirmier",  "",                        "inf.nabou",    "nabou@healthtracker.sn",   "infirmier123",  30, "Gynécologie-Obstétrique", TypeContrat.CDD),
-    ("Saliou",   "Ba",     "M", "secretaire", "",                        "sec.saliou",   "saliou@healthtracker.sn",  "secretaire123", 28, "Gynécologie-Obstétrique", TypeContrat.CDD),
-
-    # Neurologie
-    ("Idrissa",  "Sy",     "M", "medecin",    "Neurologie",              "dr.isy",       "isy@healthtracker.sn",     "medecin123",    48, "Neurologie",            TypeContrat.CDI),
-    ("Penda",    "Fall",   "F", "infirmier",  "",                        "inf.penda",    "penda@healthtracker.sn",   "infirmier123",  29, "Neurologie",            TypeContrat.VACATION),
-
-    # ORL
-    ("Lamine",   "Gueye",  "M", "medecin",    "ORL",                     "dr.lgueye",    "lgueye@healthtracker.sn",  "medecin123",    36, "ORL",                   TypeContrat.CDI),
-    ("Salimata", "Sow",    "F", "infirmier",  "",                        "inf.salimata", "salimata@healthtracker.sn","infirmier123",  27, "ORL",                   TypeContrat.STAGE),
-
-    # Laboratoire
-    ("Oumar",    "Thiam",  "M", "laborantin", "Biologie médicale",       "lab.thiam",    "thiam@healthtracker.sn",   "labo123",       36, "Laboratoire",           TypeContrat.CDI),
-    ("Djibril",  "Tall",   "M", "laborantin", "Biochimie",               "lab.tall",     "tall@healthtracker.sn",    "labo123",       34, "Laboratoire",           TypeContrat.CDI),
-    ("Oumou",    "Badji",  "F", "laborantin", "Hématologie",             "lab.badji",    "badji@healthtracker.sn",   "labo123",       32, "Laboratoire",           TypeContrat.CDD),
+ALLERGIES_POOL = [
+    "Pénicilline", "Amoxicilline", "Aspirine", "Ibuprofène", "Diclofénac",
+    "Sulfamides", "Codéine", "Tramadol", "Latex", "Arachides",
+    "Fruits de mer", "Pollen de graminées", "Acariens de poussière",
+    "Iode (produit de contraste)", "Métronidazole", "Érythromycine",
+]
+ANTECEDENTS_POOL = [
+    "Hypertension artérielle", "Diabète type 2", "Asthme bronchique",
+    "Drépanocytose (HbSS)", "Paludisme saisonnier récidivant",
+    "Hépatite B chronique", "Insuffisance rénale chronique stade 3",
+    "Épilepsie idiopathique", "Coronaropathie (stent posé en 2021)",
+    "Hypothyroïdie sous Levothyrox", "Tuberculose pulmonaire (traitée 2020)",
+    "VIH sous trithérapie (ARV)", "Anémie ferriprive chronique",
+    "Obésité (IMC > 30)", "Fibrillation auriculaire",
+    "Insuffisance cardiaque NYHA II", "Ulcère gastro-duodénal",
+    "Goutte chronique sous allopurinol", "BPCO stade 2",
+    "Drépanocytose (HbSC)", "Cirrhose hépatique Child A",
 ]
 
-employes_crees = []
-for prenom, nom, sexe, role, specialite, username, email, password, age, service_nom, contrat in EMPLOYES_DATA:
-    annee = date.today().year - age
-    date_naiss = date(annee, random.randint(1, 12), random.randint(1, 28))
+medecins_list = [e for e in employes if e.role == 'medecin']
 
-    if User.objects.filter(username=username).exists():
-        print(f"   ⚠️  User '{username}' existe déjà — ignoré")
-        continue
-
-    user = User.objects.create_user(
-        username=username, email=email, password=password,
-        first_name=prenom, last_name=nom,
-        is_staff=(role == 'admin'),
-    )
-
-    # Date de début contrat cohérente avec l'âge (entre 22 ans et aujourd'hui)
-    annees_experience = random.randint(1, max(1, age - 25))
-    date_debut = date.today() - timedelta(days=annees_experience * 365)
-    date_fin   = None
-    if contrat in (TypeContrat.CDD, TypeContrat.STAGE):
-        date_fin = date_debut + timedelta(days=random.randint(180, 730))
-
-    emp = Employe.objects.create(
-        user=user,
-        nom=nom, prenom=prenom,
-        date_naissance=date_naiss, sexe=sexe,
-        telephone=tel(),
-        adresse=f"{random.choice(QUARTIERS)}, Dakar",
-        role=role, specialite=specialite,
-        service=services_crees.get(service_nom) if service_nom else None,
-        type_contrat=contrat,
-        date_debut_contrat=date_debut,
-        date_fin_contrat=date_fin,
-    )
-    employes_crees.append(emp)
-
-print(f"✅ {len(employes_crees)} employés créés.\n")
-
-# ─── CHEFS DE SERVICE ────────────────────────────────────────────────────────
-print("👑 Attribution des chefs de service (1 par service)...")
-nb_chefs = 0
-for nom_service, service_obj in services_crees.items():
-    medecins_du_service = [
-        e for e in employes_crees
-        if e.role == 'medecin' and e.service_id == service_obj.id
-    ]
-    if medecins_du_service:
-        chef = medecins_du_service[0]
-        service_obj.chef_de_service = chef
-        service_obj.save()
-        nb_chefs += 1
-        print(f"   - {service_obj.nom:<30} → Dr {chef.prenom} {chef.nom}")
-    else:
-        print(f"   - {service_obj.nom:<30} → (pas de médecin)")
-print(f"✅ {nb_chefs} chef(s) de service attribué(s).\n")
-
-# ─── TABLEAU DE CONNEXION ────────────────────────────────────────────────────
-print("┌──────────────────┬───────────────────────────────┬─────────────────┐")
-print("│ Rôle             │ Username                      │ Mot de passe    │")
-print("├──────────────────┼───────────────────────────────┼─────────────────┤")
-for role_label, username_str, pwd in [
-    ("Admin",         "admin.kane",                        "admin123"),
-    ("Médecin",       "dr.diop / dr.sow / dr.fall ...",    "medecin123"),
-    ("Infirmier(e)",  "inf.ba / inf.sarr / inf.gueye ...", "infirmier123"),
-    ("Secrétaire",    "sec.mbaye / sec.diallo ...",        "secretaire123"),
-    ("Laborantin",    "lab.thiam / lab.tall / lab.badji",  "labo123"),
-]:
-    print(f"│ {role_label:<16} │ {username_str:<29} │ {pwd:<15} │")
-print("└──────────────────┴───────────────────────────────┴─────────────────┘")
-print()
-
-# ─── PATIENTS ────────────────────────────────────────────────────────────────
-print(f"👤 Création de {NB_PATIENTS} patients...")
-patients_crees = []
-medecins_dispo = [e for e in employes_crees if e.role == 'medecin']
+patients_data = []   # liste de (patient, age, antecedents_str, profil_key)
 
 for i in range(NB_PATIENTS):
-    sexe   = random.choice(['M', 'F'])
-    prenom = random.choice(PRENOMS_M if sexe == 'M' else PRENOMS_F)
-    nom    = random.choice(NOMS)
-    age    = random.randint(18, 80)
-
-    annee_naissance = date.today().year - age
-    date_naissance  = date(annee_naissance, random.randint(1, 12), random.randint(1, 28))
-
+    sexe = random.choice(['M', 'F'])
+    prenom, nom = prenom_nom(sexe)
+    age  = random.randint(5, 82)
+    annee_naiss = date.today().year - age
+    dnaiss = date(annee_naiss, random.randint(1, 12), random.randint(1, 28))
     groupe = random.choices(GROUPES_SANGUINS, weights=POIDS_GROUPES)[0]
 
-    nb_allergies    = random.choices([0, 1, 2], weights=[0.60, 0.30, 0.10])[0]
-    allergies       = ", ".join(random.sample(ALLERGIES_POOL, nb_allergies)) if nb_allergies else ""
+    # Allergies : 0 à 2, cohérentes avec l'âge
+    nb_all = random.choices([0, 1, 2], weights=[0.58, 0.32, 0.10])[0]
+    allergies_str = ", ".join(random.sample(ALLERGIES_POOL, nb_all)) if nb_all else ""
 
-    # Antécédents textuels (champ legacy conservé)
-    nb_ant          = random.choices([0, 1, 2, 3], weights=[0.40, 0.35, 0.20, 0.05])[0]
-    ant_choisis     = random.sample(ANTECEDENTS_STRUCTURES, nb_ant) if nb_ant else []
-    antecedents_txt = ", ".join(a[0] for a in ant_choisis)
+    # Antécédents : 0 à 3, plus fréquents chez les adultes
+    max_ant = 0 if age < 10 else (1 if age < 25 else (3 if age > 50 else 2))
+    nb_ant = random.choices(range(max_ant + 1), weights=[0.4] + [0.6/max(max_ant,1)]*max_ant if max_ant else [1])[0]
+    ant_list = random.sample(ANTECEDENTS_POOL, nb_ant) if nb_ant else []
+    ant_str  = ", ".join(ant_list)
 
-    medecin_ref     = random.choice(medecins_dispo) if medecins_dispo else None
-    service_patient = medecin_ref.service if medecin_ref else random.choice(list(services_crees.values()))
+    medecin_ref  = random.choice(medecins_list) if medecins_list else None
+    svc_patient  = medecin_ref.service if medecin_ref else random.choice(list(services.values()))
+
+    profil_key = choisir_profil(age, sexe, ant_str)
 
     patient = Patient.objects.create(
-        nom=nom, prenom=prenom,
-        date_naissance=date_naissance, sexe=sexe,
-        groupe_sanguin=groupe,
-        telephone=tel(),
+        nom=nom, prenom=prenom, date_naissance=dnaiss, sexe=sexe,
+        groupe_sanguin=groupe, telephone=tel(),
         adresse=f"{random.choice(QUARTIERS)}, Dakar",
-        allergies=allergies,
-        antecedents=antecedents_txt,
-        actif=random.random() > 0.05,
-        service=service_patient,
-        medecin_referent=medecin_ref,
+        allergies=allergies_str, antecedents=ant_str,
+        actif=random.random() > 0.06,
+        service=svc_patient, medecin_referent=medecin_ref,
     )
-    patients_crees.append((patient, age, ant_choisis))
+    patients_data.append((patient, age, ant_str, profil_key))
 
-print(f"✅ {len(patients_crees)} patients créés.\n")
+print(f"✅ {len(patients_data)} patients\n")
 
-# ─── ANTÉCÉDENTS STRUCTURÉS ──────────────────────────────────────────────────
-print("📋 Création des antécédents structurés...")
-total_antecedents = 0
+# ─── SIGNES VITAUX ────────────────────────────────────────────────────────────
+print("📊 Signes vitaux...")
+total_sv = 0
+alertes_brutes = []   # (patient, type_alerte, message, date_alerte)
 
-for patient, age, ant_choisis in patients_crees:
-    for libelle, type_ant in ant_choisis:
-        # Date de diagnostic cohérente (entre 1 et 20 ans avant aujourd'hui)
-        annees_ago = random.randint(1, min(20, age - 10))
-        date_diag  = date.today() - timedelta(days=annees_ago * 365 + random.randint(0, 364))
-        statut     = StatutAntecedent.ACTIF if random.random() > 0.15 else StatutAntecedent.RESOLU
+for patient, age, ant_str, profil_key in patients_data:
+    profil = PROFILS[profil_key]
 
-        Antecedent.objects.create(
-            patient=patient,
-            libelle=libelle,
-            type_antecedent=type_ant,
-            statut=statut,
-            date_diagnostic=date_diag,
-            observations=f"Suivi régulier. {'Traitement en cours.' if statut == StatutAntecedent.ACTIF else 'Résolu après traitement.'}"
-        )
-        total_antecedents += 1
+    # Poids de base réaliste selon le profil
+    poids_base = varier(profil["poids"][0], profil["poids"][1], 15, 140)
+    # Tendance pondérale : stabilité pour la plupart, légère variation
+    tendance_j  = random.gauss(0, 0.008)   # kg/jour en moyenne
 
-print(f"✅ {total_antecedents} antécédents créés.\n")
+    # Nombre de mesures aléatoire — pas tous les jours (visite médicale)
+    nb_mesures = random.randint(NB_MESURES_MIN, NB_MESURES_MAX)
+    jours_mesures = sorted(random.sample(range(0, JOURS_HISTORIQUE), nb_mesures))
 
-# ─── SIGNES VITAUX ───────────────────────────────────────────────────────────
-print("📊 Création des signes vitaux...")
-total_sv     = 0
-alertes_data = []
+    for idx, jour in enumerate(jours_mesures):
+        d_mesure = now - timedelta(days=(JOURS_HISTORIQUE - jour))
 
-for patient, age, ant_choisis in patients_crees:
-    ant_libelles = [a[0] for a in ant_choisis]
-    profil = PROFILS[choisir_profil(age, ant_libelles)]
+        poids_j = poids_base + tendance_j * jour
+        # Variation physiologique journalière (repas, hydratation)
+        poids_mesure = round(varier(poids_j, 0.4, 10, 150), 1)
 
-    poids_base     = random.uniform(profil["poids_min"], profil["poids_max"])
-    tendance_poids = random.uniform(-0.02, 0.02)
-    nb_mesures     = random.randint(NB_MESURES_MIN, NB_MESURES_MAX)
-    jours_mesures  = sorted(random.sample(range(0, JOURS_HISTORIQUE + 1), nb_mesures))
+        ts   = int(varier(profil["ts"][0],   profil["ts"][1],   70, 220))
+        td   = int(varier(profil["td"][0],   profil["td"][1],   40, 140))
+        temp = round(varier(profil["temp"][0], profil["temp"][1], 35.0, 41.5), 1)
+        glyc = round(varier(profil["glyc"][0], profil["glyc"][1], 1.5, 30.0), 2)
+        fc   = int(varier(profil["fc"][0],   profil["fc"][1],   35, 160))
 
-    for jour in jours_mesures:
-        date_mesure = now - timedelta(days=(JOURS_HISTORIQUE - jour))
-        poids_jour  = poids_base + (tendance_poids * jour)
-
-        ts    = int(varier(profil["ts"][0],   profil["ts"][1],   80,  200))
-        td    = int(varier(profil["td"][0],   profil["td"][1],   50,  130))
-        temp  = round(varier(profil["temp"][0], profil["temp"][1], 35.5, 41.0), 1)
-        poids = round(varier(poids_jour, 0.3, 30, 150), 1)
-        glyc  = round(varier(profil["glyc"][0], profil["glyc"][1], 2.0, 25.0), 2)
-        fc    = int(varier(profil["fc"][0],   profil["fc"][1],   40,  130))
-
-        if random.random() < 0.05:
-            temp = round(min(temp + random.uniform(0.8, 2.5), 41.0), 1)
-            fc   = min(fc + random.randint(10, 25), 130)
+        # Episode aigu ponctuel (infection, décompensation, stress)
+        if random.random() < profil["p_episode"]:
+            temp = round(min(temp + random.uniform(0.8, 3.0), 41.5), 1)
+            fc   = min(fc + random.randint(15, 35), 160)
+            if profil_key in ("drepanocytaire", "diabetique_t2_desequilibre"):
+                ts = min(ts + random.randint(20, 40), 220)
 
         SignesVitaux.objects.create(
-            patient=patient, date=date_mesure,
-            tension_systolique=ts, tension_diastolique=td,
+            patient=patient,
+            date=d_mesure,
+            tension_systolique=ts,
+            tension_diastolique=td,
             temperature=Decimal(str(temp)),
-            poids=Decimal(str(poids)),
-            glycemie=Decimal(str(min(glyc, 25.0))),
+            poids=Decimal(str(poids_mesure)),
+            glycemie=Decimal(str(min(glyc, 30.0))),
             frequence_cardiaque=fc,
         )
         total_sv += 1
 
-        if ts > 180 or td > 110:
-            alertes_data.append((patient, "tension",     f"Tension critique : {ts}/{td} mmHg"))
-        elif ts > 160 and random.random() < profil["alerte_chance"]:
-            alertes_data.append((patient, "tension",     f"Tension élevée : {ts}/{td} mmHg"))
-        if glyc > 15.0:
-            alertes_data.append((patient, "glycemie",    f"Hyperglycémie sévère : {glyc:.2f} g/L"))
-        elif glyc > 11.0 and random.random() < profil["alerte_chance"]:
-            alertes_data.append((patient, "glycemie",    f"Glycémie élevée : {glyc:.2f} g/L"))
-        if temp > 39.5:
-            alertes_data.append((patient, "temperature", f"Fièvre élevée : {temp}°C"))
-        if fc > 110:
-            alertes_data.append((patient, "frequence",   f"Tachycardie : {fc} bpm"))
+        # Détecter anomalies → alertes (seuils cliniques réels)
+        if ts >= 180 or td >= 115:
+            alertes_brutes.append((patient, "tension",
+                                   f"Urgence hypertensive : TA {ts}/{td} mmHg — consultation immédiate", d_mesure))
+        elif ts >= 160 and random.random() < profil["p_alerte"]:
+            alertes_brutes.append((patient, "tension",
+                                   f"Hypertension non contrôlée : TA {ts}/{td} mmHg", d_mesure))
 
-print(f"✅ {total_sv} mesures créées.\n")
+        if glyc >= 20.0:
+            alertes_brutes.append((patient, "glycemie",
+                                   f"Hyperglycémie sévère : {glyc:.1f} g/L — risque de coma diabétique", d_mesure))
+        elif glyc >= 13.0 and random.random() < profil["p_alerte"]:
+            alertes_brutes.append((patient, "glycemie",
+                                   f"Glycémie très élevée : {glyc:.1f} g/L — réévaluer traitement", d_mesure))
+        elif glyc <= 2.5:
+            alertes_brutes.append((patient, "glycemie",
+                                   f"Hypoglycémie sévère : {glyc:.1f} g/L — resucrage immédiat", d_mesure))
 
-# ─── ALERTES ─────────────────────────────────────────────────────────────────
-print("🚨 Création des alertes...")
-alertes_crees = 0
+        if temp >= 40.0:
+            alertes_brutes.append((patient, "temperature",
+                                   f"Hyperthermie majeure : {temp}°C — rechercher foyer infectieux", d_mesure))
+        elif temp >= 38.5 and random.random() < profil["p_alerte"]:
+            alertes_brutes.append((patient, "temperature",
+                                   f"Fièvre : {temp}°C — bilan infectieux recommandé", d_mesure))
+        elif temp <= 36.0:
+            alertes_brutes.append((patient, "temperature",
+                                   f"Hypothermie : {temp}°C", d_mesure))
+
+        if fc >= 120:
+            alertes_brutes.append((patient, "frequence",
+                                   f"Tachycardie : {fc} bpm — ECG recommandé", d_mesure))
+        elif fc <= 45:
+            alertes_brutes.append((patient, "frequence",
+                                   f"Bradycardie sévère : {fc} bpm — avis cardiologique", d_mesure))
+
+print(f"✅ {total_sv} mesures\n")
+
+# ─── ALERTES ──────────────────────────────────────────────────────────────────
+print("🚨 Alertes...")
 alertes_par_patient = defaultdict(list)
-for patient, type_alerte, message in alertes_data:
-    alertes_par_patient[patient.id].append((patient, type_alerte, message))
+for patient, type_al, msg, d in alertes_brutes:
+    alertes_par_patient[patient.id].append((patient, type_al, msg, d))
 
-for patient_id, items in alertes_par_patient.items():
-    for patient, type_alerte, message in items[-3:]:
+total_alertes = 0
+for pid, items in alertes_par_patient.items():
+    # Garder au max 4 alertes par patient, les plus récentes
+    items_tri = sorted(items, key=lambda x: x[3], reverse=True)[:4]
+    for patient, type_al, msg, _ in items_tri:
         Alerte.objects.create(
-            patient=patient, type=type_alerte, message=message,
-            statut=random.choice(['non_lue', 'non_lue', 'lue', 'traitee']),
+            patient=patient, type=type_al, message=msg,
+            statut=random.choices(
+                ['non_lue', 'lue', 'traitee'],
+                weights=[0.50, 0.25, 0.25]
+            )[0],
         )
-        alertes_crees += 1
+        total_alertes += 1
+print(f"✅ {total_alertes} alertes\n")
 
-print(f"✅ {alertes_crees} alertes créées.\n")
+# ─── CONSULTATIONS ────────────────────────────────────────────────────────────
+print("🩺 Consultations et rendez-vous...")
 
-# ─── CONSULTATIONS & RENDEZ-VOUS ─────────────────────────────────────────────
-print("🩺 Création des consultations et rendez-vous...")
-total_consult  = 0
-total_rdv      = 0
-consultations_par_patient = defaultdict(list)  # patient.id → [Consultation]
+MOTIFS_CONSULT = [
+    "Contrôle de la tension artérielle", "Suivi du diabète — bilan glycémique",
+    "Toux persistante depuis 10 jours", "Fièvre et frissons nocturnes",
+    "Céphalées frontales récurrentes", "Douleurs abdominales épigastriques",
+    "Fatigue intense et perte de poids", "Palpitations et dyspnée d'effort",
+    "Renouvellement d'ordonnance chronique", "Douleurs articulaires des genoux",
+    "Suivi post-opératoire — J+15", "Bilan de santé annuel",
+    "Douleurs lombaires irradiant dans la jambe", "Troubles urinaires",
+    "Prurit généralisé sans éruption", "Oedèmes des membres inférieurs",
+    "Vertige positionnel et nausées", "Brûlures épigastriques postprandiales",
+    "Suivi grossesse — 1er trimestre", "Vaccination adulte (rappel tétanos)",
+]
+MOTIFS_EXAMEN = [
+    "Bilan biologique complet — NFS, ionogramme, créatinine",
+    "Échographie abdominale et pelvienne",
+    "Radiographie thoracique de face",
+    "Électrocardiogramme 12 dérivations",
+    "Glycémie à jeun et HbA1c",
+    "Bilan lipidique — cholestérol total, LDL, HDL, triglycérides",
+    "Échographie cardiaque transthoracique",
+    "Scanner thoracique sans injection",
+    "IRM cérébrale sans et avec gadolinium",
+    "Fond d'œil — bilan hypertensif",
+    "ECBU — examen cytobactériologique des urines",
+    "Ponction lombaire — bilan méningé",
+    "Test de l'effort sur tapis roulant",
+    "Doppler artériel et veineux des membres inférieurs",
+]
+MOTIFS_OPERATION = [
+    "Appendicectomie laparoscopique en urgence",
+    "Cholécystectomie pour lithiase symptomatique",
+    "Cure de hernie inguinale droite",
+    "Césarienne programmée pour bassin limite",
+    "Amygdalectomie bilatérale",
+    "Réduction chirurgicale d'une fracture du radius",
+    "Cure de varicocèle",
+    "Excision d'un lipome dorsal",
+    "Thyroïdectomie totale pour goitre multinodulaire",
+    "Drainage d'un abcès pariétal",
+]
+SYMPTOMES_PAR_MOTIF = {
+    "tension": "Céphalées occipitales matinales, vertiges au lever, parfois bourdonnements d'oreilles.",
+    "diabete": "Polyurie, polydipsie, asthénie. Pas de symptôme d'hypoglycémie.",
+    "infection": "Fièvre à 38,8°C, frissons, myalgies diffuses, anorexie depuis 3 jours.",
+    "cardio": "Dyspnée à l'effort (stade II NYHA), douleur thoracique atypique à l'effort.",
+    "digestif": "Douleurs épigastriques postprandiales, nausées sans vomissement, transit normal.",
+    "neuro": "Céphalées pulsatiles unilatérales, photophobie, sans signe neurologique focal.",
+    "generaux": "Asthénie importante depuis 3 semaines, perte d'appétit, amaigrissement de 4 kg.",
+    "osteo": "Douleurs des deux genoux à la marche, raideur matinale < 30 min.",
+    "aucun": "Aucune plainte fonctionnelle. Consultation de suivi programmée.",
+}
+EXAMENS_REALISES = [
+    "Mesure de la tension artérielle aux deux bras (PA droite : 148/92, PA gauche : 145/90 mmHg).",
+    "NFS : Hb 10,2 g/dL, GB 8 400/mm³, plaquettes 245 000/mm³. Glycémie : 8,4 mmol/L.",
+    "ECG 12 dérivations : rythme sinusal régulier, 78 bpm. HVG électrique.",
+    "Échographie abdominale : lithiase vésiculaire unique de 18 mm, sans dilatation des voies biliaires.",
+    "Radiographie thoracique : cardiomégalie modérée (ICT = 0,55), pas d'épanchement pleural.",
+    "Glycémie capillaire : 12,3 mmol/L. HbA1c à 8,9 % (dosé il y a 3 mois).",
+    "Auscultation cardio-pulmonaire : souffles télesystoliques 2/6 à l'apex. MV diminué aux bases.",
+    "Aucun examen complémentaire réalisé lors de cette consultation.",
+    "TDR paludisme : POSITIF (Plasmodium falciparum). Frottis sanguin confirmé.",
+    "Créatinine : 185 μmol/L (clairance CKD-EPI : 38 mL/min). Urée : 12,4 mmol/L.",
+]
+DIAGNOSTICS = [
+    "Paludisme à Plasmodium falciparum non compliqué — traitement Coartem instauré.",
+    "Hypertension artérielle grade 2 insuffisamment contrôlée — renforcement du traitement.",
+    "Diabète type 2 déséquilibré (HbA1c 9,2 %) — ajustement insulinothérapie.",
+    "Gastro-entérite aiguë probablement virale — réhydratation et antiémétiques.",
+    "Infection urinaire basse — Amoxicilline-clavulanate 7 jours.",
+    "Anémie ferriprive sévère — supplémentation en fer et bilan étiologique.",
+    "Bronchite bactérienne — Amoxicilline 500 mg 3x/j pendant 7 jours.",
+    "Lombalgie commune — AINS, myorelaxants, kinésithérapie à prévoir.",
+    "Crise d'asthme modérée — Salbutamol nébulisé + corticoïdes systémiques.",
+    "Insuffisance cardiaque décompensée NYHA III — diurétiques IV en urgence.",
+    "Paludisme grave (accès pernicieux) — artéméther IV, hospitalisation.",
+    "Épilepsie partielle — ajustement de la carbamazépine.",
+    "Rhinopharyngite virale — traitement symptomatique uniquement.",
+    "Ulcère duodénal (FOGD réalisée) — IPP 40 mg + éradication HP.",
+    "Crise drépanocytaire vaso-occlusive — antalgiques palier 3, hydratation IV.",
+    "Hypertension gestationnelle — surveillance rapprochée, repos.",
+    "Bilan normal — pas d'anomalie clinique ni biologique décelée.",
+]
+ORDONNANCES = [
+    "Coartem® (artéméther/luméfantrine) 20/120 mg — 4 cp à J0, J8, J24, J36, J48, J60.",
+    "Amlodipine 10 mg — 1 cp/jour le matin. Hydrochlorothiazide 12,5 mg — 1 cp/jour.",
+    "Insuline NPH 18 UI le soir au coucher. Metformine 1000 mg × 2/jour aux repas.",
+    "SRO (sels de réhydratation orale) — 1 sachet/250 mL, à boire lentement. Dompéridone 10 mg × 3/j.",
+    "Amoxicilline + acide clavulanique 1 g — 1 cp × 2/j pendant 7 jours.",
+    "Ferrograd® (sulfate ferreux 325 mg) — 1 cp/jour à jeun pendant 3 mois.",
+    "Amoxicilline 500 mg — 1 cp × 3/jour pendant 7 jours. Paracétamol 1 g si fièvre.",
+    "Ibuprofène 400 mg — 1 cp × 3/jour avec repas (max 5 jours). Thiocolchicoside 4 mg × 2/j.",
+    "Salbutamol 100 μg — 2 bouffées toutes les 4h. Prednisolone 1 mg/kg/j pendant 5 jours.",
+    "Furosémide 40 mg IV. Restriction hydro-sodée. Surveillance poids quotidienne.",
+    "Artéméther 80 mg IM toutes les 12h pendant 3 jours. Bilan rénal et hépatique à J3.",
+    "Carbamazépine 200 mg — 1 cp matin et soir. Dosage sanguin à 1 mois.",
+    "Sérum physiologique en lavage nasal × 3/j. Paracétamol 500 mg si T° > 38,5°C.",
+    "Oméprazole 40 mg — 1 cp/jour à jeun. Amoxicilline 1 g + Clarithromycine 500 mg × 2/j × 10j.",
+    "Morphine 10 mg SC toutes les 4h si EVA > 7. Kétoprofène 100 mg IV × 2/j. NaCl 0,9 % 2 L/24h.",
+]
 
-for patient, age, ant_choisis in patients_crees:
-    ant_libelles  = [a[0] for a in ant_choisis]
-    nb_consult    = random.randint(2, 8)
-    jours_consult = sorted(random.sample(range(1, JOURS_HISTORIQUE), min(nb_consult, JOURS_HISTORIQUE - 1)))
+total_consult = 0
+total_rdv     = 0
 
-    for jour in jours_consult:
-        date_consult   = now - timedelta(days=jour)
-        type_evenement = random.choices(
-            ['consultation', 'examen', 'operation'],
-            weights=[0.65, 0.25, 0.10]
+for patient, age, ant_str, profil_key in patients_data:
+    # Nombre de consultations selon le profil clinique
+    if profil_key in ("sain", "enfant_adolescent"):
+        nb_c = random.randint(1, 4)
+    elif profil_key in ("diabetique_t2_desequilibre", "drepanocytaire", "insuffisant_renal"):
+        nb_c = random.randint(6, 14)
+    else:
+        nb_c = random.randint(3, 8)
+
+    jours_c = sorted(random.sample(range(1, JOURS_HISTORIQUE), min(nb_c, JOURS_HISTORIQUE - 1)))
+
+    for jour in jours_c:
+        d_consult = now - timedelta(days=jour, hours=random.randint(7, 17), minutes=random.randint(0, 59))
+
+        type_ev = random.choices(
+            ['consultation', 'examen', 'operation', 'autre'],
+            weights=[0.65, 0.25, 0.07, 0.03]
         )[0]
 
-        if type_evenement == 'examen':       motif = random.choice(MOTIFS_EXAMEN)
-        elif type_evenement == 'operation':  motif = random.choice(MOTIFS_OPERATION)
-        else:                                motif = random.choice(MOTIFS)
+        if type_ev == 'examen':
+            motif = random.choice(MOTIFS_EXAMEN)
+        elif type_ev == 'operation':
+            motif = random.choice(MOTIFS_OPERATION)
+        else:
+            motif = random.choice(MOTIFS_CONSULT)
 
-        statut = "terminee"
-        if jour < 7:
-            statut = random.choice(["terminee", "en_cours"])
+        # Statut : passé = terminée, très récent = en cours
+        if jour <= 2:
+            statut = random.choice(["en_cours", "terminee"])
+        else:
+            statut = "terminee"
 
-        c = Consultation.objects.create(
-            patient=patient,
-            type_evenement=type_evenement,
-            date=date_consult,
-            motif=motif,
-            symptomes=random.choice(SYMPTOMES_POOL) if type_evenement != 'operation' else '',
-            examens_realises=random.choice(EXAMENS_POOL),
+        # Symptômes cohérents avec le profil
+        if profil_key in ("hypertendu_controle", "hypertendu_non_controle"):
+            symptomes_base = SYMPTOMES_PAR_MOTIF["tension"]
+        elif profil_key in ("diabetique_t2_equilibre", "diabetique_t2_desequilibre"):
+            symptomes_base = SYMPTOMES_PAR_MOTIF["diabete"]
+        elif profil_key == "drepanocytaire":
+            symptomes_base = SYMPTOMES_PAR_MOTIF["generaux"]
+        elif profil_key == "insuffisant_renal":
+            symptomes_base = SYMPTOMES_PAR_MOTIF["generaux"]
+        elif type_ev == 'operation':
+            symptomes_base = ""
+        else:
+            symptomes_base = random.choice(list(SYMPTOMES_PAR_MOTIF.values()))
+
+        notes = ""
+        if ant_str:
+            notes = (f"Patient {'vu' if patient.sexe == 'M' else 'vue'} en {type_ev}. "
+                     f"ATCD : {ant_str[:120]}{'...' if len(ant_str)>120 else ''}. "
+                     f"{'Observance thérapeutique satisfaisante.' if random.random()>0.3 else 'Problème observance signalé.'}")
+
+        Consultation.objects.create(
+            patient=patient, type_evenement=type_ev, date=d_consult,
+            motif=motif, symptomes=symptomes_base,
+            examens_realises=random.choice(EXAMENS_REALISES),
             diagnostic=random.choice(DIAGNOSTICS),
             ordonnance=random.choice(ORDONNANCES),
-            statut=statut,
-            notes=(
-                f"Patient {'vu' if patient.sexe == 'M' else 'vue'} en consultation. "
-                f"{'Antécédents à surveiller : ' + ', '.join(ant_libelles[:2]) if ant_libelles else 'Pas d antécédents notables.'}"
-            ),
+            statut=statut, notes=notes,
         )
-        consultations_par_patient[patient.id].append(c)
         total_consult += 1
 
+    # Rendez-vous futurs (0 à 3)
     nb_rdv = random.randint(0, 3)
     for _ in range(nb_rdv):
+        jours_futur = random.randint(1, 45)
         RendezVous.objects.create(
             patient=patient,
-            date_heure=now + timedelta(days=random.randint(1, 30)),
-            motif=random.choice(MOTIFS),
-            statut=random.choice(["planifie", "confirme"]),
+            date_heure=now + timedelta(days=jours_futur, hours=random.randint(8, 16)),
+            motif=random.choice(MOTIFS_CONSULT),
+            statut=random.choices(['planifie', 'confirme', 'annule'], weights=[0.55, 0.35, 0.10])[0],
         )
         total_rdv += 1
 
-print(f"✅ {total_consult} consultations créées, {total_rdv} rendez-vous planifiés.\n")
+print(f"✅ {total_consult} consultations, {total_rdv} rendez-vous\n")
 
-# ─── DEMANDES D'ANALYSE ──────────────────────────────────────────────────────
-print("🔬 Création des demandes d'analyse...")
-total_analyses  = 0
-medecins_crees  = [e for e in employes_crees if e.role == 'medecin']
-laborantins     = [e for e in employes_crees if e.role == 'laborantin']
+# ─── HOSPITALISATIONS ─────────────────────────────────────────────────────────
+print("🛏️  Hospitalisations...")
+total_hosp = 0
+CHAMBRES = [f"{l}{n}" for l in "ABCD" for n in range(1, 9)]
+LITS     = ["1", "2", "3"]
 
-TYPES_ANALYSE = [c[0] for c in DemandeAnalyse.TYPE_CHOICES]
+MOTIFS_HOSP = [
+    "Décompensation cardiaque aiguë avec œdèmes généralisés",
+    "Crise hyperglycémique — glycémie capillaire à 28 mmol/L",
+    "Paludisme grave avec signes de gravité (convulsions, trouble de conscience)",
+    "Pneumopathie communautaire sévère nécessitant antibiothérapie IV",
+    "AVC ischémique sylvien gauche confirmé au scanner",
+    "Insuffisance rénale aiguë sur néphropathie chronique",
+    "Sepsis sévère — foyer pulmonaire probable",
+    "Douleur vaso-occlusive drépanocytaire résistante aux antalgiques oraux",
+    "Hémorragie digestive haute — méléna abondant",
+    "Post-opératoire cholécystectomie laparoscopique",
+    "Prééclampsie sévère à 34 SA — hospitalisation pour surveillance",
+    "Crise épileptique prolongée — état de mal épileptique",
+    "Tuberculose pulmonaire bacillifère — isolement et instauration traitement",
+]
+DIAG_HOSP_SORTIE = [
+    "Stabilisation obtenue sous traitement médical. Équilibre tensionnel satisfaisant.",
+    "Normoglycémie rétablie. Insulinothérapie optimisée. Éducation thérapeutique réalisée.",
+    "Apyrexie obtenue à J5. Traitement antipaludéen complété. Bonne récupération.",
+    "Amélioration clinique et radiologique. Relais per os possible. Sortie autorisée.",
+    "Déficit neurologique stable. Rééducation débutée. Transfert en SSR prévu.",
+    "Fonction rénale améliorée (créatinine à 145 μmol/L). Régime suivi.",
+    "Apyrexie à J4. Hémocultures stériles. Antibiothérapie relayée per os.",
+    "Douleur contrôlée à EVA 2/10. Hydratation correcte. Hb stable à 8,2 g/dL.",
+    "Hémostase obtenue par FOGD (clips). Pas de récidive hémorragique. IPP IV relayé.",
+    "Suites opératoires simples. Pas d'infection de paroi. Reprise du transit.",
+    "TA contrôlée, protéinurie diminuée. Accouchement déclenché à 36 SA. Mère et enfant bien.",
+    "Stabilisation sous Diazépam IV. Traitement antiépileptique réajusté.",
+    "Début de traitement antituberculeux RHZE bien toléré. BK en cours de négativation.",
+]
 
-# ~40% des patients ont au moins une demande d'analyse
-for patient, age, ant_choisis in random.sample(patients_crees, k=int(NB_PATIENTS * 0.4)):
-    nb_demandes = random.randint(1, 3)
-    consults_patient = consultations_par_patient.get(patient.id, [])
+# ~25% des patients hospitalisés
+patients_a_hospitaliser = random.sample(patients_data, k=max(1, int(NB_PATIENTS * 0.25)))
+for patient, age, ant_str, profil_key in patients_a_hospitaliser:
+    # Certains profils peuvent avoir 2 hospitalisations
+    nb_hosp = 2 if profil_key in ("drepanocytaire", "insuffisant_renal", "diabetique_t2_desequilibre") and random.random() < 0.4 else 1
+    medecin_ref = patient.medecin_referent
+    medecins_pool = medecins_list if medecins_list else [medecin_ref]
 
-    for _ in range(nb_demandes):
-        demandeur  = random.choice(medecins_crees) if medecins_crees else None
-        laborantin = random.choice(laborantins) if laborantins and random.random() > 0.3 else None
-        statut     = random.choices(
-            ['en_attente', 'en_cours', 'terminee', 'annulee'],
-            weights=[0.30, 0.20, 0.40, 0.10]
-        )[0]
-        consultation_liee = random.choice(consults_patient) if consults_patient and random.random() > 0.4 else None
+    for h in range(nb_hosp):
+        medecin_h = medecin_ref or random.choice(medecins_pool)
+        svc_h = medecin_h.service if medecin_h else random.choice(list(services.values()))
+        jours_ecoul = random.randint(3, JOURS_HISTORIQUE - 5)
+        d_admis = now - timedelta(days=jours_ecoul + h * 45)
+        duree = random.randint(3, 21)
+        est_terminee = (d_admis + timedelta(days=duree)) < now
 
-        jours_demande  = random.randint(0, JOURS_HISTORIQUE)
-        date_demande   = now - timedelta(days=jours_demande)
-        date_resultat  = None
-        resultats      = ""
-        valeurs_norm   = ""
-
-        if statut == 'terminee':
-            date_resultat = date_demande + timedelta(hours=random.randint(2, 48))
-            resultats     = f"Résultats dans les normes. Valeurs mesurées conformes aux références."
-            valeurs_norm  = "Voir tableau de référence laboratoire."
-
-        da = DemandeAnalyse(
-            patient=patient,
-            consultation=consultation_liee,
-            demandeur=demandeur,
-            laborantin=laborantin,
-            type_analyse=random.choice(TYPES_ANALYSE),
-            urgence=random.choices(['normale', 'urgente'], weights=[0.80, 0.20])[0],
-            statut=statut,
-            notes_medecin=f"Analyse demandée dans le cadre du suivi {'chronique' if ant_choisis else 'courant'}.",
-            resultats=resultats,
-            valeurs_normales=valeurs_norm,
-            date_resultat=date_resultat,
+        hosp = Hospitalisation.objects.create(
+            patient=patient, service=svc_h, medecin_responsable=medecin_h,
+            chambre=random.choice(CHAMBRES), lit=random.choice(LITS),
+            motif_admission=random.choice(MOTIFS_HOSP),
+            diagnostic_entree=random.choice(DIAGNOSTICS),
+            date_admission=d_admis,
+            date_sortie_prevue=(d_admis + timedelta(days=duree)).date(),
+            statut=StatutHospitalisation.TERMINEE if est_terminee else StatutHospitalisation.EN_COURS,
         )
-        # Contourner auto_now_add pour la date_demande
-        DemandeAnalyse.objects.bulk_create([da])
-        total_analyses += 1
+        if est_terminee:
+            hosp.date_sortie = d_admis + timedelta(days=duree)
+            hosp.diagnostic_sortie = random.choice(DIAG_HOSP_SORTIE)
+            hosp.save()
+        total_hosp += 1
 
-print(f"✅ {total_analyses} demandes d'analyse créées.\n")
+print(f"✅ {total_hosp} hospitalisations\n")
 
-# ─── HOSPITALISATIONS ────────────────────────────────────────────────────────
-print("🛏️  Création des hospitalisations...")
-total_hosp    = 0
-service_urgences = services_crees.get("Urgences")
-CHAMBRES      = [f"{lettre}{num}" for lettre in "ABC" for num in range(1, 8)]
-LITS          = ["1", "2"]
+# ─── URGENCES ─────────────────────────────────────────────────────────────────
+print("🚑 Urgences...")
+total_urgences = 0
+infirmiers_list = [e for e in employes if e.role == 'infirmier']
+service_urgences = services.get("Urgences")
+patients_list = [p for p, age, ant, pk in patients_data]
 
-hosp_par_patient = {}  # patient.id → Hospitalisation (pour lien urgences)
+MOTIFS_URGENCE = [
+    # Cardiovasculaires
+    "Douleur thoracique constrictive irradiant dans le bras gauche",
+    "Palpitations rapides et malaise — syncope brève",
+    "Oedème aigu du poumon — détresse respiratoire sévère",
+    # Neurologiques
+    "Déficit moteur brutal du membre supérieur droit — suspicion AVC",
+    "Crise convulsive généralisée tonico-clonique",
+    "Céphalée en coup de tonnerre — suspicion HSA",
+    "Trouble de conscience brutal — Glasgow 10/15",
+    # Infectieux
+    "Fièvre à 40°C avec frissons et trouble de conscience",
+    "Diarrhée profuse et vomissements — déshydratation sévère",
+    "Dyspnée fébrile — suspicion pneumonie grave",
+    # Traumatiques
+    "Traumatisme crânien suite à accident de la voie publique",
+    "Fracture ouverte du tibia — accident moto",
+    "Plaie profonde et hémorragique du bras droit",
+    "Contusions multiples suite à agression",
+    "Brûlure du 2ème degré sur 20% de la surface corporelle",
+    # Abdominaux
+    "Douleur abdominale périombilicale migrant en FID — suspicion appendicite",
+    "Hémorragie digestive — méléna et lipothymie",
+    "Douleur biliaire intense irradiant dans l'épaule droite",
+    # Autres urgences fréquentes au Sénégal
+    "Crise vaso-occlusive drépanocytaire — douleurs osseuses intenses",
+    "Hyperglycémie majeure — polydipsie, polyurie, confusion légère",
+    "Hypoglycémie profonde — patient retrouvé inconscient",
+    "Réaction allergique aiguë — urticaire généralisée et angiœdème",
+    "Morsure de serpent — oedème progressif du membre",
+    "Intoxication aux organophosphorés (pesticides)",
+    "Accouchement imminent — patiente à 39 SA dilatée à 8 cm",
+]
 
-for patient, age, ant_choisis in random.sample(patients_crees, k=max(1, NB_PATIENTS // 5)):
-    medecin      = random.choice(medecins_crees) if medecins_crees else None
-    service_hosp = medecin.service if medecin else random.choice(list(services_crees.values()))
+def creer_passage(patient, niveau_tri, mode_arrivee, statut, decision=None, jours_max=JOURS_HISTORIQUE):
+    inf  = random.choice(infirmiers_list) if infirmiers_list else None
+    med  = random.choice(medecins_list)   if medecins_list   else None
+    j    = random.randint(0, jours_max)
+    h    = random.randint(0, 23)
+    d_arr = now - timedelta(days=j, hours=h, minutes=random.randint(0, 59))
 
-    jours_ecoules  = random.randint(0, JOURS_HISTORIQUE)
-    date_admission = now - timedelta(days=jours_ecoules)
-    est_terminee   = jours_ecoules > random.randint(2, 10)
+    motif_choisi = random.choice(MOTIFS_URGENCE)
+    # Cohérence motif / niveau
+    if niveau_tri == 1:
+        motif_choisi = random.choice([m for m in MOTIFS_URGENCE if any(k in m.lower() for k in ["arrêt", "inconscient", "œdème aigu", "avc", "hémorragie", "hyperglycémie", "accouchement"])] or MOTIFS_URGENCE)
 
-    hosp = Hospitalisation.objects.create(
-        patient=patient,
-        service=service_hosp,
-        medecin_responsable=medecin,
-        chambre=random.choice(CHAMBRES),
-        lit=random.choice(LITS),
-        motif_admission=random.choice(MOTIFS_ADMISSION),
-        diagnostic_entree=random.choice(DIAGNOSTICS),
-        date_admission=date_admission,
-        statut=StatutHospitalisation.TERMINEE if est_terminee else StatutHospitalisation.EN_COURS,
-    )
-    if est_terminee:
-        duree = random.randint(2, 14)
-        hosp.date_sortie       = date_admission + timedelta(days=duree)
-        hosp.diagnostic_sortie = random.choice(DIAGNOSTICS)
-        hosp.save()
-
-    hosp_par_patient[patient.id] = hosp
-    total_hosp += 1
-
-print(f"✅ {total_hosp} hospitalisations créées.\n")
-
-# ─── URGENCES ────────────────────────────────────────────────────────────────
-print("🚑 Création des passages aux urgences...")
-total_urgences   = 0
-infirmiers_crees = [e for e in employes_crees if e.role == 'infirmier']
-
-def creer_passage_urgence(patient, niveau_tri, mode_arrivee, statut_choisi,
-                          decision=None, jours_max=30, lier_hospit=False):
-    infirmier = random.choice(infirmiers_crees) if infirmiers_crees else None
-    medecin   = random.choice(medecins_crees)   if medecins_crees   else None
-
-    jours_ecoules = random.randint(0, jours_max)
-    date_arrivee  = now - timedelta(days=jours_ecoules, hours=random.randint(0, 23))
-
-    # Lier à une hospitalisation existante si demandé et disponible
-    hospit = hosp_par_patient.get(patient.id) if lier_hospit else None
-
-    passage = PassageUrgence.objects.create(
-        patient=patient,
-        service=service_urgences,
-        infirmier_accueil=infirmier,
-        medecin_examinateur=medecin if statut_choisi != StatutUrgence.EN_ATTENTE else None,
-        date_arrivee=date_arrivee,
+    p = PassageUrgence.objects.create(
+        patient=patient, service=service_urgences,
+        infirmier_accueil=inf,
+        medecin_examinateur=med if statut != StatutUrgence.EN_ATTENTE else None,
+        date_arrivee=d_arr,
         mode_arrivee=mode_arrivee,
         niveau_tri=niveau_tri,
-        motif=random.choice(MOTIFS_URGENCE),
-        statut=statut_choisi,
-        hospitalisation=hospit,
+        motif=motif_choisi,
+        statut=statut,
+        diagnostic=random.choice(DIAGNOSTICS) if statut == StatutUrgence.SORTI else '',
     )
+    if statut == StatutUrgence.SORTI:
+        p.decision   = decision or DecisionSortie.DOMICILE
+        p.date_sortie = d_arr + timedelta(hours=random.randint(1, 12))
+        p.save()
+    return p
 
-    if statut_choisi == StatutUrgence.SORTI:
-        passage.diagnostic  = random.choice(DIAGNOSTICS)
-        passage.decision    = decision or DecisionSortie.DOMICILE
-        passage.date_sortie = date_arrivee + timedelta(hours=random.randint(1, 8))
-        passage.save()
+def niveau_aleatoire():
+    return random.choices([1, 2, 3, 4, 5], weights=[0.05, 0.15, 0.35, 0.30, 0.15])[0]
 
-    return passage
+def mode_aleatoire():
+    return random.choices(list(ModeArrivee), weights=[0.48, 0.32, 0.04, 0.11, 0.05])[0]
 
-# Pool : tous les patients
-patients_urgences    = random.sample(patients_crees, k=len(patients_crees))
-pool                 = iter([p for p, age, ant in patients_urgences])
-
-def next_patient():
-    return next(pool)
-
-# 1) Garantir chaque niveau de tri
-for niveau in [NiveauTri.NIVEAU_1, NiveauTri.NIVEAU_2, NiveauTri.NIVEAU_3, NiveauTri.NIVEAU_4, NiveauTri.NIVEAU_5]:
-    creer_passage_urgence(next_patient(), niveau, random.choice(list(ModeArrivee)), StatutUrgence.SORTI, random.choice(list(DecisionSortie)))
-    total_urgences += 1
-
-# 2) Garantir chaque mode d'arrivée
-for mode in [ModeArrivee.PIED, ModeArrivee.AMBULANCE, ModeArrivee.POLICE, ModeArrivee.TRANSFERT, ModeArrivee.AUTRE]:
-    creer_passage_urgence(next_patient(), random.choice([1,2,3,4,5]), mode, StatutUrgence.SORTI, random.choice(list(DecisionSortie)))
-    total_urgences += 1
-
-# 3) Garantir chaque décision de sortie
-for decision in [DecisionSortie.DOMICILE, DecisionSortie.HOSPITALISATION, DecisionSortie.TRANSFERT,
-                 DecisionSortie.PARTI_SANS_ATTENDRE, DecisionSortie.DECES]:
-    niveau = NiveauTri.NIVEAU_1 if decision == DecisionSortie.DECES else random.choice([1,2,3,4,5])
-    creer_passage_urgence(next_patient(), niveau, random.choice(list(ModeArrivee)), StatutUrgence.SORTI, decision,
-                          lier_hospit=(decision == DecisionSortie.HOSPITALISATION))
-    total_urgences += 1
-
-# 4) File d'attente réaliste — plusieurs patients en cours RIGHT NOW
-for _ in range(8):
-    creer_passage_urgence(next_patient(), random.choice([1,2,3,4]), random.choice(list(ModeArrivee)), StatutUrgence.EN_ATTENTE, jours_max=0)
-    total_urgences += 1
-for _ in range(6):
-    creer_passage_urgence(next_patient(), random.choice([1,2,3]), random.choice(list(ModeArrivee)), StatutUrgence.EN_CONSULTATION, jours_max=0)
-    total_urgences += 1
-
-# 5) Reste : distribution réaliste (50% sortis, 25% en attente, 25% en consultation)
-for patient in pool:
-    statut_choisi = random.choices(
+def statut_decision_aleatoire():
+    st = random.choices(
         [StatutUrgence.EN_ATTENTE, StatutUrgence.EN_CONSULTATION, StatutUrgence.SORTI],
-        weights=[0.25, 0.25, 0.50]
+        weights=[0.07, 0.06, 0.87]
     )[0]
-    decision = None
-    lier     = False
-    if statut_choisi == StatutUrgence.SORTI:
-        decision = random.choices(
-            [DecisionSortie.DOMICILE, DecisionSortie.HOSPITALISATION, DecisionSortie.TRANSFERT,
-             DecisionSortie.PARTI_SANS_ATTENDRE, DecisionSortie.DECES],
-            weights=[0.65, 0.15, 0.05, 0.10, 0.05]
+    dec = None
+    if st == StatutUrgence.SORTI:
+        dec = random.choices(
+            list(DecisionSortie),
+            weights=[0.62, 0.18, 0.05, 0.10, 0.05]
         )[0]
-        lier = (decision == DecisionSortie.HOSPITALISATION)
-    creer_passage_urgence(
-        patient,
-        random.choices([1,2,3,4,5], weights=[0.05,0.15,0.35,0.30,0.15])[0],
-        random.choices(list(ModeArrivee), weights=[0.50,0.30,0.05,0.10,0.05])[0],
-        statut_choisi, decision,
-        jours_max=1 if statut_choisi != StatutUrgence.SORTI else 30,
-        lier_hospit=lier,
-    )
+    return st, dec
+
+# ── 1. Couverture garantie de tous les cas ────────────────────────────────────
+# Chaque niveau × 4 (pour avoir des volumes dans les stats)
+for niv in [1, 2, 3, 4, 5]:
+    for _ in range(4):
+        creer_passage(random.choice(patients_list), niv, mode_aleatoire(),
+                      StatutUrgence.SORTI, random.choice(list(DecisionSortie)),
+                      jours_max=JOURS_HISTORIQUE)
+        total_urgences += 1
+
+# Chaque mode × 3
+for mode in list(ModeArrivee):
+    for _ in range(3):
+        creer_passage(random.choice(patients_list), niveau_aleatoire(), mode,
+                      StatutUrgence.SORTI, random.choice(list(DecisionSortie)),
+                      jours_max=JOURS_HISTORIQUE)
+        total_urgences += 1
+
+# Chaque décision × 3 (décès × 2 — rare mais présent)
+for dec in list(DecisionSortie):
+    nb = 2 if dec == DecisionSortie.DECES else 3
+    for _ in range(nb):
+        niv = random.choice([1, 2]) if dec == DecisionSortie.DECES else niveau_aleatoire()
+        creer_passage(random.choice(patients_list), niv, mode_aleatoire(),
+                      StatutUrgence.SORTI, dec, jours_max=JOURS_HISTORIQUE)
+        total_urgences += 1
+
+# ── 2. File d'attente en cours (patients présents maintenant) ─────────────────
+# 4 à 7 en attente de tri
+for _ in range(random.randint(4, 7)):
+    creer_passage(random.choice(patients_list), niveau_aleatoire(), mode_aleatoire(),
+                  StatutUrgence.EN_ATTENTE, jours_max=0)
     total_urgences += 1
 
-print(f"✅ {total_urgences} passages aux urgences créés.\n")
+# 3 à 5 en consultation active
+for _ in range(random.randint(3, 5)):
+    creer_passage(random.choice(patients_list), random.choice([1, 2, 3]), mode_aleatoire(),
+                  StatutUrgence.EN_CONSULTATION, jours_max=0)
+    total_urgences += 1
 
-# ─── RÉSUMÉ ──────────────────────────────────────────────────────────────────
-print("═" * 54)
-print("🏥  SEED TERMINÉ — Résumé :")
-print(f"   🏢 Services            : {len(services_crees)}")
-print(f"   👔 Employés            : {len(employes_crees)}")
-print(f"   👤 Patients            : {NB_PATIENTS}")
-print(f"   📋 Antécédents         : {total_antecedents}")
-print(f"   📊 Signes vitaux       : {total_sv}")
-print(f"   🩺 Consultations       : {total_consult}")
-print(f"   📅 Rendez-vous         : {total_rdv}")
-print(f"   🔬 Demandes d'analyse  : {total_analyses}")
-print(f"   🛏️  Hospitalisations    : {total_hosp}")
-print(f"   🚑 Passages urgences   : {total_urgences}")
-print(f"   🚨 Alertes             : {alertes_crees}")
-print("═" * 54)
-print("✅ Base Supabase peuplée avec succès !")
+# ── 3. Volume historique jusqu'à NB_URGENCES ─────────────────────────────────
+while total_urgences < NB_URGENCES:
+    st, dec = statut_decision_aleatoire()
+    # Dans l'historique : tout le monde est sorti (les "en cours" = aujourd'hui uniquement)
+    if st != StatutUrgence.SORTI:
+        st, dec = StatutUrgence.SORTI, DecisionSortie.DOMICILE
+    creer_passage(random.choice(patients_list), niveau_aleatoire(), mode_aleatoire(),
+                  st, dec, jours_max=JOURS_HISTORIQUE)
+    total_urgences += 1
+
+print(f"✅ {total_urgences} passages aux urgences\n")
+
+# ─── RÉSUMÉ ───────────────────────────────────────────────────────────────────
+print("═" * 55)
+print("🏥  SEED TERMINÉ — Résumé complet :")
+print(f"   🏢 Services         : {len(services)}")
+print(f"   👔 Employés         : {len(employes)}")
+print(f"   👤 Patients         : {NB_PATIENTS}")
+print(f"   📊 Signes vitaux    : {total_sv}")
+print(f"   🩺 Consultations    : {total_consult}")
+print(f"   📅 Rendez-vous      : {total_rdv}")
+print(f"   🛏️  Hospitalisations : {total_hosp}")
+print(f"   🚑 Passages urgences: {total_urgences}")
+print(f"   🚨 Alertes          : {total_alertes}")
+print("═" * 55)
+print("✅ Base de données peuplée avec succès !")

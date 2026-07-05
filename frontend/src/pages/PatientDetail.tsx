@@ -278,6 +278,177 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
     )
 }
 
+
+// ─── Panel historique des analyses ────────────────────────────────────────────
+function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
+    demandes: DemandeAnalyse[]
+    canRequest: boolean
+    onRequest: () => void
+    onVoirResultats: (d: DemandeAnalyse) => void
+}) {
+    return (
+        <div className="bg-white rounded-xl border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Analyses de laboratoire</h2>
+                <div className="flex items-center gap-2">
+                    {demandes.length > 0 && (
+                        <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: '#003152' }}>
+                            {demandes.length}
+                        </span>
+                    )}
+                    {canRequest && (
+                        <button onClick={onRequest}
+                                className="text-xs font-medium px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+                            + Demander
+                        </button>
+                    )}
+                </div>
+            </div>
+            {demandes.length === 0 ? (
+                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucune demande d'analyse</span></div>
+            ) : (
+                <div className="space-y-2">
+                    {demandes.map(d => {
+                        const cfg = STATUT_ANALYSE_CONFIG[d.statut] ?? STATUT_ANALYSE_CONFIG.en_attente
+                        const isTerminee = d.statut === 'terminee'
+                        return (
+                            <div key={d.id}
+                                 onClick={() => isTerminee && onVoirResultats(d)}
+                                 className={`flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50 ${isTerminee ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}>
+                                <div className="min-w-0">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                        <span className="text-sm font-medium text-gray-800">
+                                            {d.type_label || d.type_analyse}
+                                        </span>
+                                        {d.urgence === 'urgente' && (
+                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: '#b91c1c' }}>
+                                                🚨 Urgente
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="text-[11px] text-gray-300 mt-0.5">
+                                        Demandée le {new Date(d.date_demande).toLocaleDateString('fr-FR')}
+                                        {d.demandeur_nom && ` · ${d.demandeur_nom}`}
+                                    </p>
+                                </div>
+                                <span className="text-[11px] px-2 py-1 rounded-full font-medium flex-shrink-0"
+                                      style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+                                    {cfg.label}
+                                </span>
+                            </div>
+                        )
+                    })}
+                </div>
+            )}
+        </div>
+    )
+}
+
+// ─── Modale : demander une analyse (patient déjà connu) ───────────────────────
+function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
+    onSave: (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => void
+    onCancel: () => void
+    loading: boolean
+    error: string
+}) {
+    const [typeAnalyse, setTypeAnalyse] = useState<TypeAnalyse>('nfs')
+    const [urgence, setUrgence] = useState<UrgenceAnalyse>('normale')
+    const [notes, setNotes] = useState('')
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+                <h3 className="text-base font-semibold text-gray-900">Demander une analyse</h3>
+
+                <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Type d'analyse</label>
+                    <select value={typeAnalyse} onChange={e => setTypeAnalyse(e.target.value as TypeAnalyse)}
+                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                        {TYPES_ANALYSE.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Urgence</label>
+                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
+                        <button type="button" onClick={() => setUrgence('normale')} className="flex-1 py-2 transition-colors"
+                                style={urgence === 'normale' ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                            Normale
+                        </button>
+                        <button type="button" onClick={() => setUrgence('urgente')} className="flex-1 py-2 transition-colors"
+                                style={urgence === 'urgente' ? { backgroundColor: '#b91c1c', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                            🚨 Urgente
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes pour le laboratoire (optionnel)</label>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                              placeholder="Contexte clinique, suspicion diagnostique..." />
+                </div>
+
+                {error && <p className="text-sm text-red-500">{error}</p>}
+
+                <div className="flex gap-3 pt-2">
+                    <button onClick={onCancel} disabled={loading}
+                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                        Annuler
+                    </button>
+                    <button onClick={() => onSave({ type_analyse: typeAnalyse, urgence, notes_medecin: notes })} disabled={loading}
+                            className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-60"
+                            style={{ backgroundColor: '#003152' }}>
+                        {loading ? 'Envoi…' : 'Envoyer la demande'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Modale : voir les résultats d'une analyse terminée ────────────────────────
+function ResultatsAnalyseModal({ demande, onClose }: { demande: DemandeAnalyse; onClose: () => void }) {
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
+                <div>
+                    <h3 className="text-base font-semibold text-gray-900">{demande.type_label || demande.type_analyse}</h3>
+                    <p className="text-xs text-gray-400 mt-0.5">
+                        Résultat du {demande.date_resultat ? new Date(demande.date_resultat).toLocaleDateString('fr-FR') : '—'}
+                        {demande.laborantin_nom && ` · ${demande.laborantin_nom}`}
+                    </p>
+                </div>
+                <div>
+                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Résultats</label>
+                    <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2.5">
+                        {demande.resultats || '—'}
+                    </p>
+                </div>
+                {demande.valeurs_normales && (
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Valeurs normales de référence</label>
+                        <p className="text-sm text-gray-500 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2.5">
+                            {demande.valeurs_normales}
+                        </p>
+                    </div>
+                )}
+                {demande.notes_medecin && (
+                    <div>
+                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Notes de la demande</label>
+                        <p className="text-sm text-gray-500 whitespace-pre-wrap">{demande.notes_medecin}</p>
+                    </div>
+                )}
+                <button onClick={onClose}
+                        className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
+                        style={{ backgroundColor: '#003152' }}>
+                    Fermer
+                </button>
+            </div>
+        </div>
+    )
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function PatientDetail() {
     const { id } = useParams<{ id: string }>()

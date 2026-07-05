@@ -406,7 +406,6 @@ function PassageCard({ passage, onPriseEnCharge, onSortie }: {
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Urgences() {
     const [passages, setPassages] = useState<PassageUrgence[]>([])
-    const [patients, setPatients] = useState<Patient[]>([])
     const [services, setServices] = useState<Service[]>([])
     const [loading, setLoading] = useState(true)
     const [showNouveau, setShowNouveau] = useState(false)
@@ -419,7 +418,6 @@ export default function Urgences() {
 
     useEffect(() => {
         charger()
-        getPatients().then(setPatients).catch(() => {})
         getServices().then(setServices).catch(() => {})
         const interval = setInterval(charger, 30000) // rafraîchit les temps d'attente
         return () => clearInterval(interval)
@@ -506,7 +504,6 @@ export default function Urgences() {
 
             {showNouveau && (
                 <NouveauPassageModal
-                    patients={patients}
                     onClose={() => setShowNouveau(false)}
                     onCreated={p => { setPassages(prev => [...prev, p]); setShowNouveau(false) }}
                 />

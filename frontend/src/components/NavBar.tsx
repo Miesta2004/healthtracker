@@ -138,12 +138,20 @@ export default function Navbar() {
                             </div>
                         </div>
                     )}
-                    <button
-                        onClick={logout}
-                        className="text-xs text-gray-400 hover:text-gray-700 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                        Déconnexion
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <NotificationBell />
+                        {user && (
+                            <div className="flex items-center gap-2.5">
+                                ...
+                            </div>
+                        )}
+                        <button
+                            onClick={logout}
+                            className="text-xs text-gray-400 hover:text-gray-700 px-2.5 py-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                        >
+                            Déconnexion
+                        </button>
+                    </div>
                 </div>
             </div>
         </nav>
