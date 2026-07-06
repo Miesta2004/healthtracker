@@ -9,7 +9,7 @@ import { getEmployes } from '../api/comptes'
 import { getServices } from '../api/services'
 import { getDemandesEnAttente } from '../api/analyses'
 import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from '../types'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiCard, SkeletonSimpleList } from '../components/Skeleton'
 
@@ -149,7 +149,7 @@ export default function Dashboard() {
 
     return (
         <div className="ht-page flex flex-col">
-            <Navbar />
+            <Sidebar />
 
             <div className="ht-page-content space-y-8">
 

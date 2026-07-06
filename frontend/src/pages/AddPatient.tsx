@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createPatient } from '../api/patients'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 
 
 // ─── Données médicales de référence ──────────────────────────────────────────
@@ -172,8 +172,8 @@ export default function AddPatient() {
     return (
         <div className="ht-page">
 
-            {/* Navbar */}
-            <Navbar />
+            {/* Sidebar */}
+            <Sidebar />
 
             <div className="max-w-2xl mx-auto px-6 py-8">
                 <div className="mb-6">

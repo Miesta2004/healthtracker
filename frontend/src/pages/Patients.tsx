@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import type { Patient } from '../types'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
 
@@ -163,7 +163,7 @@ export default function Patients() {
 
     return (
         <div className="ht-page flex flex-col">
-            <Navbar />
+            <Sidebar />
             <div className="ht-page-content w-full space-y-8">
 
                 {/* ── Titre ── */}

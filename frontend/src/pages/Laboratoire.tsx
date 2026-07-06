@@ -8,7 +8,7 @@ import {
     soumettreResultats,
 } from '../api/analyses'
 import type { Patient, DemandeAnalyse, StatutAnalyse, UrgenceAnalyse, TypeAnalyse } from '../types'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
 
@@ -342,7 +342,7 @@ export default function Laboratoire() {
 
     return (
         <div className="ht-page flex flex-col">
-            <Navbar />
+            <Sidebar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 w-full space-y-6">
 

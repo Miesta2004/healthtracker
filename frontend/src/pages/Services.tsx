@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react"
 import { getServices, createService, deleteService, updateService } from "../api/services.ts"
 import type { Service } from "../types"
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { SkeletonCardGrid } from '../components/Skeleton'
 
 
@@ -204,8 +204,8 @@ export default function Services(){
                 />
             )}
 
-            {/* Navbar */}
-            <Navbar />
+            {/* Sidebar */}
+            <Sidebar />
 
             <div className="max-w-5xl mx-auto px-6 py-8">
 

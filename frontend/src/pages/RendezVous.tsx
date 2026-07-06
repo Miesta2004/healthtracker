@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import { getRendezVous, createRendezVous, updateRendezVous, deleteRendezVous } from '../api/rendezvous'
 import type { Patient, RendezVous, StatutRendezVous } from '../types'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
 
@@ -299,7 +299,7 @@ export default function RendezVousPage() {
 
     return (
         <div className="ht-page">
-            <Navbar />
+            <Sidebar />
 
             {showModal && (
                 <RdvModal

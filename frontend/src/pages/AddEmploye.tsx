@@ -120,7 +120,7 @@ export default function AddEmploye() {
     return (
         <div className="ht-page">
 
-            {/* Navbar */}
+            {/* Sidebar */}
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
                 <button onClick={() => navigate('/employes')} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
                     ← Retour

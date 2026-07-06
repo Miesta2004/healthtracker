@@ -12,7 +12,7 @@ import {
     admettreUrgence,
 } from '../api/urgences'
 import type { Patient, Service, PassageUrgence, Antecedent, NiveauTri, ModeArrivee, RoleEmploye } from '../types'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { SkeletonSimpleList } from '../components/Skeleton'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -579,7 +579,7 @@ export default function Urgences() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <Navbar />
+            <Sidebar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-8">
 

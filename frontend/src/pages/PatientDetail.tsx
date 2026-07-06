@@ -16,7 +16,7 @@ import { getHospitalisations } from '../api/hospitalisations'
 import type { RendezVous, PassageUrgence, Hospitalisation } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonDetailPage } from '../components/Skeleton'
-//import Navbar from '../components/NavBar'
+//import Sidebar from '../components/NavBar'
 
 // ─── Config analyses ────────────────────────────────────────────────────────
 const TYPES_ANALYSE: { value: TypeAnalyse; label: string }[] = [
@@ -792,7 +792,7 @@ export default function PatientDetail() {
                 />
             )}
 
-            {/* Navbar */}
+            {/* Sidebar */}
             <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
                 <button onClick={() => navigate('/dashboard')}
                         className="text-sm text-gray-400 hover:text-gray-700 transition-colors">

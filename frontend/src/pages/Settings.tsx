@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import {
     updateMonProfil, changePassword, uploadMaPhoto, getMaPhotoUrl,
     getMesCreneaux, createCreneau, deleteCreneau,
@@ -746,7 +746,7 @@ export default function Settings() {
     if (loading || !employe) {
         return (
             <div className="min-h-screen bg-gray-50">
-                <Navbar />
+                <Sidebar />
                 <div className="flex items-center justify-center h-64">
                     <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
                          style={{ borderColor: '#003152', borderTopColor: 'transparent' }} />
@@ -757,7 +757,7 @@ export default function Settings() {
 
     return (
         <div className="min-h-screen bg-gray-50">
-            <Navbar />
+            <Sidebar />
             <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-700">
                 ← Retour
             </button>

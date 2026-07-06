@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getEmploye, updateEmploye } from '../api/comptes'
 import { getServices } from '../api/services'
 import { useAuth } from '../contexts/AuthContext'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import type { Employe, RoleEmploye, TypeContrat, Service } from '../types'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
@@ -149,7 +149,7 @@ export default function EmployeDetail() {
     if (loading) {
         return (
             <div className="ht-page">
-                <Navbar />
+                <Sidebar />
                 <div className="max-w-4xl mx-auto px-6 py-12 space-y-4">
                     {[...Array(4)].map((_, i) => (
                         <div key={i} className="h-32 ht-card animate-pulse" />
@@ -166,7 +166,7 @@ export default function EmployeDetail() {
 
     return (
         <div className="ht-page">
-            <Navbar />
+            <Sidebar />
 
             <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
 

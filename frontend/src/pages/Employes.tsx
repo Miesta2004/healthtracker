@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getEmployes, updateEmploye, deleteEmploye } from '../api/comptes'
 import type { Employe, RoleEmploye } from '../types'
-import Navbar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar.tsx'
 import { SkeletonChartCard, SkeletonTable } from '../components/Skeleton'
 
 
@@ -207,8 +207,8 @@ export default function Employes() {
     return (
         <div className="ht-page flex flex-col">
 
-            {/* ── Navbar ── */}
-            <Navbar />
+            {/* ── Sidebar ── */}
+            <Sidebar />
 
             <div className="ht-page-content w-full space-y-8">
 
