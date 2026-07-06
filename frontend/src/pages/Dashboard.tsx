@@ -213,6 +213,13 @@ export default function Dashboard() {
                             Voir tous les patients
                         </button>
                     )}
+                    {/* Paramètres — accessible à tous, hors du bloc canSeePatients */}
+                    <button
+                        onClick={() => navigate('/settings')}
+                        className="btn btn-ghost"
+                    >
+                        ⚙️ Paramètres
+                    </button>
                 </div>
 
                 {/* ── KPIs ── */}

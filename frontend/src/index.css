@@ -385,36 +385,136 @@ body {
     color: var(--ht-success);
 }
 
-/* ── Navbar ───────────────────────────────────────────────────── */
+/* ── Sidebar ─────────────────────────────────────────────────── */
 
-.ht-navbar {
-    background-color: var(--ht-card-bg);
-    border-bottom: 1px solid var(--ht-border);
-    position: sticky;
-    top: 0;
-    z-index: 20;
+:root {
+    --sidebar-width:          15rem;
+    --sidebar-width-compact:  3.5rem;
+    --sidebar-transition:     240ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.ht-navbar-inner {
-    max-width: 72rem;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-    height: 3.5rem;
+.ht-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-width);
+    background-color: var(--ht-card-bg);
+    border-right: 1px solid var(--ht-border);
+    display: flex;
+    flex-direction: column;
+    z-index: 20;
+    transition: width var(--sidebar-transition);
+    overflow: hidden;
+}
+
+.ht-sidebar.compact {
+    width: var(--sidebar-width-compact);
+}
+
+.ht-sidebar-logo {
+    padding: 1rem 0.875rem;
+    border-bottom: 1px solid var(--ht-border);
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    gap: 0.75rem;
+    flex-shrink: 0;
+    min-height: 3.5rem;
+    overflow: hidden;
+    cursor: pointer;
+    background: none;
+    border-left: none;
+    border-top: none;
+    border-right: none;
+    width: 100%;
+    text-align: left;
 }
 
-.ht-nav-link {
-    padding: 0.375rem 0.75rem;
+.ht-sidebar-logo-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--ht-text);
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity var(--sidebar-transition);
+}
+
+.ht-sidebar.compact .ht-sidebar-logo-label { opacity: 0; }
+
+.ht-sidebar-nav {
+    flex: 1;
+    padding: 0.5rem 0.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.ht-sidebar-section-label {
+    padding: 0.75rem 0.625rem 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ht-text-muted);
+    white-space: nowrap;
+    opacity: 1;
+    transition: opacity var(--sidebar-transition);
+}
+
+.ht-sidebar.compact .ht-sidebar-section-label { opacity: 0; }
+
+.ht-sidebar-footer {
+    padding: 0.5rem 0.5rem;
+    border-top: 1px solid var(--ht-border);
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    flex-shrink: 0;
+}
+
+.ht-sidebar-user {
+    padding: 0.625rem 0.75rem;
     border-radius: var(--ht-radius-sm);
-    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    background-color: var(--ht-bg);
+    overflow: hidden;
+}
+
+.ht-sidebar-user-info {
+    overflow: hidden;
+    flex: 1;
+    opacity: 1;
+    transition: opacity var(--sidebar-transition);
+    white-space: nowrap;
+}
+
+.ht-sidebar.compact .ht-sidebar-user-info { opacity: 0; }
+
+/* ── Nav link ─────────────────────────────────────────────────── */
+
+.ht-nav-link {
+    position: relative;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ht-radius-sm);
+    font-size: 0.8125rem;
     font-weight: 500;
     color: var(--ht-text-secondary);
     background: transparent;
     border: none;
     cursor: pointer;
     transition: background-color var(--ht-transition), color var(--ht-transition);
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    min-height: 2.25rem;
 }
 
 .ht-nav-link:hover {
@@ -425,13 +525,111 @@ body {
 .ht-nav-link.active {
     background-color: var(--ht-primary-light);
     color: var(--ht-primary);
+    font-weight: 600;
 }
 
 .ht-nav-link.active-danger {
     background-color: var(--ht-danger-bg);
     color: var(--ht-danger);
+    font-weight: 600;
 }
 
+.ht-nav-link-icon {
+    flex-shrink: 0;
+    width: 1.125rem;
+    text-align: center;
+    font-size: 1rem;
+    line-height: 1;
+}
+
+.ht-nav-link-label {
+    opacity: 1;
+    transition: opacity var(--sidebar-transition);
+    overflow: hidden;
+    flex: 1;
+}
+
+.ht-sidebar.compact .ht-nav-link-label { opacity: 0; }
+
+/* Tooltip en mode compact */
+.ht-sidebar.compact .ht-nav-link:hover::after {
+    content: attr(data-label);
+    position: absolute;
+    left: calc(var(--sidebar-width-compact) - 0.5rem);
+    top: 50%;
+    transform: translateY(-50%);
+    background-color: var(--ht-text);
+    color: var(--ht-card-bg);
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 0.375rem 0.625rem;
+    border-radius: var(--ht-radius-sm);
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 100;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
+
+/* Bouton toggle */
+.ht-sidebar-toggle {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--ht-radius-sm);
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--ht-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.625rem;
+    transition: background-color var(--ht-transition), color var(--ht-transition);
+}
+
+.ht-sidebar-toggle:hover {
+    background-color: var(--ht-bg);
+    color: var(--ht-text-secondary);
+}
+
+.ht-sidebar-toggle-icon {
+    flex-shrink: 0;
+    width: 1.125rem;
+    text-align: center;
+    font-size: 1rem;
+    transition: transform var(--sidebar-transition);
+}
+
+.ht-sidebar.compact .ht-sidebar-toggle-icon {
+    transform: rotate(180deg);
+}
+
+.ht-sidebar-toggle-label {
+    opacity: 1;
+    font-size: 0.75rem;
+    transition: opacity var(--sidebar-transition);
+}
+
+.ht-sidebar.compact .ht-sidebar-toggle-label { opacity: 0; }
+
+/* ── Layout ──────────────────────────────────────────────────── */
+
+.ht-page {
+    min-height: 100vh;
+    background-color: var(--ht-bg);
+    padding-left: var(--sidebar-width);
+    transition: padding-left var(--sidebar-transition);
+}
+
+.ht-page.compact {
+    padding-left: var(--sidebar-width-compact);
+}
+
+.ht-page-content {
+    max-width: 64rem;
+    margin: 0 auto;
+    padding: 2rem 1.5rem;
+}
 /* ── Avatar initial ───────────────────────────────────────────── */
 
 .ht-avatar {

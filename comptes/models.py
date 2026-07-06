@@ -47,6 +47,17 @@ class Employe(Personne):
     date_fin_contrat    = models.DateField(null=True, blank=True)   # null = CDI sans limite
     description_poste   = models.TextField(blank=True)              # résumé des missions
 
+    # ── Profil & Settings ───────────────────────────────────────────────────
+    signature_medicale = models.TextField(
+        blank=True,
+        help_text="Texte affiché en bas des ordonnances et comptes rendus"
+    )
+    preferences = models.JSONField(
+        default=dict,
+        blank=True,
+        help_text="Préférences utilisateur stockées en JSON"
+    )
+
     def save(self, *args, **kwargs):
         if not self.matricule:
             import random, string

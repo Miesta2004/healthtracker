@@ -18,6 +18,7 @@ import AccesRefuse from './pages/AccesRefuse'
 import EmployeDetail from './pages/EmployeDetail'
 import RendezVousPage from './pages/RendezVous'
 import Laboratoire from './pages/Laboratoire'
+import Settings from './pages/Settings'
 
 
 function App() {
@@ -51,6 +52,9 @@ function App() {
                     <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}>
                         <AddSignesVitaux />
                     </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                    <ProtectedRoute><Settings /></ProtectedRoute>
                 } />
                 <Route path="/patients/:id/hospitalisations/new" element={
                     <ProtectedRoute roles={['admin', 'medecin']}>

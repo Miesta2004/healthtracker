@@ -91,6 +91,8 @@ export interface Employe {
     date_fin_contrat?: string | null
     description_poste?: string
     date_creation: string
+    signature_medicale?: string
+    preferences?: Record<string, unknown>
 }
 
 export interface Service {
@@ -268,5 +270,34 @@ export interface Alerte {
     type_label?: string
     message: string
     statut: StatutAlerte
+    date_creation: string
+}
+
+// ─── Disponibilités ──────────────────────────────────────────────────────────
+export type JourSemaine = 0 | 1 | 2 | 3 | 4 | 5 | 6
+export type TypeCreneau = 'presentiel' | 'garde' | 'astreinte' | 'teleconsultation'
+export type TypeException = 'conge' | 'absence' | 'garde' | 'formation' | 'mission'
+
+export interface CreneauDisponibilite {
+    id: number
+    employe: number
+    jour: JourSemaine
+    jour_label: string
+    heure_debut: string   // "08:00:00"
+    heure_fin: string     // "16:00:00"
+    type: TypeCreneau
+    type_label: string
+    actif: boolean
+}
+
+export interface ExceptionDisponibilite {
+    id: number
+    employe: number
+    type: TypeException
+    type_label: string
+    date_debut: string
+    date_fin: string
+    motif: string
+    valide: boolean
     date_creation: string
 }

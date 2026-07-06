@@ -15,18 +15,24 @@ class PassageUrgenceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        base_qs = PassageUrgence.objects.select_related(
+            'patient', 'service', 'infirmier_accueil', 'medecin_examinateur'
+        )
+
         if user.is_superuser:
-            qs = PassageUrgence.objects.select_related(
-                'patient', 'service', 'infirmier_accueil', 'medecin_examinateur'
-            ).all()
+            qs = base_qs.all()
         else:
             emp = get_employe(user)
-            if emp is None or emp.role == 'laborantin':
+            if emp is None or emp.role in ('laborantin', 'secretaire'):
                 return PassageUrgence.objects.none()
-            if emp.service:
-                qs = PassageUrgence.objects.select_related(
-                    'patient', 'service', 'infirmier_accueil', 'medecin_examinateur'
-                ).filter(service=emp.service)
+
+            if emp.service and emp.service.nom == 'Urgences':
+                # Le service Urgences voit toute la file
+                qs = base_qs.all()
+            elif emp.service:
+                # Les autres services voient uniquement les urgences
+                # de leurs propres patients
+                qs = base_qs.filter(patient__service=emp.service)
             else:
                 return PassageUrgence.objects.none()
 
@@ -34,7 +40,6 @@ class PassageUrgenceViewSet(viewsets.ModelViewSet):
         if patient_id:
             qs = qs.filter(patient_id=patient_id)
 
-        # ?actif=1 -> file d'attente courante (non sortis)
         if self.request.query_params.get('actif') == '1':
             qs = qs.exclude(statut=StatutUrgence.SORTI)
 
