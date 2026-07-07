@@ -11,6 +11,21 @@ import type { Patient, DemandeAnalyse, StatutAnalyse, UrgenceAnalyse, TypeAnalys
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
+import {
+    FlaskConical,
+    Plus,
+    AlertTriangle,
+    AlertCircle,
+    Search,
+    Clock,
+    User,
+    CheckCircle2,
+    XCircle,
+    X,
+    FileText,
+    ClipboardCheck,
+    HelpCircle
+} from 'lucide-react'
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const TYPES: { value: TypeAnalyse; label: string }[] = [
@@ -30,15 +45,15 @@ const TYPES: { value: TypeAnalyse; label: string }[] = [
 
 const STATUT_CONFIG: Record<StatutAnalyse, { label: string; color: string; bg: string }> = {
     en_attente: { label: 'En attente', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
-    en_cours: { label: 'En cours', color: '#1d4ed8', bg: '#dbeafe' },
-    terminee: { label: 'Terminée', color: '#166534', bg: 'var(--ht-success-bg)' },
-    annulee: { label: 'Annulée', color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
+    en_cours: { label: 'En cours', color: 'var(--role-medecin)', bg: 'rgba(14, 116, 144, 0.1)' },
+    terminee: { label: 'Terminée', color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' },
+    annulee: { label: 'Annulée', color: 'var(--ht-text-muted)', bg: 'var(--ht-muted-bg)' },
 }
 
 function StatutBadge({ statut }: { statut: StatutAnalyse }) {
     const cfg = STATUT_CONFIG[statut]
     return (
-        <span className="badge" style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+        <span className="badge font-semibold" style={{ color: cfg.color, backgroundColor: cfg.bg }}>
             {cfg.label}
         </span>
     )
@@ -90,74 +105,88 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
     }
 
     return (
-        <div className="ht-modal-overlay">
-            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-base font-semibold text-gray-900">Nouvelle demande d'analyse</h3>
+        <div className="ht-modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto border"
+                 style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                <div className="flex items-center justify-between pb-1 border-b" style={{ borderColor: 'var(--ht-border)' }}>
+                    <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>Nouvelle demande d'analyse</h3>
+                    <button onClick={onClose} style={{ color: 'var(--ht-text-muted)' }} className="hover:opacity-80"><X size={18} /></button>
+                </div>
 
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Patient</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>Patient</label>
                     {selectedPatient ? (
-                        <div className="flex items-center justify-between px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                            <span>{selectedPatient.prenom} {selectedPatient.nom}</span>
-                            <button onClick={() => setPatientId(null)} className="text-xs text-gray-400 hover:text-gray-700">Changer</button>
+                        <div className="flex items-center justify-between px-3 py-2.5 border rounded-xl text-sm"
+                             style={{ borderColor: 'var(--ht-border)', backgroundColor: 'var(--ht-muted-bg)' }}>
+                            <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>{selectedPatient.prenom} {selectedPatient.nom}</span>
+                            <button onClick={() => setPatientId(null)} className="text-xs font-semibold hover:underline" style={{ color: 'var(--ht-primary)' }}>Changer</button>
                         </div>
                     ) : (
-                        <>
+                        <div className="relative">
+                            <Search size={16} className="absolute left-3 top-3" style={{ color: 'var(--ht-text-muted)' }} />
                             <input type="text" placeholder="Rechercher un patient par nom…" value={search}
                                    onChange={e => setSearch(e.target.value)}
-                                   className="ht-input w-full px-3 py-2.5 text-sm" />
+                                   className="ht-input w-full pl-9 pr-3 py-2.5 text-sm" />
                             {results.length > 0 && (
-                                <div className="mt-1 border border-gray-100 rounded-lg overflow-hidden">
+                                <div className="mt-1 border rounded-xl overflow-hidden shadow-sm" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
                                     {results.map(p => (
                                         <button key={p.id} onClick={() => { setPatientId(p.id); setSearch('') }}
-                                                className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0">
-                                            {p.prenom} {p.nom} <span className="text-gray-400 text-xs">· {p.date_naissance}</span>
+                                                className="w-full text-left px-4 py-2.5 text-sm flex items-center justify-between transition-colors border-b"
+                                                style={{ borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}
+                                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--ht-muted-bg)'}
+                                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+                                            <span>{p.prenom} {p.nom}</span>
+                                            <span className="text-[11px]" style={{ color: 'var(--ht-text-muted)' }}>Né(e) le {p.date_naissance}</span>
                                         </button>
                                     ))}
                                 </div>
                             )}
-                        </>
+                        </div>
                     )}
                 </div>
 
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Type d'analyse</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>Type d'analyse</label>
                     <select value={typeAnalyse} onChange={e => setTypeAnalyse(e.target.value as TypeAnalyse)}
-                            className="ht-input w-full px-3 py-2.5 text-sm">
+                            className="ht-input w-full px-3 py-2.5 text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
                         {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                 </div>
 
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Urgence</label>
-                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-                        <button type="button" onClick={() => setUrgence('normale')} className="flex-1 py-2 transition-colors"
-                                style={urgence === 'normale' ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>Urgence</label>
+                    <div className="flex rounded-xl border overflow-hidden text-sm" style={{ borderColor: 'var(--ht-border)' }}>
+                        <button type="button" onClick={() => setUrgence('normale')} className="flex-1 py-2.5 font-semibold transition-colors"
+                                style={urgence === 'normale' ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'transparent', color: 'var(--ht-text-muted)' }}>
                             Normale
                         </button>
-                        <button type="button" onClick={() => setUrgence('urgente')} className="flex-1 py-2 transition-colors"
-                                style={urgence === 'urgente' ? { backgroundColor: 'var(--ht-danger)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
-                            🚨 Urgente
+                        <button type="button" onClick={() => setUrgence('urgente')} className="flex-1 py-2.5 font-semibold flex items-center justify-center gap-1.5 transition-colors"
+                                style={urgence === 'urgente' ? { backgroundColor: 'var(--ht-danger)', color: 'white' } : { backgroundColor: 'transparent', color: 'var(--ht-danger)' }}>
+                            <AlertTriangle size={14} /> Critique / Urgente
                         </button>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes pour le laboratoire (optionnel)</label>
-                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>Notes complémentaires pour le laboratoire</label>
+                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={3}
                               className="ht-input w-full px-3 py-2.5 text-sm"
-                              placeholder="Contexte clinique, suspicion diagnostique..." />
+                              placeholder="Contexte clinique, hypothèse diagnostique ou paramètres spécifiques à surveiller..." />
                 </div>
 
-                {erreur && <p className="text-sm text-red-500">{erreur}</p>}
+                {erreur && (
+                    <div className="ht-alert ht-alert-danger flex items-center gap-2 text-xs">
+                        <AlertCircle size={14} /> {erreur}
+                    </div>
+                )}
 
                 <div className="flex gap-3 pt-2">
                     <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button onClick={handleSubmit} disabled={!patientId || submitting}
-                            className="btn btn-primary flex-1">
-                        {submitting ? 'Envoi…' : 'Envoyer la demande'}
+                            className="btn btn-primary flex-1 font-semibold">
+                        {submitting ? 'Envoi en cours…' : 'Envoyer la demande'}
                     </button>
                 </div>
             </div>
@@ -188,39 +217,75 @@ function ResultatsModal({ demande, onClose, onUpdated }: {
     }
 
     return (
-        <div className="ht-modal-overlay">
-            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto">
-                <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                        {demande.type_label} — {demande.patient_prenom || demande.patient_nom} {demande.patient_nom_famille || ''}
+        <div className="ht-modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto border"
+                 style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                <div className="border-b pb-1" style={{ borderColor: 'var(--ht-border)' }}>
+                    <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>
+                        {demande.type_label}
                     </h3>
+                    <p className="text-xs mt-1 flex items-center gap-1" style={{ color: 'var(--ht-text-secondary)' }}>
+                        <User size={12} /> Patient : <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>{demande.patient_prenom || demande.patient_nom} {demande.patient_nom_famille || ''}</span>
+                    </p>
                     {demande.notes_medecin && (
-                        <p className="text-xs text-gray-400 mt-1">Note du médecin : {demande.notes_medecin}</p>
+                        <div className="rounded-xl p-2.5 border text-xs mt-2.5" style={{ backgroundColor: 'var(--ht-muted-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text-secondary)' }}>
+                            <span className="font-bold block mb-0.5" style={{ color: 'var(--ht-text)' }}>Note de prescription :</span>
+                            {demande.notes_medecin}
+                        </div>
                     )}
                 </div>
 
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Résultats *</label>
-                    <textarea value={resultats} onChange={e => setResultats(e.target.value)} rows={5}
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>Conclusions & Résultats *</label>
+                    <textarea value={resultats} onChange={e => setResultats(e.target.value)} rows={6}
                               className="ht-input w-full px-3 py-2.5 text-sm"
-                              placeholder="Ex : Hémoglobine 13.2 g/dL, Globules blancs 7200/mm³..." />
+                              placeholder="Saisissez les données brutes ou conclusions cliniques de l'analyse..." />
                 </div>
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Valeurs normales de référence (optionnel)</label>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>Valeurs normales de référence (optionnel)</label>
                     <textarea value={valeursNormales} onChange={e => setValeursNormales(e.target.value)} rows={2}
                               className="ht-input w-full px-3 py-2.5 text-sm"
-                              placeholder="Ex : Hémoglobine : 12–16 g/dL" />
+                              placeholder="Ex : Hémoglobine : 12 – 16 g/dL" />
                 </div>
 
-                {erreur && <p className="text-sm text-red-500">{erreur}</p>}
+                {erreur && (
+                    <div className="ht-alert ht-alert-danger flex items-center gap-2 text-xs">
+                        <AlertCircle size={14} /> {erreur}
+                    </div>
+                )}
 
                 <div className="flex gap-3 pt-2">
                     <button onClick={onClose} className="btn btn-ghost flex-1">
                         Annuler
                     </button>
                     <button onClick={handleSubmit} disabled={!resultats.trim() || submitting}
-                            className="btn btn-primary flex-1">
-                        {submitting ? 'Envoi…' : 'Valider les résultats'}
+                            className="btn btn-primary flex-1 font-semibold">
+                        {submitting ? 'Validation…' : 'Valider & Transmettre'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Modal d'annulation explicite (remplace window.confirm) ──────────────────
+function AnnulationModal({ demande, onConfirm, onCancel }: {
+    demande: DemandeAnalyse; onConfirm: () => void; onCancel: () => void
+}) {
+    return (
+        <div className="ht-modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="ht-modal ht-modal-sm border" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                <div className="flex items-center gap-2 mb-2" style={{ color: 'var(--ht-danger)' }}>
+                    <XCircle size={20} />
+                    <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>Annuler la demande ?</h3>
+                </div>
+                <p className="text-sm mb-6" style={{ color: 'var(--ht-text-secondary)' }}>
+                    Voulez-vous vraiment annuler l'analyse <strong>{demande.type_label}</strong> ? Cette action notifiera le service de soin.
+                </p>
+                <div className="flex gap-3">
+                    <button onClick={onCancel} className="btn btn-ghost flex-1">Conserver</button>
+                    <button onClick={onConfirm} className="btn btn-danger flex-1 font-semibold">
+                        Confirmer l'annulation
                     </button>
                 </div>
             </div>
@@ -241,45 +306,60 @@ function DemandeRow({ demande, isLab, canManage, onPrendreEnCharge, onAnnuler, o
     const nomPatient = demande.patient_prenom
         ? `${demande.patient_prenom} ${demande.patient_nom_famille}`
         : demande.patient_nom
+
     return (
-        <div className="px-5 py-3.5 flex items-center gap-3">
-            {demande.urgence === 'urgente' && demande.statut !== 'terminee' && demande.statut !== 'annulee' && (
-                <span className="w-2 h-2 rounded-full bg-red-500 flex-shrink-0" title="Urgente" />
+        <div className="px-5 py-4 flex items-center gap-4 border-b last:border-0 transition-colors"
+             style={{ borderColor: 'var(--ht-border)' }}
+             onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--ht-muted-bg)'}
+             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
+
+            {demande.urgence === 'urgente' && demande.statut !== 'terminee' && demande.statut !== 'annulee' ? (
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: 'var(--ht-danger)' }} title="Urgente" />
+            ) : (
+                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-transparent" />
             )}
+
             <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 truncate">{demande.type_label}</p>
-                <p className="text-xs text-gray-400 truncate">
-                    {nomPatient} {demande.patient_dossier ? `· ${demande.patient_dossier}` : ''}
-                    {demande.demandeur_nom && !isLab ? '' : demande.demandeur_nom ? ` · ${demande.demandeur_nom}` : ''}
-                    {' · '}{tempsEcoule(demande.date_demande)}
+                <p className="text-sm font-bold truncate" style={{ color: 'var(--ht-text)' }}>{demande.type_label}</p>
+                <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--ht-text-muted)' }}>
+                    <span className="font-medium" style={{ color: 'var(--ht-text-secondary)' }}>{nomPatient}</span>
+                    {demande.patient_dossier && <span>· ID: {demande.patient_dossier}</span>}
+                    {demande.demandeur_nom && !isLab && <span>· Dr. {demande.demandeur_nom}</span>}
+                    <span className="flex items-center gap-0.5"><Clock size={11} /> {tempsEcoule(demande.date_demande)}</span>
                 </p>
             </div>
-            <StatutBadge statut={demande.statut} />
-            <div className="flex gap-2">
-                {isLab && demande.statut === 'en_attente' && (
-                    <button onClick={() => onPrendreEnCharge(demande)}
-                            className="btn btn-primary btn-sm">
-                        Prendre en charge
-                    </button>
-                )}
-                {isLab && demande.statut === 'en_cours' && (
-                    <button onClick={() => onSaisirResultats(demande)}
-                            className="btn btn-primary btn-sm">
-                        Saisir résultats
-                    </button>
-                )}
-                {demande.statut === 'terminee' && (
-                    <button onClick={() => onVoirResultats(demande)}
-                            className="btn btn-ghost btn-sm">
-                        Voir résultats
-                    </button>
-                )}
-                {canManage && (demande.statut === 'en_attente' || demande.statut === 'en_cours') && (
-                    <button onClick={() => onAnnuler(demande)}
-                            className="text-xs text-red-400 hover:text-red-600 px-2 py-1.5 rounded-lg hover:bg-red-50">
-                        Annuler
-                    </button>
-                )}
+
+            <div className="flex items-center gap-3">
+                <StatutBadge statut={demande.statut} />
+                <div className="flex gap-2">
+                    {isLab && demande.statut === 'en_attente' && (
+                        <button onClick={() => onPrendreEnCharge(demande)}
+                                className="btn btn-primary btn-sm font-semibold">
+                            Prendre en charge
+                        </button>
+                    )}
+                    {isLab && demande.statut === 'en_cours' && (
+                        <button onClick={() => onSaisirResultats(demande)}
+                                className="btn btn-primary btn-sm font-semibold flex items-center gap-1">
+                            <ClipboardCheck size={12} /> Saisir résultats
+                        </button>
+                    )}
+                    {demande.statut === 'terminee' && (
+                        <button onClick={() => onVoirResultats(demande)}
+                                className="btn btn-ghost btn-sm font-semibold flex items-center gap-1">
+                            <FileText size={12} /> Consulter
+                        </button>
+                    )}
+                    {canManage && (demande.statut === 'en_attente' || demande.statut === 'en_cours') && (
+                        <button onClick={() => onAnnuler(demande)}
+                                className="text-xs font-semibold px-2.5 py-1.5 rounded-lg transition-colors"
+                                style={{ color: 'var(--ht-text-muted)' }}
+                                onMouseEnter={e => { e.currentTarget.style.color = 'var(--ht-danger)'; e.currentTarget.style.backgroundColor = 'var(--ht-danger-bg)' }}
+                                onMouseLeave={e => { e.currentTarget.style.color = 'var(--ht-text-muted)'; e.currentTarget.style.backgroundColor = 'transparent' }}>
+                            Annuler
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     )
@@ -297,17 +377,16 @@ export default function Laboratoire() {
     const [filtreStatut, setFiltreStatut] = useState<'tous' | StatutAnalyse>('tous')
     const [showNouvelle, setShowNouvelle] = useState(false)
     const [resultatsCible, setResultatsCible] = useState<DemandeAnalyse | null>(null)
+    const [annulationCible, setAnnulationCible] = useState<DemandeAnalyse | null>(null)
     const [erreurAction, setErreurAction] = useState('')
 
     useEffect(() => {
         getDemandes().then(setDemandes).catch(() => setDemandes([]))
         if (canRequest) getPatients().then(setPatients).catch(() => setPatients([]))
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, [canRequest])
 
     const demandesFiltrees = (demandes ?? []).filter(d => filtreStatut === 'tous' || d.statut === filtreStatut)
         .sort((a, b) => {
-            // Urgentes non traitées en premier, puis les plus récentes
             const aUrg = a.urgence === 'urgente' && (a.statut === 'en_attente' || a.statut === 'en_cours') ? 0 : 1
             const bUrg = b.urgence === 'urgente' && (b.statut === 'en_attente' || b.statut === 'en_cours') ? 0 : 1
             if (aUrg !== bUrg) return aUrg - bUrg
@@ -325,77 +404,82 @@ export default function Laboratoire() {
             const updated = await prendreEnCharge(d.id)
             setDemandes(prev => prev ? prev.map(x => x.id === d.id ? updated : x) : prev)
         } catch {
-            setErreurAction("Impossible de prendre en charge cette demande (déjà traitée par quelqu'un d'autre ?).")
+            setErreurAction("Impossible de prendre en charge cette demande (déjà en cours de traitement).")
         }
     }
 
-    const handleAnnuler = async (d: DemandeAnalyse) => {
-        if (!window.confirm(`Annuler la demande "${d.type_label}" ?`)) return
+    const handleConfirmAnnuler = async () => {
+        if (!annulationCible) return
         setErreurAction('')
         try {
-            const updated = await annulerDemande(d.id)
-            setDemandes(prev => prev ? prev.map(x => x.id === d.id ? updated : x) : prev)
+            const updated = await annulerDemande(annulationCible.id)
+            setDemandes(prev => prev ? prev.map(x => x.id === annulationCible.id ? updated : x) : prev)
+            setAnnulationCible(null)
         } catch {
-            setErreurAction("Impossible d'annuler cette demande.")
+            setErreurAction("Impossible d'annuler cette demande d'analyse.")
+            setAnnulationCible(null)
         }
     }
 
     return (
-        <div className="ht-page flex flex-col">
+        <div className="ht-page flex min-h-screen" style={{ backgroundColor: 'var(--ht-bg)' }}>
             <Sidebar />
 
-            <div className="max-w-4xl mx-auto px-6 py-8 w-full space-y-6">
-
+            <div className="flex-1 max-w-4xl mx-auto px-6 py-8 w-full space-y-6">
                 <div className="flex items-center justify-between">
                     <div>
-                        <h1 className="text-2xl font-semibold text-gray-900">🧪 Laboratoire</h1>
-                        <p className="text-gray-400 text-sm mt-1">
-                            {isLab ? "Demandes d'analyses à traiter pour votre service" : "Suivi des demandes d'analyses de votre service"}
+                        <div className="flex items-center gap-2">
+                            <FlaskConical style={{ color: 'var(--ht-primary)' }} size={24} />
+                            <h1 className="text-xl font-bold" style={{ color: 'var(--ht-text)' }}>Laboratoire d'analyses</h1>
+                        </div>
+                        <p className="text-sm mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                            {isLab ? "Demandes d'analyses cliniques assignées à votre service" : "Suivi en temps réel des analyses prescrites"}
                         </p>
                     </div>
                     {canRequest && (
                         <button onClick={() => setShowNouvelle(true)}
-                                className="btn btn-primary">
-                            + Nouvelle demande
+                                className="btn btn-primary btn-sm flex items-center gap-1.5 font-semibold">
+                            <Plus size={16} /> Nouvelle demande
                         </button>
                     )}
                 </div>
 
                 {erreurAction && (
-                    <div className="ht-alert ht-alert-danger">
-                        {erreurAction}
+                    <div className="ht-alert ht-alert-danger flex items-center gap-2 text-sm">
+                        <AlertCircle size={16} /> {erreurAction}
                     </div>
                 )}
 
-                {/* Filtres statut */}
-                <div className="flex flex-wrap gap-2">
+                {/* Onglets Filtres de Statuts */}
+                <div className="flex flex-wrap gap-2 border-b pb-3" style={{ borderColor: 'var(--ht-border)' }}>
                     {(['tous', 'en_attente', 'en_cours', 'terminee', 'annulee'] as const).map(s => (
                         <button key={s} onClick={() => setFiltreStatut(s)}
-                                className="px-3 py-1.5 rounded-full text-xs font-medium border transition-colors"
+                                className="px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all"
                                 style={filtreStatut === s
                                     ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
-                                    : { backgroundColor: 'white', color: 'var(--ht-muted)', borderColor: 'var(--ht-border-input)' }}>
+                                    : { backgroundColor: 'var(--ht-card-bg)', color: 'var(--ht-text-muted)', borderColor: 'var(--ht-border)' }}>
                             {s === 'tous' ? `Toutes (${demandes?.length ?? 0})` : `${STATUT_CONFIG[s].label} (${compteurs[s] ?? 0})`}
                         </button>
                     ))}
                 </div>
 
-                <div className="ht-card">
+                {/* Table / Liste des demandes */}
+                <div className="ht-card border overflow-hidden" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
                     {demandes === null ? (
-                        <SkeletonSimpleList rows={4} />
+                        <SkeletonSimpleList rows={5} />
                     ) : demandesFiltrees.length === 0 ? (
-                        <div className="px-6 py-16 text-center">
-                            <p className="text-4xl mb-3">🧪</p>
-                            <p className="text-gray-400 text-sm">
-                                {filtreStatut === 'tous' ? "Aucune demande d'analyse pour le moment" : 'Aucune demande dans cette catégorie'}
+                        <div className="px-6 py-16 text-center flex flex-col items-center justify-center gap-2" style={{ color: 'var(--ht-text-muted)' }}>
+                            <HelpCircle size={40} className="opacity-40" />
+                            <p className="text-sm font-semibold">
+                                {filtreStatut === 'tous' ? "Aucune demande d'analyse enregistrée" : "Aucune demande trouvée pour ce filtre"}
                             </p>
                         </div>
                     ) : (
-                        <div>
+                        <div className="divide-y" style={{ borderColor: 'var(--ht-border)' }}>
                             {demandesFiltrees.map(d => (
                                 <DemandeRow key={d.id} demande={d} isLab={isLab} canManage={canManage}
                                             onPrendreEnCharge={handlePrendreEnCharge}
-                                            onAnnuler={handleAnnuler}
+                                            onAnnuler={setAnnulationCible}
                                             onSaisirResultats={setResultatsCible}
                                             onVoirResultats={setResultatsCible} />
                             ))}
@@ -404,6 +488,7 @@ export default function Laboratoire() {
                 </div>
             </div>
 
+            {/* Modals conditionnels */}
             {showNouvelle && (
                 <NouvelleDemandeModal
                     patients={patients}
@@ -412,31 +497,45 @@ export default function Laboratoire() {
                 />
             )}
 
+            {annulationCible && (
+                <AnnulationModal
+                    demande={annulationCible}
+                    onCancel={() => setAnnulationCible(null)}
+                    onConfirm={handleConfirmAnnuler}
+                />
+            )}
+
             {resultatsCible && resultatsCible.statut === 'terminee' && (
-                <div className="ht-modal-overlay"
+                <div className="ht-modal-overlay" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
                      onClick={() => setResultatsCible(null)}>
-                    <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto"
+                    <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto border"
+                         style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}
                          onClick={e => e.stopPropagation()}>
-                        <div>
-                            <h3 className="text-base font-semibold text-gray-900">{resultatsCible.type_label}</h3>
-                            <p className="text-xs text-gray-400 mt-1">
-                                {resultatsCible.patient_prenom || resultatsCible.patient_nom} {resultatsCible.patient_nom_famille || ''}
-                                {' · '}résultats du {new Date(resultatsCible.date_resultat!).toLocaleString('fr-FR')}
+                        <div className="border-b pb-2" style={{ borderColor: 'var(--ht-border)' }}>
+                            <div className="flex items-center gap-2 mb-1" style={{ color: 'var(--ht-success)' }}>
+                                <CheckCircle2 size={18} />
+                                <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>{resultatsCible.type_label}</h3>
+                            </div>
+                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                Patient : <span style={{ color: 'var(--ht-text)' }} className="font-semibold">{resultatsCible.patient_prenom || resultatsCible.patient_nom} {resultatsCible.patient_nom_famille || ''}</span>
+                                {resultatsCible.date_resultat && ` · Archivé le ${new Date(resultatsCible.date_resultat).toLocaleString('fr-FR')}`}
                             </p>
                         </div>
-                        <div>
-                            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Résultats</p>
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap">{resultatsCible.resultats}</p>
+
+                        <div className="rounded-xl p-3.5 border" style={{ backgroundColor: 'var(--ht-muted-bg)', borderColor: 'var(--ht-border)' }}>
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-1.5" style={{ color: 'var(--ht-text-muted)' }}>Résultats d'analyses</p>
+                            <p className="text-sm font-mono whitespace-pre-wrap" style={{ color: 'var(--ht-text)' }}>{resultatsCible.resultats}</p>
                         </div>
+
                         {resultatsCible.valeurs_normales && (
                             <div>
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1">Valeurs normales de référence</p>
-                                <p className="text-sm text-gray-500 whitespace-pre-wrap">{resultatsCible.valeurs_normales}</p>
+                                <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--ht-text-muted)' }}>Valeurs normales de référence</p>
+                                <p className="text-xs whitespace-pre-wrap" style={{ color: 'var(--ht-text-secondary)' }}>{resultatsCible.valeurs_normales}</p>
                             </div>
                         )}
                         <button onClick={() => setResultatsCible(null)}
-                                className="btn btn-ghost w-full">
-                            Fermer
+                                className="btn btn-ghost w-full font-semibold mt-2">
+                            Fermer le rapport
                         </button>
                     </div>
                 </div>

@@ -16,6 +16,7 @@ import {
     CheckCircle,
     AlertTriangle,
     ChevronLeft,
+    type LucideIcon,
 } from 'lucide-react'
 
 // ─── Types d'antécédents (catégorisation à la promotion) ─────────────────────
@@ -37,7 +38,7 @@ const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
 }
 
 // ─── Config types & statuts ──────────────────────────────────────────────────
-const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: React.ComponentType<{ size?: number }> }> = {
+const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: LucideIcon }> = {
     consultation: { label: 'Consultation', icon: Stethoscope },
     examen:       { label: 'Examen',        icon: FlaskConical },
     operation:    { label: 'Opération',     icon: Activity },
@@ -59,7 +60,7 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
 function TypeSelector({ value, onChange }: { value: TypeEvenement; onChange: (t: TypeEvenement) => void }) {
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {(Object.entries(TYPE_CONFIG) as [TypeEvenement, { label: string; icon: React.ComponentType<{ size?: number }> }][]).map(([key, cfg]) => {
+            {(Object.entries(TYPE_CONFIG) as [TypeEvenement, { label: string; icon: LucideIcon }][]).map(([key, cfg]) => {
                 const Icon = cfg.icon
                 const isSelected = value === key
                 return (

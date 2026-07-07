@@ -13,7 +13,8 @@ import {
     ChevronDown,
     ChevronLeft,
     ChevronRight,
-    Plus
+    Plus,
+    type LucideIcon
 } from 'lucide-react'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -38,7 +39,7 @@ const STATUT_CONFIG: Record<ConsultationStatut, { label: string; color: string; 
     annulee:   { label: 'Annulée',   color: 'var(--ht-text-muted)', bg: 'var(--ht-muted-bg)' },
 }
 
-const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: React.ComponentType<{ size?: number }>; color: string; bg: string }> = {
+const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: LucideIcon; color: string; bg: string }> = {
     consultation: { label: 'Consultation', icon: Stethoscope, color: 'var(--ht-primary)', bg: 'var(--ht-primary-tint)' },
     examen:       { label: 'Examen',        icon: FlaskConical, color: 'var(--role-secretaire)', bg: 'rgba(147, 51, 234, 0.1)' },
     operation:    { label: 'Opération',     icon: Activity, color: 'var(--ht-danger)', bg: 'var(--ht-danger-bg)' },
