@@ -3,6 +3,7 @@ import { getServices, createService, deleteService, updateService } from "../api
 import type { Service } from "../types"
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { SkeletonCardGrid } from '../components/Skeleton'
+import { Building2, Users, UserCheck, ShieldCheck, ShieldAlert, Edit2, ToggleLeft, ToggleRight, Trash2, Plus } from 'lucide-react'
 
 
 // ─── Modal création/édition ───────────────────────────────────────────────────
@@ -33,46 +34,42 @@ function ServiceModal({ service, onClose, onSave} : {
     }
 
     return (
-        <div className="ht-modal-overlay"
-             onClick={onClose}>
-            <div className="ht-modal ht-modal-md"
-                 onClick={e => e.stopPropagation()}>
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
+        <div className="ht-modal-overlay" onClick={onClose}>
+            <div className="ht-modal ht-modal-md" onClick={e => e.stopPropagation()}>
+                <h2 className="text-lg font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>
                     {service ? 'Modifier le service' : 'Nouveau service'}
                 </h2>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-3 py-2 rounded-lg mb-4">
+                    <div className="ht-alert ht-alert-danger mb-4">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Nom du service *</label>
+                    <div className="ht-field">
+                        <label className="ht-label">Nom du service *</label>
                         <input
                             type="text" required value={form.nom}
                             onChange={e => setForm({ ...form, nom: e.target.value })}
                             placeholder="Ex: Cardiologie"
-                            className="ht-input w-full px-3 py-2.5 text-sm"
+                            className="ht-input"
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Description</label>
+                    <div className="ht-field">
+                        <label className="ht-label">Description</label>
                         <textarea
                             value={form.description}
                             onChange={e => setForm({ ...form, description: e.target.value })}
                             rows={3} placeholder="Description du service..."
-                            className="ht-input w-full px-3 py-2.5 text-sm resize-none"
+                            className="ht-input ht-textarea"
                         />
                     </div>
                     <div className="flex gap-3 justify-end pt-2">
-                        <button type="button" onClick={onClose}
-                                className="btn btn-ghost">
+                        <button type="button" onClick={onClose} className="btn btn-secondary">
                             Annuler
                         </button>
-                        <button type="submit" disabled={loading}
-                                className="btn btn-primary">
+                        <button type="submit" disabled={loading} className="btn btn-primary">
                             {loading ? 'Sauvegarde...' : service ? 'Modifier' : 'Créer'}
                         </button>
                     </div>
@@ -90,58 +87,57 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
     onToggle: () => void
 }) {
     return (
-        <div className={`ht-card ht-card-padded-sm ${service.actif ? '' : 'opacity-60'}`}>
-            <div className="flex items-start justify-between mb-3">
+        <div className={`ht-card ht-card-padded-sm ${service.actif ? '' : 'opacity-50'}`}>
+            <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                         style={{ backgroundColor: 'var(--ht-primary-light)' }}>
-                        🏥
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                         style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }}>
+                        <Building2 size={20} />
                     </div>
-                    <div>
-                        <h3 className="text-sm font-semibold text-gray-900">{service.nom}</h3>
+                    <div className="min-w-0">
+                        <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{service.nom}</h3>
                         {service.chef_nom && (
-                            <p className="text-xs text-gray-400 mt-0.5">Dr. {service.chef_nom}</p>
+                            <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>Dr. {service.chef_nom}</p>
                         )}
                     </div>
                 </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    service.actif ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-400'
-                }`}>
-          {service.actif ? 'Actif' : 'Inactif'}
-        </span>
+                <span className={`badge ${service.actif ? 'badge-tint' : 'badge-muted'} flex items-center gap-1`}>
+                    {service.actif ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
+                    {service.actif ? 'Actif' : 'Inactif'}
+                </span>
             </div>
 
             {service.description && (
-                <p className="text-xs text-gray-400 mb-4 line-clamp-2">{service.description}</p>
+                <p className="text-xs mb-4 line-clamp-2" style={{ color: 'var(--ht-text-secondary)' }}>{service.description}</p>
             )}
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="bg-gray-50 rounded-lg p-2.5 text-center">
+                <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
                     <p className="text-lg font-bold" style={{ color: 'var(--ht-primary)' }}>
                         {service.nb_employes}
                     </p>
-                    <p className="text-xs text-gray-400">Employés</p>
+                    <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Employés</p>
                 </div>
-                <div className="bg-gray-50 rounded-lg p-2.5 text-center">
-                    <p className="text-lg font-bold text-blue-600">{service.nb_patients}</p>
-                    <p className="text-xs text-gray-400">Patients</p>
+                <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
+                    <p className="text-lg font-bold" style={{ color: 'var(--ht-text)' }}>
+                        {service.nb_patients}
+                    </p>
+                    <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Patients</p>
                 </div>
             </div>
 
             {/* Actions */}
             <div className="flex gap-2">
-                <button onClick={onEdit}
-                        className="btn btn-ghost btn-sm flex-1">
-                    ✏️ Modifier
+                <button onClick={onEdit} className="btn btn-secondary btn-sm flex-1 gap-1">
+                    <Edit2 size={12} /> Modifier
                 </button>
-                <button onClick={onToggle}
-                        className="btn btn-ghost btn-sm flex-1">
-                    {service.actif ? '⏸ Désactiver' : '▶ Activer'}
+                <button onClick={onToggle} className="btn btn-secondary btn-sm flex-1 gap-1">
+                    {service.actif ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
+                    {service.actif ? 'Désactiver' : 'Activer'}
                 </button>
-                <button onClick={onDelete}
-                        className="text-xs py-1.5 px-3 border border-red-100 rounded-lg text-red-400 hover:bg-red-50 transition-colors">
-                    🗑
+                <button onClick={onDelete} className="btn btn-danger btn-sm px-2.5">
+                    <Trash2 size={14} />
                 </button>
             </div>
         </div>
@@ -204,50 +200,59 @@ export default function Services(){
                 />
             )}
 
-            {/* Sidebar */}
             <Sidebar />
 
-            <div className="max-w-5xl mx-auto px-6 py-8">
+            <main className="ht-page-content max-w-7xl space-y-6">
 
-                <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Gestion des services</h1>
-                    <p className="text-gray-400 text-sm mt-1">Services médicaux de l'établissement</p>
+                {/* Header Section */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--ht-border)' }}>
+                    <div>
+                        <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>Gestion des services</h1>
+                        <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>Services médicaux de l'établissement</p>
+                    </div>
+                    <button onClick={() => setModalOpen(true)} className="btn btn-primary gap-1.5 self-start sm:self-auto">
+                        <Plus size={16} /> Nouveau service
+                    </button>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-6">
+                    <div className="ht-alert ht-alert-danger">
                         {error}
                     </div>
                 )}
 
-                {/* Stats */}
-                <div className="grid grid-cols-4 gap-4 mb-8">
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     {[
-                        { label: 'Services', value: stats.total, icon: '🏥' },
-                        { label: 'Actifs', value: stats.actifs, icon: '✅' },
-                        { label: 'Employés total', value: stats.totalEmployes, icon: '👥' },
-                        { label: 'Patients total', value: stats.totalPatients, icon: '🧑‍⚕️' },
+                        { label: 'Services', value: stats.total, icon: <Building2 size={18} /> },
+                        { label: 'Actifs', value: stats.actifs, icon: <ShieldCheck size={18} /> },
+                        { label: 'Employés total', value: stats.totalEmployes, icon: <Users size={18} /> },
+                        { label: 'Patients total', value: stats.totalPatients, icon: <UserCheck size={18} /> },
                     ].map(s => (
-                        <div key={s.label} className="ht-card p-4 flex items-center gap-3">
-                            <span className="text-2xl">{s.icon}</span>
+                        <div key={s.label} className="ht-card ht-card-padded-sm flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                                 style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
+                                {s.icon}
+                            </div>
                             <div>
-                                <p className="text-xs text-gray-400">{s.label}</p>
-                                <p className="text-xl font-bold text-gray-900">{s.value}</p>
+                                <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{s.label}</p>
+                                <p className="text-xl font-bold mt-0.5" style={{ color: 'var(--ht-text)' }}>{s.value}</p>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                {/* Grille services */}
+                {/* Grille services ou Empty State */}
                 {loading ? (
                     <SkeletonCardGrid count={6} />
                 ) : services.length === 0 ? (
-                    <div className="text-center py-16">
-                        <p className="text-4xl mb-3">🏥</p>
-                        <p className="text-gray-400 text-sm">Aucun service créé</p>
-                        <button onClick={() => setModalOpen(true)}
-                                className="btn btn-primary mt-4">
-                            Créer le premier service
+                    <div className="ht-card text-center py-16 flex flex-col items-center">
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center mb-3" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }}>
+                            <Building2 size={24} />
+                        </div>
+                        <p className="text-sm font-medium" style={{ color: 'var(--ht-text-secondary)' }}>Aucun service créé</p>
+                        <button onClick={() => setModalOpen(true)} className="btn btn-primary mt-4 gap-1.5">
+                            <Plus size={16} /> Créer le premier service
                         </button>
                     </div>
                 ) : (
@@ -263,7 +268,7 @@ export default function Services(){
                         ))}
                     </div>
                 )}
-            </div>
+            </main>
         </div>
     )
 }

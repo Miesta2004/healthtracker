@@ -1,10 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient } from '../api/patients'
 import { getAntecedents, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
 import type { Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
+import {
+    Stethoscope,
+    FlaskConical,
+    Activity,
+    FileText,
+    Trash2,
+    Pin,
+    Check,
+    CheckCircle,
+    AlertTriangle,
+    ChevronLeft,
+} from 'lucide-react'
 
 // ─── Types d'antécédents (catégorisation à la promotion) ─────────────────────
 const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
@@ -14,54 +26,58 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
     familial:          'Antécédent familial',
     autre:             'Autre',
 }
+
+// Couleurs pastel cohérentes avec le reste de l'app (mêmes tons que PatientDetail)
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: 'var(--role-medecin)',
-    chirurgie:         'var(--role-laborantin)',
-    allergie:          'var(--tri-1-bg)',
-    familial:          'var(--role-secretaire)',
-    autre:             'var(--ht-muted)',
+    maladie_chronique: 'border-blue-100 bg-blue-50 text-blue-700',
+    chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
+    allergie:          'border-red-100 bg-red-50 text-red-700',
+    familial:          'border-purple-100 bg-purple-50 text-purple-700',
+    autre:             'border-gray-200 bg-gray-50 text-gray-600',
 }
 
 // ─── Config types & statuts ──────────────────────────────────────────────────
-const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: string }> = {
-    consultation: { label: 'Consultation', icon: '🩺' },
-    examen:       { label: 'Examen',        icon: '🔬' },
-    operation:    { label: 'Opération',     icon: '🏥' },
-    autre:        { label: 'Autre',         icon: '📋' },
+const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: React.ComponentType<{ size?: number }> }> = {
+    consultation: { label: 'Consultation', icon: Stethoscope },
+    examen:       { label: 'Examen',        icon: FlaskConical },
+    operation:    { label: 'Opération',     icon: Activity },
+    autre:        { label: 'Autre',         icon: FileText },
 }
 
-const STATUT_CONFIG: Record<ConsultationStatut, { label: string; color: string; bg: string }> = {
-    planifiee: { label: 'Planifiée', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
-    en_cours:  { label: 'En cours',  color: '#1d4ed8', bg: '#dbeafe' },
-    terminee:  { label: 'Terminée',  color: 'var(--ht-success)', bg: 'var(--ht-success-bg)' },
-    annulee:   { label: 'Annulée',   color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
+const STATUT_LABELS: Record<ConsultationStatut, string> = {
+    planifiee: 'Planifiée',
+    en_cours:  'En cours',
+    terminee:  'Terminée',
+    annulee:   'Annulée',
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
-    return <label className="block text-xs text-gray-500 mb-1">{children}</label>
+    return <label className="ht-label mb-1">{children}</label>
 }
-
-const inputCls = "ht-input"
 
 // ─── Sélecteur de type d'événement ───────────────────────────────────────────
 function TypeSelector({ value, onChange }: { value: TypeEvenement; onChange: (t: TypeEvenement) => void }) {
     return (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-            {(Object.entries(TYPE_CONFIG) as [TypeEvenement, { label: string; icon: string }][]).map(([key, cfg]) => (
-                <button
-                    key={key}
-                    type="button"
-                    onClick={() => onChange(key)}
-                    className="flex flex-col items-center gap-1.5 py-3 rounded-xl border text-sm font-medium transition-all"
-                    style={value === key
-                        ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
-                        : { backgroundColor: 'white', color: 'var(--ht-text)', borderColor: 'var(--ht-border-input)' }
-                    }
-                >
-                    <span className="text-xl">{cfg.icon}</span>
-                    {cfg.label}
-                </button>
-            ))}
+            {(Object.entries(TYPE_CONFIG) as [TypeEvenement, { label: string; icon: React.ComponentType<{ size?: number }> }][]).map(([key, cfg]) => {
+                const Icon = cfg.icon
+                const isSelected = value === key
+                return (
+                    <button
+                        key={key}
+                        type="button"
+                        onClick={() => onChange(key)}
+                        className="flex flex-col items-center gap-2 py-3 rounded-xl border text-xs font-semibold transition-all"
+                        style={isSelected
+                            ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
+                            : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)', borderColor: 'var(--ht-border)' }
+                        }
+                    >
+                        <Icon size={18} />
+                        {cfg.label}
+                    </button>
+                )
+            })}
         </div>
     )
 }
@@ -72,18 +88,19 @@ function DeleteModal({ onConfirm, onCancel, loading }: {
 }) {
     return (
         <div className="ht-modal-overlay">
-            <div className="ht-modal ht-modal-sm">
-                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-4">🗑️</div>
-                <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer cet événement ?</h3>
-                <p className="text-sm text-gray-500 mb-6">Cette action est irréversible.</p>
+            <div className="ht-modal ht-modal-sm text-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 mx-auto border"
+                     style={{ color: 'var(--ht-danger)', backgroundColor: 'var(--ht-danger-bg-light)', borderColor: 'var(--ht-danger)' }}>
+                    <Trash2 size={20} />
+                </div>
+                <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Supprimer cet événement ?</h3>
+                <p className="text-sm mb-6" style={{ color: 'var(--ht-text-secondary)' }}>Cette action est irréversible.</p>
                 <div className="flex gap-3">
-                    <button onClick={onCancel}
-                            className="btn btn-ghost flex-1">
+                    <button onClick={onCancel} className="btn btn-secondary flex-1">
                         Annuler
                     </button>
-                    <button onClick={onConfirm} disabled={loading}
-                            className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg text-sm font-medium transition-colors">
-                        {loading ? 'Suppression...' : 'Supprimer'}
+                    <button onClick={onConfirm} disabled={loading} className="btn btn-danger flex-1">
+                        {loading ? 'Suppression…' : 'Supprimer'}
                     </button>
                 </div>
             </div>
@@ -99,32 +116,34 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
     return (
         <div className="ht-modal-overlay">
             <div className="ht-modal ht-modal-sm">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl mb-4" style={{ backgroundColor: 'var(--ht-primary-tint)' }}>📌</div>
-                <h3 className="text-base font-semibold text-gray-900 mb-1">Ajouter aux antécédents ?</h3>
-                <p className="text-sm text-gray-500 mb-2">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 border"
+                     style={{ backgroundColor: 'var(--ht-primary-tint)', borderColor: 'var(--ht-primary)' }}>
+                    <Pin size={20} style={{ color: 'var(--ht-primary)' }} />
+                </div>
+                <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Ajouter aux antécédents ?</h3>
+                <p className="text-sm mb-2" style={{ color: 'var(--ht-text-secondary)' }}>
                     Voulez-vous ajouter ceci au dossier médical permanent du patient :
                 </p>
-                <p className="text-sm font-medium text-gray-900 bg-gray-50 rounded-lg px-3 py-2 mb-4">
+                <p className="text-sm font-semibold rounded-xl px-3 py-2 mb-4 border"
+                   style={{ backgroundColor: 'var(--ht-muted-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}>
                     {texte}
                 </p>
-                <label className="block text-xs text-gray-500 mb-1.5">Catégorie</label>
+                <label className="ht-label mb-1.5">Catégorie</label>
                 <select
                     value={type}
                     onChange={e => onTypeChange(e.target.value as TypeAntecedent)}
-                    className="ht-input w-full px-3 py-2 text-sm mb-6"
+                    className="ht-input w-full mb-6"
                 >
                     {(Object.entries(TYPE_ANTECEDENT_LABELS) as [TypeAntecedent, string][]).map(([k, label]) => (
                         <option key={k} value={k}>{label}</option>
                     ))}
                 </select>
                 <div className="flex gap-3">
-                    <button onClick={onCancel}
-                            className="btn btn-ghost flex-1">
+                    <button onClick={onCancel} className="btn btn-secondary flex-1">
                         Non, merci
                     </button>
-                    <button onClick={onConfirm} disabled={loading}
-                            className="btn btn-primary flex-1">
-                        {loading ? 'Ajout...' : 'Oui, ajouter'}
+                    <button onClick={onConfirm} disabled={loading} className="btn btn-primary flex-1">
+                        {loading ? 'Ajout…' : 'Oui, ajouter'}
                     </button>
                 </div>
             </div>
@@ -148,7 +167,6 @@ export default function ConsultationDetail() {
     const [showDelete, setShowDelete] = useState(false)
     const [deleteLoading, setDeleteLoading] = useState(false)
 
-    // Proposition d'ajout aux antécédents après enregistrement
     const [antecedentPropose, setAntecedentPropose] = useState<string | null>(null)
     const [typeAntecedentChoisi, setTypeAntecedentChoisi] = useState<TypeAntecedent>('maladie_chronique')
     const [antecedentLoading, setAntecedentLoading] = useState(false)
@@ -203,15 +221,12 @@ export default function ConsultationDetail() {
         setForm(prev => ({ ...prev, [e.target.name]: e.target.value }))
     }
 
-    const antecedentsActuels = antecedents.map(a => a.libelle)
+    const antecedentsActuels = useMemo(() => antecedents.map(a => a.libelle), [antecedents])
 
-    // Texte candidat à proposer comme antécédent : diagnostic en priorité,
-    // sinon le motif si c'est une opération (ex: "Appendicectomie")
     const candidatAntecedent = form.diagnostic.trim() || (
         form.type_evenement === 'operation' ? form.motif.trim() : ''
     )
 
-    // Id de la consultation créée/modifiée, nécessaire pour la promotion en antécédent
     const [savedConsultId, setSavedConsultId] = useState<number | null>(
         !isNew && consultId ? Number(consultId) : null
     )
@@ -233,9 +248,6 @@ export default function ConsultationDetail() {
             }
             setSavedConsultId(savedId)
 
-            // Propose l'ajout aux antécédents seulement si on a un candidat
-            // pertinent qui n'existe pas déjà dans le dossier du patient,
-            // et seulement quand la consultation est clôturée (terminée).
             const aProposer = form.statut === 'terminee'
                 && candidatAntecedent
                 && !antecedentsActuels.includes(candidatAntecedent)
@@ -290,7 +302,6 @@ export default function ConsultationDetail() {
 
     return (
         <div className="ht-page">
-
             {showDelete && (
                 <DeleteModal onConfirm={handleDelete} onCancel={() => setShowDelete(false)} loading={deleteLoading} />
             )}
@@ -309,58 +320,56 @@ export default function ConsultationDetail() {
             {antecedentAjoute && (
                 <div className="ht-modal-overlay">
                     <div className="ht-modal ht-modal-sm text-center">
-                        <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center text-2xl mb-3 mx-auto">✓</div>
-                        <p className="text-sm font-medium text-gray-900">Antécédent ajouté au dossier</p>
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center mb-3 mx-auto border"
+                             style={{ color: 'var(--ht-success)', backgroundColor: 'var(--ht-success-bg)', borderColor: 'var(--ht-success)' }}>
+                            <CheckCircle size={22} />
+                        </div>
+                        <p className="text-sm font-bold" style={{ color: 'var(--ht-text)' }}>Antécédent ajouté au dossier</p>
                     </div>
                 </div>
             )}
 
-            {/* Sidebar */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
+            {/* Topbar / Entête de navigation */}
+            <nav className="border-b px-6 py-4 flex items-center gap-4 sticky top-0 z-10"
+                 style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
                 <button onClick={() => navigate(`/patients/${patientId}`)}
-                        className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                    ← Retour au dossier
+                        className="text-sm flex items-center gap-1 transition-colors hover:scale-105" style={{ color: 'var(--ht-text-muted)' }}>
+                    <ChevronLeft size={16} /> Retour au dossier
                 </button>
-                <span className="text-gray-200">|</span>
-                <span className="text-sm font-medium text-gray-900">
-                    {patient ? `${patient.prenom} ${patient.nom}` : '...'}
+                <span style={{ color: 'var(--ht-border)' }}>|</span>
+                <span className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
+                    {patient ? `${patient.prenom} ${patient.nom}` : '…'}
                 </span>
                 {!isNew && (
-                    <button onClick={() => setShowDelete(true)}
-                            className="ml-auto px-4 py-2 text-sm font-medium rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors">
-                        🗑️ Supprimer
+                    <button onClick={() => setShowDelete(true)} className="btn btn-danger btn-sm gap-1.5 ml-auto">
+                        <Trash2 size={14} /> Supprimer
                     </button>
                 )}
             </nav>
 
             <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
-
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">
-                        {isNew ? 'Nouvel événement médical' : 'Modifier l\'événement'}
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
+                        {isNew ? 'Nouvel événement médical' : "Modifier l'événement"}
                     </h1>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
                         Consultation, examen, opération ou autre événement du dossier patient
                     </p>
                 </div>
 
-                {/* Antécédents existants — contexte */}
+                {/* Contexte médical : Antécédents existants */}
                 {patient && (
-                    <div className="ht-card p-5">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    <div className="ht-card ht-card-padded-sm">
+                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
                             Antécédents médicaux connus
                         </h2>
                         {antecedents.length === 0 ? (
-                            <p className="text-sm text-gray-300">Aucun antécédent renseigné</p>
+                            <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Aucun antécédent renseigné</p>
                         ) : (
                             <div className="flex flex-wrap gap-2">
                                 {antecedents.map(a => (
-                                    <span key={a.id} className="px-2.5 py-1 rounded-full text-xs font-medium"
-                                          style={{
-                                              backgroundColor: TYPE_ANTECEDENT_COLORS[a.type_antecedent] + '15',
-                                              color: TYPE_ANTECEDENT_COLORS[a.type_antecedent],
-                                              opacity: a.statut === 'resolu' ? 0.5 : 1,
-                                          }}
+                                    <span key={a.id} className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${TYPE_ANTECEDENT_COLORS[a.type_antecedent]}`}
+                                          style={{ opacity: a.statut === 'resolu' ? 0.5 : 1 }}
                                           title={a.statut === 'resolu' ? 'Résolu' : 'Actif'}>
                                         {a.libelle}
                                     </span>
@@ -368,114 +377,104 @@ export default function ConsultationDetail() {
                             </div>
                         )}
                         {patient.allergies && (
-                            <p className="text-xs text-red-500 mt-3">⚠ Allergies : {patient.allergies}</p>
+                            <p className="text-xs font-semibold mt-3 flex items-center gap-1.5" style={{ color: 'var(--ht-danger)' }}>
+                                <AlertTriangle size={14} /> Allergies : {patient.allergies}
+                            </p>
                         )}
                     </div>
                 )}
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                    <div className="ht-alert ht-alert-danger">
                         {error}
                     </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
-
                     {/* Type d'événement */}
-                    <div className="ht-card p-5">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                    <div className="ht-card ht-card-padded-sm">
+                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
                             Type d'événement
                         </h2>
                         <TypeSelector value={form.type_evenement} onChange={t => setForm(prev => ({ ...prev, type_evenement: t }))} />
                     </div>
 
                     {/* Informations générales */}
-                    <div className="ht-card p-5 space-y-4">
+                    <div className="ht-card ht-card-padded-sm space-y-4">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
+                            <div className="ht-field">
                                 <FieldLabel>Date et heure</FieldLabel>
-                                <input type="datetime-local" name="date" value={form.date} onChange={handleChange}
-                                       className={inputCls} />
+                                <input type="datetime-local" name="date" value={form.date} onChange={handleChange} className="ht-input" />
                             </div>
-                            <div>
+                            <div className="ht-field">
                                 <FieldLabel>Statut</FieldLabel>
-                                <select name="statut" value={form.statut} onChange={handleChange}
-                                        className={inputCls}>
-                                    {(Object.entries(STATUT_CONFIG) as [ConsultationStatut, { label: string }][]).map(([k, v]) => (
-                                        <option key={k} value={k}>{v.label}</option>
+                                <select name="statut" value={form.statut} onChange={handleChange} className="ht-input">
+                                    {(Object.entries(STATUT_LABELS) as [ConsultationStatut, string][]).map(([k, label]) => (
+                                        <option key={k} value={k}>{label}</option>
                                     ))}
                                 </select>
                             </div>
                         </div>
-                        <div>
-                            <FieldLabel>Motif <span className="text-red-400">*</span></FieldLabel>
+                        <div className="ht-field">
+                            <FieldLabel>Motif <span style={{ color: 'var(--ht-danger)' }}>*</span></FieldLabel>
                             <input type="text" name="motif" value={form.motif} onChange={handleChange}
-                                   placeholder="Ex : Douleurs abdominales, Échographie de contrôle, Appendicectomie..."
-                                   className={inputCls} />
+                                   placeholder="Ex : Douleurs abdominales, Échographie de contrôle, Appendicectomie…"
+                                   className="ht-input" />
                         </div>
                     </div>
 
                     {/* Observations cliniques */}
-                    <div className="ht-card p-5 space-y-4">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <div className="ht-card ht-card-padded-sm space-y-4">
+                        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
                             Observations cliniques
                         </h2>
-                        <div>
+                        <div className="ht-field">
                             <FieldLabel>Symptômes observés</FieldLabel>
                             <textarea name="symptomes" value={form.symptomes} onChange={handleChange} rows={3}
-                                      placeholder="Fièvre, douleur, fatigue..."
-                                      className={inputCls + " resize-none"} />
+                                      placeholder="Fièvre, douleur, fatigue…" className="ht-input ht-textarea" />
                         </div>
-                        <div>
+                        <div className="ht-field">
                             <FieldLabel>Examens réalisés</FieldLabel>
                             <textarea name="examens_realises" value={form.examens_realises} onChange={handleChange} rows={3}
-                                      placeholder="Bilan sanguin, radiographie, échographie..."
-                                      className={inputCls + " resize-none"} />
+                                      placeholder="Bilan sanguin, radiographie, échographie…" className="ht-input ht-textarea" />
                         </div>
-                        <div>
+                        <div className="ht-field">
                             <FieldLabel>Diagnostic</FieldLabel>
                             <textarea name="diagnostic" value={form.diagnostic} onChange={handleChange} rows={2}
-                                      placeholder="Diagnostic posé..."
-                                      className={inputCls + " resize-none"} />
-                            <p className="text-xs text-gray-300 mt-1">
+                                      placeholder="Diagnostic posé…" className="ht-input ht-textarea" />
+                            <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
                                 Si rempli et que le statut est "Terminée", on vous proposera de l'ajouter aux antécédents du patient.
                             </p>
                         </div>
                     </div>
 
                     {/* Suivi */}
-                    <div className="ht-card p-5 space-y-4">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                    <div className="ht-card ht-card-padded-sm space-y-4">
+                        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
                             Suivi
                         </h2>
-                        <div>
+                        <div className="ht-field">
                             <FieldLabel>Ordonnance</FieldLabel>
                             <textarea name="ordonnance" value={form.ordonnance} onChange={handleChange} rows={2}
-                                      placeholder="Médicaments, posologie..."
-                                      className={inputCls + " resize-none"} />
+                                      placeholder="Médicaments, posologie…" className="ht-input ht-textarea" />
                         </div>
-                        <div>
+                        <div className="ht-field">
                             <FieldLabel>Notes</FieldLabel>
                             <textarea name="notes" value={form.notes} onChange={handleChange} rows={2}
-                                      placeholder="Observations complémentaires..."
-                                      className={inputCls + " resize-none"} />
+                                      placeholder="Observations complémentaires…" className="ht-input ht-textarea" />
                         </div>
                     </div>
 
-                    {/* Actions */}
-                    <div className="flex gap-3 justify-end">
-                        <button type="button" onClick={() => navigate(`/patients/${patientId}`)}
-                                className="btn btn-ghost">
+                    {/* Actions de validation */}
+                    <div className="flex gap-3 justify-end items-center pt-2">
+                        <button type="button" onClick={() => navigate(`/patients/${patientId}`)} className="btn btn-secondary">
                             Annuler
                         </button>
-                        <button type="submit" disabled={saving}
-                                className="btn btn-primary"
-                        >
-                            {saving ? 'Enregistrement...' : '✓ Enregistrer'}
+                        <button type="submit" disabled={saving} className="btn btn-primary gap-1.5">
+                            <Check size={16} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
                         </button>
                     </div>
                 </form>
-
             </div>
         </div>
     )

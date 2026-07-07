@@ -1,275 +1,278 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { getPatients } from '../api/patients'
-import { getFileAttente } from '../api/urgences'
-import { getHospitalisationsEnCours } from '../api/hospitalisations'
-import { getConsultations } from '../api/consultations'
-import { getRendezVous } from '../api/rendezvous'
-import { getEmployes } from '../api/comptes'
-import { getServices } from '../api/services'
-import { getDemandesEnAttente } from '../api/analyses'
-import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from '../types'
-import Sidebar from '../components/layout/Sidebar.tsx'
-import { useAuth } from '../contexts/AuthContext'
-import { SkeletonKpiCard, SkeletonSimpleList } from '../components/Skeleton'
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { getPatients } from "../api/patients";
+import { getFileAttente } from "../api/urgences";
+import { getHospitalisationsEnCours } from "../api/hospitalisations";
+import { getConsultations } from "../api/consultations";
+import { getRendezVous } from "../api/rendezvous";
+import { getEmployes } from "../api/comptes";
+import { getServices } from "../api/services";
+import { getDemandesEnAttente } from "../api/analyses";
+import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
+import Sidebar from "../components/layout/Sidebar";
+import { useAuth } from "../contexts/AuthContext";
+import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
+import {
+    Users,
+    BedDouble,
+    Stethoscope,
+    Calendar,
+    ShieldAlert,
+    FlaskConical,
+    Settings,
+    Plus,
+    Search,
+    ChevronRight,
+} from "lucide-react";
 
-// ─── Config triage ────────────────────────────────────────────────────────────
-const TRI_COLORS: Record<NiveauTri, string> = {
-    1: 'var(--tri-1-bg)', 2: 'var(--tri-2-bg)', 3: '#ca8a04', 4: 'var(--role-infirmier)', 5: 'var(--ht-muted)',
+// ─── CONFIGURATION DES BADGES DE TRIAGE (déjà définis dans index.css) ─────────
+const TRI_BADGE: Record<NiveauTri, string> = {
+    1: "badge-tri-1",
+    2: "badge-tri-2",
+    3: "badge-tri-3",
+    4: "badge-tri-4",
+    5: "badge-tri-5",
+};
+
+// ─── COMPOSANT STATCARD (KPI) ─────────────────────────────────────────────────
+interface StatCardProps {
+    label: string;
+    value: string | number;
+    sub?: string;
+    icon: any;
+    accent?: boolean;
+    onClick?: () => void;
 }
 
-// ─── KPI card ─────────────────────────────────────────────────────────────────
-function StatCard({ label, value, sub, icon, accent, onClick }: {
-    label: string; value: string | number; sub?: string; icon: string; accent?: boolean; onClick?: () => void
-}) {
+function StatCard({ label, value, sub, icon: Icon, accent, onClick }: StatCardProps) {
     return (
         <div
             onClick={onClick}
-            className={`ht-kpi ${accent ? 'accent' : ''} ${onClick ? 'cursor-pointer hover:shadow-sm transition-shadow' : ''}`}>
+            className={`ht-kpi ${accent ? "accent" : ""} ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+        >
             <div className="ht-kpi-icon">
-                {icon}
+                <Icon size={20} style={{ color: accent ? "var(--ht-primary-tint)" : "var(--ht-primary)" }} />
             </div>
-            <div>
-                <p className="ht-kpi-label">{label}</p>
+            <div className="min-w-0">
+                <p className="ht-kpi-label truncate">{label}</p>
                 <p className="ht-kpi-value">{value}</p>
-                {sub && <p className="ht-kpi-sub">{sub}</p>}
+                {sub && <p className="ht-kpi-sub truncate">{sub}</p>}
             </div>
         </div>
-    )
+    );
 }
 
-// ─── Widget card ──────────────────────────────────────────────────────────────
-function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty, emptyLabel }: {
-    title: string; count?: number; linkLabel?: string; onLink?: () => void
-    children: React.ReactNode; loading: boolean; empty: boolean; emptyLabel: string
-}) {
+// ─── COMPOSANT WIDGETCARD ─────────────────────────────────────────────────────
+interface WidgetCardProps {
+    title: string;
+    count?: number;
+    linkLabel?: string;
+    onLink?: () => void;
+    children: React.ReactNode;
+    loading: boolean;
+    empty: boolean;
+    emptyLabel: string;
+}
+
+function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty, emptyLabel }: WidgetCardProps) {
     return (
-        <div className="ht-card">
-            <div className="ht-card-header justify-between">
-                <h3>
+        <div className="ht-card ht-card-padded-sm flex flex-col h-full">
+            <div className="flex items-center justify-between pb-4 border-b border-[var(--ht-border)] mb-4">
+                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
                     {title}
-                    {typeof count === 'number' && !loading && (
-                        <span className="ml-1.5 font-normal" style={{ color: 'var(--ht-text-muted)' }}>({count})</span>
+                    {typeof count === "number" && !loading && (
+                        <span className="badge badge-muted">{count}</span>
                     )}
                 </h3>
                 {onLink && (
-                    <button onClick={onLink} className="text-xs font-medium hover:underline" style={{ color: 'var(--ht-primary)' }}>
-                        {linkLabel} →
+                    <button onClick={onLink} className="text-xs font-medium flex items-center gap-0.5 transition-colors"
+                            style={{ color: "var(--ht-primary)" }}>
+                        {linkLabel} <ChevronRight size={14} />
                     </button>
                 )}
             </div>
-            {loading ? (
-                <SkeletonSimpleList rows={3} />
-            ) : empty ? (
-                <div className="ht-empty">{emptyLabel}</div>
-            ) : children}
+            <div className="flex-1 flex flex-col justify-between">
+                {loading ? (
+                    <SkeletonSimpleList rows={3} />
+                ) : empty ? (
+                    <div className="ht-empty">{emptyLabel}</div>
+                ) : (
+                    <div className="space-y-3">{children}</div>
+                )}
+            </div>
         </div>
-    )
+    );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ─── PAGE COMPOSANTE DASHBOARD ────────────────────────────────────────────────
 export default function Dashboard() {
-    const navigate = useNavigate()
-    const { user, hasRole } = useAuth()
+    const navigate = useNavigate();
+    const { user, hasRole } = useAuth();
 
-    const canSeePatients = hasRole('admin', 'medecin', 'secretaire')
-    const canSeeUrgences = hasRole('admin', 'medecin', 'infirmier')
-    const canSeeHospit   = hasRole('admin', 'medecin')
-    const canSeeConsult  = hasRole('admin', 'medecin', 'infirmier')
-    const canSeeRdv      = hasRole('admin', 'medecin', 'secretaire')
-    const isAdmin        = hasRole('admin')
-    const isNurse        = hasRole('infirmier')
-    const isSecretaire   = hasRole('secretaire')
+    const canSeePatients = hasRole("admin", "medecin", "secretaire");
+    const canSeeUrgences = hasRole("admin", "medecin", "infirmier");
+    const canSeeHospit   = hasRole("admin", "medecin");
+    const canSeeConsult  = hasRole("admin", "medecin", "infirmier");
+    const canSeeRdv      = hasRole("admin", "medecin", "secretaire");
+    const isAdmin        = hasRole("admin");
+    const isNurse        = hasRole("infirmier");
+    const isSecretaire   = hasRole("secretaire");
 
-    const [patients,         setPatients]         = useState<Patient[] | null>(null)
-    const [urgences,         setUrgences]         = useState<PassageUrgence[] | null>(null)
-    const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null)
-    const [consultations,    setConsultations]    = useState<Consultation[] | null>(null)
-    const [rendezVous,       setRendezVous]       = useState<RendezVous[] | null>(null)
-    const [effectif,         setEffectif]         = useState<{ employes: number; services: number } | null>(null)
-    const [demandesEnAttente, setDemandesEnAttente] = useState<number | null>(null)
-
+    const [patients, setPatients] = useState<Patient[] | null>(null);
+    const [urgences, setUrgences] = useState<PassageUrgence[] | null>(null);
+    const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null);
+    const [consultations, setConsultations] = useState<Consultation[] | null>(null);
+    const [rendezVous, setRendezVous] = useState<RendezVous[] | null>(null);
+    const [, setEffectif] = useState<{ employes: number; services: number } | null>(null);
+    const [demandesEnAttente, setDemandesEnAttente] = useState<number | null>(null);
 
     useEffect(() => {
-        if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]))
-        if (canSeeUrgences) getFileAttente().then(setUrgences).catch(() => setUrgences([]))
-        if (canSeeHospit) getHospitalisationsEnCours().then(setHospitalisations).catch(() => setHospitalisations([]))
-        if (canSeeConsult)  getConsultations().then(setConsultations).catch(() => setConsultations([]))
-        if (canSeeRdv) getRendezVous().then(setRendezVous).catch(() => setRendezVous([]))
-        if (hasRole('laborantin')) getDemandesEnAttente().then(d => setDemandesEnAttente(d.length)).catch(() => setDemandesEnAttente(0))
+        if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]));
+        if (canSeeUrgences) getFileAttente().then(setUrgences).catch(() => setUrgences([]));
+        if (canSeeHospit) getHospitalisationsEnCours().then(setHospitalisations).catch(() => setHospitalisations([]));
+        if (canSeeConsult) getConsultations().then(setConsultations).catch(() => setConsultations([]));
+        if (canSeeRdv) getRendezVous().then(setRendezVous).catch(() => setRendezVous([]));
+        if (hasRole("laborantin")) getDemandesEnAttente().then((d) => setDemandesEnAttente(d.length)).catch(() => setDemandesEnAttente(0));
         if (isAdmin) {
             Promise.all([getEmployes(), getServices()])
                 .then(([emps, servs]) => setEffectif({
-                    employes: emps.filter(e => e.actif).length,
-                    services: servs.filter(s => s.actif).length,
+                    employes: emps.filter((e) => e.actif).length,
+                    services: servs.filter((s) => s.actif).length,
                 }))
-                .catch(() => setEffectif({ employes: 0, services: 0 }))
+                .catch(() => setEffectif({ employes: 0, services: 0 }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
+    }, []);
 
     const patientsRecents = patients
         ? [...patients]
             .sort((a, b) => new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime())
             .slice(0, 5)
-        : []
+        : [];
 
-    const nouveauCeMois = patients?.filter(p => {
-        const d = new Date(p.date_creation)
-        const now = new Date()
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
-    }).length ?? 0
+    const nouveauCeMois = patients?.filter((p) => {
+        const d = new Date(p.date_creation);
+        const now = new Date();
+        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }).length ?? 0;
 
     const urgencesTriees = urgences
         ? [...urgences].sort((a, b) => (a.niveau_tri ?? 5) - (b.niveau_tri ?? 5)).slice(0, 5)
-        : []
+        : [];
 
-    const consultationsAujourdhui = consultations?.filter(c => {
-        const d = new Date(c.date)
-        const now = new Date()
-        return d.toDateString() === now.toDateString()
-    }) ?? []
+    const consultationsAujourdhui = consultations?.filter((c) => {
+        const d = new Date(c.date);
+        const now = new Date();
+        return d.toDateString() === now.toDateString();
+    }) ?? [];
 
     const rdvAujourdhui = (rendezVous ?? [])
-        .filter(r => {
-            const d = new Date(r.date_heure)
-            const now = new Date()
-            return d.toDateString() === now.toDateString() && r.statut !== 'annule'
+        .filter((r) => {
+            const d = new Date(r.date_heure);
+            const now = new Date();
+            return d.toDateString() === now.toDateString() && r.statut !== "annule";
         })
-        .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime())
+        .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime());
 
     const calcAge = (dateStr: string) => {
-        const today = new Date()
-        const birth = new Date(dateStr)
-        let age = today.getFullYear() - birth.getFullYear()
-        if (today.getMonth() < birth.getMonth() ||
-            (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--
-        return age
-    }
+        if (!dateStr) return 0;
+        const today = new Date();
+        const birth = new Date(dateStr);
+        let age = today.getFullYear() - birth.getFullYear();
+        if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
+        return age;
+    };
 
     return (
-        <div className="ht-page flex flex-col">
+        <div className="ht-page">
             <Sidebar />
 
-            <div className="ht-page-content space-y-8">
+            <main className="ht-page-content space-y-8">
 
-                {/* ── Titre ── */}
-                <div>
-                    <h1 className="text-2xl font-semibold" style={{ color: 'var(--ht-text)' }}>
-                        {hasRole('admin')      && 'Tableau de bord — Administration'}
-                        {hasRole('medecin')    && `Bonjour Dr. ${user?.nom} 👋`}
-                        {hasRole('infirmier')  && `Bonjour ${user?.prenom} 👋`}
-                        {hasRole('secretaire') && 'Accueil & Secrétariat'}
-                        {hasRole('laborantin') && 'Espace Laboratoire'}
+                {/* ── Entête ── */}
+                <div className="border-b border-[var(--ht-border)] pb-5">
+                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                        {hasRole("admin")      && "Tableau de bord — Administration"}
+                        {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋`}
+                        {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
+                        {hasRole("secretaire") && "Accueil & Secrétariat"}
+                        {hasRole("laborantin") && "Espace Laboratoire"}
                     </h1>
-                    <p className="text-sm mt-1" style={{ color: 'var(--ht-text-muted)' }}>
-                        {hasRole('admin')      && "Vue globale de l'établissement"}
-                        {hasRole('medecin')    && 'Vos patients et consultations du jour'}
-                        {hasRole('infirmier')  && 'Suivi des patients et signes vitaux'}
-                        {hasRole('secretaire') && 'Gestion des rendez-vous et admissions'}
-                        {hasRole('laborantin') && 'Analyses et résultats biologiques'}
+                    <p className="text-sm text-gray-400 mt-1">
+                        {hasRole("admin")      && "Vue globale et gestion de l'établissement"}
+                        {hasRole("medecin")    && "Vos patients et consultations du jour"}
+                        {hasRole("infirmier")  && "Suivi des patients et constantes vitales"}
+                        {hasRole("secretaire") && "Gestion des rendez-vous et admissions"}
+                        {hasRole("laborantin") && "Analyses et résultats biologiques"}
                     </p>
                 </div>
 
                 {/* ── Actions rapides ── */}
-                <div className="flex flex-wrap items-center gap-2">
-                    {hasRole('admin', 'medecin', 'secretaire') && (
-                        <button
-                            onClick={() => navigate('/patients/newPatient')}
-                            className="btn btn-primary"
-                        >
-                            + Nouveau patient
+                <div className="flex flex-wrap items-center gap-2.5">
+                    {hasRole("admin", "medecin", "secretaire") && (
+                        <button onClick={() => navigate("/patients/newPatient")} className="btn btn-primary">
+                            <Plus size={16} /> Nouveau patient
                         </button>
                     )}
                     {isSecretaire && (
-                        <button
-                            onClick={() => navigate('/rendez_vous')}
-                            className="btn btn-ghost"
-                        >
-                            📅 Gérer les rendez-vous
+                        <button onClick={() => navigate("/rendez_vous")} className="btn btn-ghost">
+                            <Calendar size={16} /> Gérer les rendez-vous
                         </button>
                     )}
                     {isNurse && (
-                        <button
-                            onClick={() => navigate('/patients')}
-                            className="btn btn-primary"
-                        >
-                            🔍 Rechercher un patient
+                        <button onClick={() => navigate("/patients")} className="btn btn-primary">
+                            <Search size={16} /> Rechercher un patient
                         </button>
                     )}
                     {canSeeUrgences && (
-                        <button
-                            onClick={() => navigate('/urgences')}
-                            className="btn btn-danger"
-                        >
-                            🚨 Voir les urgences
+                        <button onClick={() => navigate("/urgences")} className="btn btn-danger">
+                            <ShieldAlert size={16} /> Voir les urgences
                         </button>
                     )}
                     {canSeePatients && (
-                        <button
-                            onClick={() => navigate('/patients')}
-                            className="btn btn-ghost"
-                        >
+                        <button onClick={() => navigate("/patients")} className="btn btn-ghost">
                             Voir tous les patients
                         </button>
                     )}
-                    {/* Paramètres — accessible à tous, hors du bloc canSeePatients */}
-                    <button
-                        onClick={() => navigate('/settings')}
-                        className="btn btn-ghost"
-                    >
-                        ⚙️ Paramètres
+                    <button onClick={() => navigate("/settings")} className="btn btn-ghost">
+                        <Settings size={16} /> Paramètres
                     </button>
                 </div>
 
-                {/* ── KPIs ── */}
+                {/* ── Section KPIs ── */}
                 {(canSeePatients || canSeeUrgences || canSeeHospit || isAdmin) && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {canSeePatients && (
                             patients === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Total patients" value={patients.length} icon="👥" accent
-                                          sub={`${nouveauCeMois} ajouté${nouveauCeMois > 1 ? 's' : ''} ce mois`}
-                                          onClick={() => navigate('/patients')} />
+                                <StatCard label="Total patients" value={patients.length} icon={Users} accent
+                                          sub={`${nouveauCeMois} ajouté${nouveauCeMois > 1 ? "s" : ""} ce mois`}
+                                          onClick={() => navigate("/patients")} />
                             )
                         )}
                         {canSeeUrgences && (
                             urgences === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Aux urgences" value={urgences.length} icon="🚨"
-                                          sub={urgences.length > 0 ? 'en attente ou en cours' : 'Aucun patient'}
-                                          onClick={() => navigate('/urgences')} />
+                                <StatCard label="Aux urgences" value={urgences.length} icon={ShieldAlert}
+                                          sub={urgences.length > 0 ? "En attente / en cours" : "Aucun patient"}
+                                          onClick={() => navigate("/urgences")} />
                             )
                         )}
                         {canSeeHospit && (
                             hospitalisations === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Hospitalisations en cours" value={hospitalisations.length} icon="🛏️"
-                                          sub={hospitalisations.length > 0 ? 'lits occupés' : 'Aucune'} />
+                                <StatCard label="Hospitalisations" value={hospitalisations.length} icon={BedDouble}
+                                          sub={hospitalisations.length > 0 ? `${hospitalisations.length} lits occupés` : "Aucune"} />
                             )
                         )}
                         {canSeeConsult && (
                             consultations === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Consultations aujourd'hui" value={consultationsAujourdhui.length} icon="🩺"
-                                          sub={consultationsAujourdhui.length > 0 ? 'programmées ou réalisées' : 'Aucune'} />
-                            )
-                        )}
-                        {canSeeRdv && (
-                            rendezVous === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Rendez-vous aujourd'hui" value={rdvAujourdhui.length} icon="📅"
-                                          sub={rdvAujourdhui.length > 0 ? 'planifiés aujourd\'hui' : 'Aucun'}
-                                          onClick={() => navigate('/rendez_vous')} />
-                            )
-                        )}
-                        {isAdmin && (
-                            effectif === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Effectif actif" value={effectif.employes} icon="🧑‍⚕️"
-                                          sub={`${effectif.services} service${effectif.services > 1 ? 's' : ''} actif${effectif.services > 1 ? 's' : ''}`}
-                                          onClick={() => navigate('/employes')} />
+                                <StatCard label="Consultations (Jour)" value={consultationsAujourdhui.length} icon={Stethoscope}
+                                          sub={consultationsAujourdhui.length > 0 ? "Programmées ou faites" : "Aucune prévue"} />
                             )
                         )}
                     </div>
                 )}
 
-                {/* ── Widgets ── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* ── Section Widgets ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                     {canSeeUrgences && (
                         <WidgetCard
@@ -279,22 +282,19 @@ export default function Dashboard() {
                             empty={(urgences?.length ?? 0) === 0}
                             emptyLabel="Aucun patient actuellement aux urgences"
                             linkLabel="Voir tout"
-                            onLink={() => navigate('/urgences')}
+                            onLink={() => navigate("/urgences")}
                         >
-                            <div>
+                            <div className="divide-y divide-[var(--ht-border)]">
                                 {urgencesTriees.map(u => (
-                                    <div key={u.id} className="ht-table-row" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
-                                        <span className="w-2 h-2 rounded-full flex-shrink-0"
-                                              style={{ backgroundColor: u.niveau_tri ? TRI_COLORS[u.niveau_tri] : '#d1d5db' }} />
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
-                                                {u.patient_nom || `Patient #${u.patient}`}
-                                            </p>
-                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
-                                                {u.niveau_tri_label || 'Non trié'} · {u.motif}
-                                            </p>
+                                    <div key={u.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
+                                        <div className="flex items-center gap-3 min-w-0">
+                                            <span className={`badge ${u.niveau_tri ? TRI_BADGE[u.niveau_tri] : "badge-muted"}`} style={{ width: "0.625rem", height: "0.625rem", padding: 0 }} />
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{u.patient_nom || `Patient #${u.patient}`}</p>
+                                                <p className="text-xs text-gray-400 truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
+                                            </div>
                                         </div>
-                                        <span className="badge badge-muted">
+                                        <span className="badge badge-muted uppercase">
                                             {u.statut_label || u.statut}
                                         </span>
                                     </div>
@@ -311,19 +311,16 @@ export default function Dashboard() {
                             empty={(hospitalisations?.length ?? 0) === 0}
                             emptyLabel="Aucune hospitalisation en cours"
                         >
-                            <div>
+                            <div className="divide-y divide-[var(--ht-border)]">
                                 {(hospitalisations ?? []).slice(0, 5).map(h => (
-                                    <div key={h.id} className="ht-table-row" style={{ gridTemplateColumns: '1fr auto', cursor: 'default' }}>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
-                                                {h.patient_nom || `Patient #${h.patient}`}
-                                            </p>
-                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
-                                                {h.chambre ? `Chambre ${h.chambre}` : 'Chambre non assignée'}
-                                                {h.lit ? ` · Lit ${h.lit}` : ''}
+                                    <div key={h.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-gray-900 truncate">{h.patient_nom || `Patient #${h.patient}`}</p>
+                                            <p className="text-xs text-gray-400 truncate mt-0.5">
+                                                {h.chambre ? `Chambre ${h.chambre}` : "Sans chambre"} {h.lit ? `· Lit ${h.lit}` : ""}
                                             </p>
                                         </div>
-                                        <span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{h.duree_jours ?? 0} j</span>
+                                        <span className="badge badge-muted">{h.duree_jours ?? 0} j</span>
                                     </div>
                                 ))}
                             </div>
@@ -337,19 +334,17 @@ export default function Dashboard() {
                             empty={patientsRecents.length === 0}
                             emptyLabel="Aucun patient pour le moment"
                             linkLabel="Voir tous les patients"
-                            onLink={() => navigate('/patients')}
+                            onLink={() => navigate("/patients")}
                         >
-                            <div>
+                            <div className="space-y-2.5">
                                 {patientsRecents.map(p => (
-                                    <div key={p.id}
-                                         onClick={() => navigate(`/patients/${p.id}`)}
-                                         className="ht-table-row" style={{ gridTemplateColumns: 'auto 1fr' }}>
-                                        <div className="ht-avatar ht-avatar-sm">
-                                            {p.prenom[0]}{p.nom[0]}
+                                    <div key={p.id} onClick={() => navigate(`/patients/${p.id}`)} className="flex items-center gap-3 p-2 hover:bg-[var(--ht-bg)] border border-transparent hover:border-[var(--ht-border)] rounded-xl cursor-pointer transition-all">
+                                        <div className="ht-avatar ht-avatar-sm" style={{ backgroundColor: "var(--ht-primary-light)", color: "var(--ht-primary)" }}>
+                                            {p.prenom?.[0] || ""}{p.nom?.[0] || ""}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>{p.prenom} {p.nom}</p>
-                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{calcAge(p.date_naissance)} ans</p>
+                                            <p className="text-sm font-semibold text-gray-900 truncate">{p.prenom} {p.nom}</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">{calcAge(p.date_naissance)} ans</p>
                                         </div>
                                     </div>
                                 ))}
@@ -365,46 +360,17 @@ export default function Dashboard() {
                             empty={rdvAujourdhui.length === 0}
                             emptyLabel="Aucun rendez-vous prévu aujourd'hui"
                             linkLabel="Voir tous les rendez-vous"
-                            onLink={() => navigate('/rendez_vous')}
+                            onLink={() => navigate("/rendez_vous")}
                         >
-                            <div>
+                            <div className="divide-y divide-[var(--ht-border)]">
                                 {rdvAujourdhui.slice(0, 5).map(r => (
-                                    <div key={r.id} className="ht-table-row" style={{ gridTemplateColumns: '1fr auto', cursor: 'default' }}>
+                                    <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
-                                                {r.patient_prenom} {r.patient_nom}
-                                            </p>
-                                            <p className="text-xs truncate" style={{ color: 'var(--ht-text-muted)' }}>{r.motif}</p>
+                                            <p className="text-sm font-semibold text-gray-900 truncate">{r.patient_prenom} {r.patient_nom}</p>
+                                            <p className="text-xs text-gray-400 truncate mt-0.5">{r.motif}</p>
                                         </div>
-                                        <span className="text-xs font-medium" style={{ color: 'var(--ht-text-secondary)' }}>
-                                            {new Date(r.date_heure).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </WidgetCard>
-                    )}
-
-                    {canSeeConsult && (
-                        <WidgetCard
-                            title="Consultations du jour"
-                            count={consultationsAujourdhui.length}
-                            loading={consultations === null}
-                            empty={consultationsAujourdhui.length === 0}
-                            emptyLabel="Aucune consultation prévue aujourd'hui"
-                        >
-                            <div>
-                                {consultationsAujourdhui.slice(0, 5).map(c => (
-                                    <div key={c.id} className="ht-table-row" style={{ gridTemplateColumns: '1fr auto', cursor: 'default' }}>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>{c.motif}</p>
-                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
-                                                {new Date(c.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                                                {' · '}{c.type_evenement}
-                                            </p>
-                                        </div>
-                                        <span className="badge badge-muted capitalize">
-                                            {c.statut.replace('_', ' ')}
+                                        <span className="badge badge-tint">
+                                            {new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                                         </span>
                                     </div>
                                 ))}
@@ -413,31 +379,30 @@ export default function Dashboard() {
                     )}
                 </div>
 
-                {hasRole('laborantin') && (
-                    <div className="ht-card ht-card-padded flex items-center justify-between gap-6">
+                {/* ── Module Laboratoire dédié pour les Laborantins ── */}
+                {hasRole("laborantin") && (
+                    <div className="ht-card ht-card-padded-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
-                                 style={{ backgroundColor: 'var(--ht-primary-light)' }}>
-                                🧪
+                            <div className="ht-kpi-icon" style={{ backgroundColor: "var(--ht-primary-light)" }}>
+                                <FlaskConical size={22} style={{ color: "var(--ht-primary)" }} />
                             </div>
                             <div>
-                                <p className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
+                                <p className="text-sm font-bold text-gray-900">
                                     {demandesEnAttente === null
-                                        ? 'Chargement des demandes…'
+                                        ? "Chargement des demandes…"
                                         : demandesEnAttente === 0
-                                            ? 'Aucune demande en attente'
-                                            : `${demandesEnAttente} demande${demandesEnAttente > 1 ? 's' : ''} en attente de traitement`}
+                                            ? "Aucune demande en attente"
+                                            : `${demandesEnAttente} demande${demandesEnAttente > 1 ? "s" : ""} en attente de traitement`}
                                 </p>
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>Retrouve toutes les demandes d'analyses de ton service</p>
+                                <p className="text-xs text-gray-400 mt-0.5">Retrouvez toutes les demandes d'analyses biologiques assignées à votre labo</p>
                             </div>
                         </div>
-                        <button onClick={() => navigate('/laboratoire')}
-                                className="btn btn-primary flex-shrink-0">
+                        <button onClick={() => navigate("/laboratoire")} className="btn btn-primary w-full sm:w-auto">
                             Ouvrir le laboratoire →
                         </button>
                     </div>
                 )}
-            </div>
+            </main>
         </div>
-    )
+    );
 }

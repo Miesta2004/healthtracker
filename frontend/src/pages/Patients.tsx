@@ -153,11 +153,12 @@ export default function Patients() {
     const hasActiveFilters = search || filterSexe !== 'tous' || filterStatut !== 'tous' || filterGroupe
     const resetFilters = () => { setSearch(''); setFilterSexe('tous'); setFilterStatut('tous'); setFilterGroupe('') }
 
-    const calcAge = (dateStr: string) => {
-        const today = new Date(), birth = new Date(dateStr)
+    function calcAge(dateStr: string) {
+        const today = new Date()
+        const birth = new Date(dateStr)
         let age = today.getFullYear() - birth.getFullYear()
-        if (today.getMonth() < birth.getMonth() ||
-            (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--
+        const m = today.getMonth() - birth.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
         return age
     }
 

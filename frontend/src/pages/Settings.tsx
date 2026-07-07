@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import {
     updateMonProfil, changePassword, uploadMaPhoto, getMaPhotoUrl,
@@ -30,9 +29,9 @@ const TYPE_EXCEPTION: Record<TypeException, string> = {
 
 const TYPE_CRENEAU_COLORS: Record<TypeCreneau, { bg: string; color: string }> = {
     presentiel:       { bg: '#dbeafe', color: '#1d4ed8' },
-    garde:            { bg: '#fee2e2', color: '#dc2626' },
-    astreinte:        { bg: '#fef3c7', color: '#b45309' },
-    teleconsultation: { bg: '#d1fae5', color: '#065f46' },
+    garde:            { bg: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' },
+    astreinte:        { bg: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' },
+    teleconsultation: { bg: 'var(--ht-success-bg)', color: 'var(--ht-success)' },
 }
 
 // ─── Onglets ──────────────────────────────────────────────────────────────────
@@ -52,8 +51,8 @@ function Feedback({ type, message }: { type: 'success' | 'error'; message: strin
     return (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
              style={type === 'success'
-                 ? { backgroundColor: '#f0fdf4', color: '#15803d' }
-                 : { backgroundColor: '#fef2f2', color: '#dc2626' }}>
+                 ? { backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }
+                 : { backgroundColor: 'var(--ht-danger-bg-light)', color: 'var(--ht-danger)' }}>
             <span>{type === 'success' ? '✓' : '✕'}</span>
             {message}
         </div>
@@ -108,8 +107,7 @@ function OngletProfil({ employe, photoUrl, onPhotoChange }: {
                         <img src={photoUrl} alt="Photo de profil"
                              className="w-20 h-20 rounded-2xl object-cover" />
                     ) : (
-                        <div className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white"
-                             style={{ backgroundColor: '#003152' }}>
+                        <div className="ht-avatar ht-avatar-xl">
                             {(employe.prenom as string)?.[0]}{(employe.nom as string)?.[0]}
                         </div>
                     )}
@@ -120,8 +118,7 @@ function OngletProfil({ employe, photoUrl, onPhotoChange }: {
                     )}
                 </div>
                 <div>
-                    <button onClick={() => fileRef.current?.click()}
-                            className="text-sm font-medium px-4 py-2 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                    <button onClick={() => fileRef.current?.click()} className="btn btn-ghost">
                         Changer la photo
                     </button>
                     <p className="text-xs text-gray-400 mt-1">JPG ou PNG, max 2 Mo</p>
@@ -130,7 +127,7 @@ function OngletProfil({ employe, photoUrl, onPhotoChange }: {
             </div>
 
             {/* Infos en lecture seule */}
-            <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-xl">
+            <div className="grid grid-cols-2 gap-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-bg)' }}>
                 {[
                     ['Prénom', employe.prenom],
                     ['Nom', employe.nom],
@@ -148,31 +145,19 @@ function OngletProfil({ employe, photoUrl, onPhotoChange }: {
 
             {/* Champs modifiables */}
             <div className="space-y-4">
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                        Téléphone
-                    </label>
-                    <input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)}
-                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                           onFocus={e => e.target.style.boxShadow = '0 0 0 2px #e0eaf3'}
-                           onBlur={e => e.target.style.boxShadow = 'none'} />
+                <div className="ht-field">
+                    <label className="ht-label">Téléphone</label>
+                    <input type="tel" value={telephone} onChange={e => setTelephone(e.target.value)} className="ht-input" />
                 </div>
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                        Adresse
-                    </label>
-                    <input type="text" value={adresse} onChange={e => setAdresse(e.target.value)}
-                           className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                           onFocus={e => e.target.style.boxShadow = '0 0 0 2px #e0eaf3'}
-                           onBlur={e => e.target.style.boxShadow = 'none'} />
+                <div className="ht-field">
+                    <label className="ht-label">Adresse</label>
+                    <input type="text" value={adresse} onChange={e => setAdresse(e.target.value)} className="ht-input" />
                 </div>
             </div>
 
             {feedback && <Feedback type={feedback.type} message={feedback.msg} />}
 
-            <button onClick={handleSave} disabled={saving}
-                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                    style={{ backgroundColor: saving ? '#9ca3af' : '#003152' }}>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary">
                 {saving ? 'Sauvegarde…' : 'Enregistrer'}
             </button>
         </div>
@@ -195,7 +180,7 @@ function OngletSecurite() {
                 : 2
 
     const forceLabel = ['', 'Faible', 'Moyen', 'Fort']
-    const forceColor = ['', '#dc2626', '#f59e0b', '#16a34a']
+    const forceColor = ['', 'var(--ht-danger)', 'var(--ht-warning)', 'var(--ht-success)']
 
     const handleSubmit = async () => {
         if (nouveau !== confirm) {
@@ -226,14 +211,12 @@ function OngletSecurite() {
                 { label: 'Nouveau mot de passe', val: nouveau, set: setNouveau, show: showNouveau, toggle: () => setShowNouveau(p => !p) },
                 { label: 'Confirmer le nouveau', val: confirm, set: setConfirm, show: showNouveau, toggle: () => setShowNouveau(p => !p) },
             ].map(({ label, val, set, show, toggle }) => (
-                <div key={label}>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">{label}</label>
+                <div key={label} className="ht-field">
+                    <label className="ht-label">{label}</label>
                     <div className="relative">
                         <input type={show ? 'text' : 'password'} value={val}
                                onChange={e => set(e.target.value)}
-                               className="w-full px-3 py-2.5 pr-10 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                               onFocus={e => e.target.style.boxShadow = '0 0 0 2px #e0eaf3'}
-                               onBlur={e => e.target.style.boxShadow = 'none'} />
+                               className="ht-input pr-10" />
                         <button type="button" onClick={toggle}
                                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
                             {show ? 'Masquer' : 'Voir'}
@@ -245,7 +228,7 @@ function OngletSecurite() {
             {/* Indicateur de force */}
             {nouveau.length > 0 && (
                 <div className="space-y-1">
-                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
                         <div className="h-full rounded-full transition-all duration-300"
                              style={{ width: `${(force / 3) * 100}%`, backgroundColor: forceColor[force] }} />
                     </div>
@@ -258,9 +241,7 @@ function OngletSecurite() {
 
             {feedback && <Feedback type={feedback.type} message={feedback.msg} />}
 
-            <button onClick={handleSubmit} disabled={saving || !ancien || !nouveau || !confirm}
-                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                    style={{ backgroundColor: saving || !ancien || !nouveau || !confirm ? '#9ca3af' : '#003152' }}>
+            <button onClick={handleSubmit} disabled={saving || !ancien || !nouveau || !confirm} className="btn btn-primary">
                 {saving ? 'Mise à jour…' : 'Changer le mot de passe'}
             </button>
         </div>
@@ -290,25 +271,21 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
 
     return (
         <div className="space-y-5 max-w-lg">
-            <div className="p-4 bg-blue-50 rounded-xl">
-                <p className="text-xs font-semibold text-blue-800 mb-1">À quoi ça sert ?</p>
-                <p className="text-xs text-blue-600">
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-primary-light)' }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--ht-primary)' }}>À quoi ça sert ?</p>
+                <p className="text-xs" style={{ color: 'var(--ht-primary-hover)' }}>
                     Ce texte apparaîtra automatiquement en bas de chaque ordonnance et compte rendu médical que vous générez.
                 </p>
             </div>
 
-            <div>
-                <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">
-                    Texte de signature
-                </label>
+            <div className="ht-field">
+                <label className="ht-label">Texte de signature</label>
                 <textarea
                     value={signature}
                     onChange={e => setSignature(e.target.value)}
                     placeholder={placeholder}
                     rows={3}
-                    className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none font-mono"
-                    onFocus={e => e.target.style.boxShadow = '0 0 0 2px #e0eaf3'}
-                    onBlur={e => e.target.style.boxShadow = 'none'}
+                    className="ht-input ht-textarea ht-mono"
                 />
                 <p className="text-xs text-gray-400 mt-1">
                     Ex : Dr Aminata Diop — Cardiologue — N° ordre 12345 — Tél : +221 77 000 00 00
@@ -317,9 +294,9 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
 
             {/* Aperçu */}
             {signature && (
-                <div className="border border-gray-200 rounded-xl p-4">
+                <div className="border rounded-xl p-4" style={{ borderColor: 'var(--ht-border-input)' }}>
                     <p className="text-xs text-gray-400 mb-3 uppercase tracking-wider">Aperçu ordonnance</p>
-                    <div className="border-t border-gray-200 pt-3">
+                    <div className="border-t pt-3" style={{ borderColor: 'var(--ht-border)' }}>
                         <p className="text-sm text-gray-600 whitespace-pre-line">{signature}</p>
                     </div>
                 </div>
@@ -327,9 +304,7 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
 
             {feedback && <Feedback type={feedback.type} message={feedback.msg} />}
 
-            <button onClick={handleSave} disabled={saving}
-                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                    style={{ backgroundColor: saving ? '#9ca3af' : '#003152' }}>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary">
                 {saving ? 'Sauvegarde…' : 'Enregistrer la signature'}
             </button>
         </div>
@@ -342,7 +317,6 @@ function OngletDisponibilites() {
     const [exceptions, setExceptions] = useState<ExceptionDisponibilite[]>([])
     const [loading, setLoading] = useState(true)
 
-    // Form nouveau créneau
     const [newJour, setNewJour] = useState<string>('0')
     const [newDebut, setNewDebut] = useState('08:00')
     const [newFin, setNewFin] = useState('16:00')
@@ -350,7 +324,6 @@ function OngletDisponibilites() {
     const [addingCreneau, setAddingCreneau] = useState(false)
     const [showFormCreneau, setShowFormCreneau] = useState(false)
 
-    // Form nouvelle exception
     const [newExType, setNewExType] = useState<TypeException>('conge')
     const [newExDebut, setNewExDebut] = useState('')
     const [newExFin, setNewExFin] = useState('')
@@ -409,7 +382,6 @@ function OngletDisponibilites() {
         setExceptions(prev => prev.filter(e => e.id !== id))
     }
 
-    // Vue grille semaine
     const creneauxParJour = JOURS.map((_, idx) =>
         creneaux.filter(c => c.jour === idx && c.actif)
     )
@@ -423,38 +395,31 @@ function OngletDisponibilites() {
             <div>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-900">Planning hebdomadaire récurrent</h3>
-                    <button onClick={() => setShowFormCreneau(p => !p)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg text-white"
-                            style={{ backgroundColor: '#003152' }}>
+                    <button onClick={() => setShowFormCreneau(p => !p)} className="btn btn-primary btn-sm">
                         + Ajouter un créneau
                     </button>
                 </div>
 
-                {/* Formulaire nouveau créneau */}
                 {showFormCreneau && (
-                    <div className="mb-4 p-4 border border-gray-100 rounded-xl bg-gray-50 space-y-3">
+                    <div className="mb-4 p-4 rounded-xl space-y-3" style={{ backgroundColor: 'var(--ht-bg)', border: '1px solid var(--ht-border)' }}>
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Jour</label>
-                                <select value={newJour} onChange={e => setNewJour(e.target.value)}
-                                        className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                            <div className="ht-field">
+                                <label className="ht-label">Jour</label>
+                                <select value={newJour} onChange={e => setNewJour(e.target.value)} className="ht-input">
                                     {JOURS.map((j, i) => <option key={i} value={i}>{j}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Début</label>
-                                <input type="time" value={newDebut} onChange={e => setNewDebut(e.target.value)}
-                                       className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                            <div className="ht-field">
+                                <label className="ht-label">Début</label>
+                                <input type="time" value={newDebut} onChange={e => setNewDebut(e.target.value)} className="ht-input" />
                             </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Fin</label>
-                                <input type="time" value={newFin} onChange={e => setNewFin(e.target.value)}
-                                       className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                            <div className="ht-field">
+                                <label className="ht-label">Fin</label>
+                                <input type="time" value={newFin} onChange={e => setNewFin(e.target.value)} className="ht-input" />
                             </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Type</label>
-                                <select value={newType} onChange={e => setNewType(e.target.value as TypeCreneau)}
-                                        className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                            <div className="ht-field">
+                                <label className="ht-label">Type</label>
+                                <select value={newType} onChange={e => setNewType(e.target.value as TypeCreneau)} className="ht-input">
                                     {Object.entries(TYPE_CRENEAU).map(([k, v]) => (
                                         <option key={k} value={k}>{v}</option>
                                     ))}
@@ -462,13 +427,10 @@ function OngletDisponibilites() {
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setShowFormCreneau(false)}
-                                    className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100">
+                            <button onClick={() => setShowFormCreneau(false)} className="btn btn-ghost btn-sm">
                                 Annuler
                             </button>
-                            <button onClick={handleAddCreneau} disabled={addingCreneau}
-                                    className="px-3 py-1.5 text-xs rounded-lg text-white"
-                                    style={{ backgroundColor: '#003152' }}>
+                            <button onClick={handleAddCreneau} disabled={addingCreneau} className="btn btn-primary btn-sm">
                                 {addingCreneau ? 'Ajout…' : 'Confirmer'}
                             </button>
                         </div>
@@ -484,7 +446,7 @@ function OngletDisponibilites() {
                             </p>
                             <div className="min-h-16 space-y-1.5">
                                 {creneauxParJour[idx].length === 0 ? (
-                                    <div className="h-10 rounded-lg bg-gray-50 border border-dashed border-gray-200" />
+                                    <div className="h-10 rounded-lg border border-dashed" style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border-input)' }} />
                                 ) : (
                                     creneauxParJour[idx].map(c => {
                                         const cfg = TYPE_CRENEAU_COLORS[c.type]
@@ -500,7 +462,8 @@ function OngletDisponibilites() {
                                                 </p>
                                                 <button
                                                     onClick={() => handleDeleteCreneau(c.id)}
-                                                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-red-100 text-red-500 text-xs items-center justify-center hidden group-hover:flex"
+                                                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-xs items-center justify-center hidden group-hover:flex"
+                                                    style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}
                                                 >✕</button>
                                             </div>
                                         )
@@ -526,49 +489,41 @@ function OngletDisponibilites() {
             <div>
                 <div className="flex items-center justify-between mb-4">
                     <h3 className="text-sm font-semibold text-gray-900">Congés & absences</h3>
-                    <button onClick={() => setShowFormEx(p => !p)}
-                            className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50">
+                    <button onClick={() => setShowFormEx(p => !p)} className="btn btn-ghost btn-sm">
                         + Déclarer une absence
                     </button>
                 </div>
 
                 {showFormEx && (
-                    <div className="mb-4 p-4 border border-gray-100 rounded-xl bg-gray-50 space-y-3">
+                    <div className="mb-4 p-4 rounded-xl space-y-3" style={{ backgroundColor: 'var(--ht-bg)', border: '1px solid var(--ht-border)' }}>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Type</label>
-                                <select value={newExType} onChange={e => setNewExType(e.target.value as TypeException)}
-                                        className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                            <div className="ht-field">
+                                <label className="ht-label">Type</label>
+                                <select value={newExType} onChange={e => setNewExType(e.target.value as TypeException)} className="ht-input">
                                     {Object.entries(TYPE_EXCEPTION).map(([k, v]) => (
                                         <option key={k} value={k}>{v}</option>
                                     ))}
                                 </select>
                             </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Du</label>
-                                <input type="date" value={newExDebut} onChange={e => setNewExDebut(e.target.value)}
-                                       className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                            <div className="ht-field">
+                                <label className="ht-label">Du</label>
+                                <input type="date" value={newExDebut} onChange={e => setNewExDebut(e.target.value)} className="ht-input" />
                             </div>
-                            <div>
-                                <label className="block text-xs text-gray-400 mb-1">Au</label>
-                                <input type="date" value={newExFin} onChange={e => setNewExFin(e.target.value)}
-                                       className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none" />
+                            <div className="ht-field">
+                                <label className="ht-label">Au</label>
+                                <input type="date" value={newExFin} onChange={e => setNewExFin(e.target.value)} className="ht-input" />
                             </div>
                         </div>
-                        <div>
-                            <label className="block text-xs text-gray-400 mb-1">Motif (optionnel)</label>
+                        <div className="ht-field">
+                            <label className="ht-label">Motif (optionnel)</label>
                             <input type="text" value={newExMotif} onChange={e => setNewExMotif(e.target.value)}
-                                   className="w-full px-2 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                   placeholder="Ex : Congé annuel" />
+                                   className="ht-input" placeholder="Ex : Congé annuel" />
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={() => setShowFormEx(false)}
-                                    className="px-3 py-1.5 text-xs border border-gray-200 rounded-lg text-gray-600 hover:bg-gray-100">
+                            <button onClick={() => setShowFormEx(false)} className="btn btn-ghost btn-sm">
                                 Annuler
                             </button>
-                            <button onClick={handleAddException} disabled={addingEx || !newExDebut || !newExFin}
-                                    className="px-3 py-1.5 text-xs rounded-lg text-white"
-                                    style={{ backgroundColor: addingEx || !newExDebut || !newExFin ? '#9ca3af' : '#003152' }}>
+                            <button onClick={handleAddException} disabled={addingEx || !newExDebut || !newExFin} className="btn btn-primary btn-sm">
                                 {addingEx ? 'Envoi…' : 'Soumettre'}
                             </button>
                         </div>
@@ -581,15 +536,15 @@ function OngletDisponibilites() {
                     <div className="space-y-2">
                         {exceptions.map(ex => (
                             <div key={ex.id}
-                                 className="flex items-center justify-between px-4 py-3 border border-gray-100 rounded-xl bg-white">
+                                 className="flex items-center justify-between px-4 py-3 rounded-xl bg-white"
+                                 style={{ border: '1px solid var(--ht-border)' }}>
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-medium text-gray-800">{ex.type_label}</span>
-                                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                                            ex.valide
-                                                ? 'bg-green-50 text-green-700'
-                                                : 'bg-yellow-50 text-yellow-700'
-                                        }`}>
+                                        <span className="badge"
+                                              style={ex.valide
+                                                  ? { backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }
+                                                  : { backgroundColor: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' }}>
                                             {ex.valide ? '✓ Validé' : '⏳ En attente'}
                                         </span>
                                     </div>
@@ -601,7 +556,8 @@ function OngletDisponibilites() {
                                 </div>
                                 {!ex.valide && (
                                     <button onClick={() => handleDeleteException(ex.id)}
-                                            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">
+                                            className="text-xs px-2 py-1 rounded hover:bg-[var(--ht-danger-bg)]"
+                                            style={{ color: 'var(--ht-danger)' }}>
                                         Annuler
                                     </button>
                                 )}
@@ -625,10 +581,11 @@ function OngletContrat({ employe }: { employe: Record<string, unknown> }) {
     }
 
     // @ts-ignore
+    // @ts-ignore
     return (
         <div className="space-y-6">
-            <div className="p-4 bg-amber-50 rounded-xl">
-                <p className="text-xs text-amber-700">
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-warning-bg)' }}>
+                <p className="text-xs" style={{ color: 'var(--ht-warning)' }}>
                     🔒 Ces informations sont gérées par l'administration. Contactez votre responsable pour toute modification.
                 </p>
             </div>
@@ -641,18 +598,13 @@ function OngletContrat({ employe }: { employe: Record<string, unknown> }) {
                     ['Matricule', employe.matricule as string],
                     ['Service', employe.service_nom as string ?? '—'],
                     ['Spécialité', employe.specialite as string || '—'],
+                    ['Description du poste', employe.description_poste as string || '—'],
                 ].map(([label, val]) => (
                     <div key={label as string}>
                         <p className="text-xs text-gray-400">{label as string}</p>
                         <p className="text-sm font-semibold text-gray-900">{val as string}</p>
                     </div>
                 ))}
-                {employe.description_poste && (
-                    <div className="p-4 bg-white border border-gray-100 rounded-xl">
-                        <p className="text-xs text-gray-400 mb-2">Description du poste</p>
-                        <p className="text-sm text-gray-700 leading-relaxed">{employe.description_poste as string}</p>
-                    </div>
-                )}
             </div>
         </div>
     )
@@ -700,7 +652,7 @@ function OngletNotifications({ employe }: { employe: Record<string, unknown> }) 
             {Object.entries(notifs).map(([key, val]) => {
                 const cfg = NOTIF_LABELS[key as keyof typeof notifs]
                 return (
-                    <div key={key} className="flex items-center justify-between py-3 border-b border-gray-50 last:border-0">
+                    <div key={key} className="flex items-center justify-between py-3 border-b last:border-0" style={{ borderColor: 'var(--ht-border)' }}>
                         <div>
                             <p className="text-sm font-medium text-gray-800">{cfg.label}</p>
                             <p className="text-xs text-gray-400 mt-0.5">{cfg.desc}</p>
@@ -708,7 +660,7 @@ function OngletNotifications({ employe }: { employe: Record<string, unknown> }) 
                         <button
                             onClick={() => setNotifs(prev => ({ ...prev, [key]: !val }))}
                             className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
-                            style={{ backgroundColor: val ? '#003152' : '#d1d5db' }}
+                            style={{ backgroundColor: val ? 'var(--ht-primary)' : '#d1d5db' }}
                         >
                             <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
                                   style={{ left: val ? '22px' : '2px' }} />
@@ -719,9 +671,7 @@ function OngletNotifications({ employe }: { employe: Record<string, unknown> }) 
 
             {feedback && <Feedback type={feedback.type} message={feedback.msg} />}
 
-            <button onClick={handleSave} disabled={saving}
-                    className="px-5 py-2.5 rounded-xl text-sm font-medium text-white transition-colors"
-                    style={{ backgroundColor: saving ? '#9ca3af' : '#003152' }}>
+            <button onClick={handleSave} disabled={saving} className="btn btn-primary">
                 {saving ? 'Sauvegarde…' : 'Enregistrer les préférences'}
             </button>
         </div>
@@ -745,23 +695,25 @@ export default function Settings() {
 
     if (loading || !employe) {
         return (
-            <div className="min-h-screen bg-gray-50">
+            <div className="ht-page">
                 <Sidebar />
-                <div className="flex items-center justify-center h-64">
+                <div className="ht-page-content flex items-center justify-center h-64">
                     <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
-                         style={{ borderColor: '#003152', borderTopColor: 'transparent' }} />
+                         style={{ borderColor: 'var(--ht-primary)', borderTopColor: 'transparent' }} />
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="ht-page">
             <Sidebar />
-            <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-700">
-                ← Retour
-            </button>
-            <div className="max-w-5xl mx-auto px-6 py-8">
+
+            <div className="ht-page-content">
+                <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-700 mb-4">
+                    ← Retour
+                </button>
+
                 <div className="mb-6">
                     <h1 className="text-xl font-bold text-gray-900">Paramètres</h1>
                     <p className="text-sm text-gray-400 mt-1">
@@ -770,7 +722,7 @@ export default function Settings() {
                 </div>
 
                 <div className="flex gap-6">
-                    {/* Sidebar onglets */}
+                    {/* Onglets latéraux */}
                     <aside className="w-48 flex-shrink-0">
                         <nav className="space-y-1">
                             {ONGLETS.map(o => (
@@ -779,8 +731,8 @@ export default function Settings() {
                                     onClick={() => setOnglet(o.id)}
                                     className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left"
                                     style={onglet === o.id
-                                        ? { backgroundColor: '#003152', color: 'white', fontWeight: 600 }
-                                        : { color: '#6b7280' }
+                                        ? { backgroundColor: 'var(--ht-primary)', color: 'white', fontWeight: 600 }
+                                        : { color: 'var(--ht-text-secondary)' }
                                     }
                                 >
                                     <span>{o.icon}</span>
@@ -791,7 +743,7 @@ export default function Settings() {
                     </aside>
 
                     {/* Contenu */}
-                    <main className="flex-1 bg-white rounded-2xl border border-gray-100 p-6 min-h-96">
+                    <main className="ht-card ht-card-padded flex-1 min-h-96">
                         {onglet === 'profil'         && <OngletProfil employe={employe} photoUrl={photoUrl} onPhotoChange={setPhotoUrl} />}
                         {onglet === 'securite'       && <OngletSecurite />}
                         {onglet === 'signature'      && <OngletSignature employe={employe} />}

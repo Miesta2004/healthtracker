@@ -2,9 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
 import { getAntecedents, createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
-import { getServices } from '../api/services'
-import { getEmployes } from '../api/comptes'
-import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Service, Employe } from '../types'
+import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
@@ -16,7 +14,11 @@ import { getHospitalisations } from '../api/hospitalisations'
 import type { RendezVous, PassageUrgence, Hospitalisation } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonDetailPage } from '../components/Skeleton'
-//import Sidebar from '../components/NavBar'
+import Sidebar from '../components/layout/Sidebar'
+import {
+    Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight, MapPin,
+    Phone, User, Stethoscope
+} from 'lucide-react'
 
 // ─── Config analyses ────────────────────────────────────────────────────────
 const TYPES_ANALYSE: { value: TypeAnalyse; label: string }[] = [
@@ -33,36 +35,38 @@ const TYPES_ANALYSE: { value: TypeAnalyse; label: string }[] = [
     { value: 'parasite', label: 'Frottis / goutte épaisse (paludisme)' },
     { value: 'autre', label: 'Autre' },
 ]
-const STATUT_ANALYSE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    en_attente: { label: 'En attente', color: '#b45309', bg: '#fef3c7' },
-    en_cours: { label: 'En cours', color: '#1d4ed8', bg: '#dbeafe' },
-    terminee: { label: 'Terminée', color: '#166534', bg: '#dcfce7' },
-    annulee: { label: 'Annulée', color: '#6b7280', bg: '#f3f4f6' },
+
+// ─── Config statuts → classes badge-* (définies dans index.css) ─────────────
+const STATUT_ANALYSE_CONFIG: Record<string, { label: string; badge: string }> = {
+    en_attente: { label: 'En attente', badge: 'badge-warning' },
+    en_cours:   { label: 'En cours',   badge: 'badge-tint' },
+    terminee:   { label: 'Terminée',   badge: 'badge-success' },
+    annulee:    { label: 'Annulée',    badge: 'badge-muted' },
 }
 
-// ─── Config rendez-vous / urgences / hospitalisations (badges génériques) ────
-const STATUT_RDV_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    planifie: { label: 'Planifié', color: '#b45309', bg: '#fef3c7' },
-    confirme: { label: 'Confirmé', color: '#1d4ed8', bg: '#dbeafe' },
-    termine:  { label: 'Terminé',  color: '#166534', bg: '#dcfce7' },
-    annule:   { label: 'Annulé',   color: '#6b7280', bg: '#f3f4f6' },
-}
-const STATUT_URGENCE_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    en_attente:      { label: 'En attente',      color: '#b45309', bg: '#fef3c7' },
-    en_consultation: { label: 'En consultation', color: '#1d4ed8', bg: '#dbeafe' },
-    sorti:           { label: 'Sorti',           color: '#6b7280', bg: '#f3f4f6' },
-}
-const STATUT_HOSPIT_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
-    en_cours:  { label: 'En cours',         color: '#1d4ed8', bg: '#dbeafe' },
-    sortie:    { label: 'Sortie effectuée', color: '#166534', bg: '#dcfce7' },
-    transfert: { label: 'Transféré',        color: '#7c2d12', bg: '#fde68a' },
+const STATUT_RDV_CONFIG: Record<string, { label: string; badge: string }> = {
+    planifie: { label: 'Planifié', badge: 'badge-warning' },
+    confirme: { label: 'Confirmé', badge: 'badge-tint' },
+    termine:  { label: 'Terminé',  badge: 'badge-success' },
+    annule:   { label: 'Annulé',   badge: 'badge-muted' },
 }
 
-function StatutMini({ statut, config }: { statut: string; config: Record<string, { label: string; color: string; bg: string }> }) {
-    const cfg = config[statut] ?? { label: statut, color: '#6b7280', bg: '#f3f4f6' }
+const STATUT_URGENCE_CONFIG: Record<string, { label: string; badge: string }> = {
+    en_attente:      { label: 'En attente',      badge: 'badge-warning' },
+    en_consultation: { label: 'En consultation', badge: 'badge-tint' },
+    sorti:           { label: 'Sorti',           badge: 'badge-muted' },
+}
+
+const STATUT_HOSPIT_CONFIG: Record<string, { label: string; badge: string }> = {
+    en_cours:  { label: 'En cours',         badge: 'badge-tint' },
+    sortie:    { label: 'Sortie effectuée', badge: 'badge-success' },
+    transfert: { label: 'Transféré',        badge: 'badge-warning' },
+}
+
+function StatutMini({ statut, config }: { statut: string; config: Record<string, { label: string; badge: string }> }) {
+    const cfg = config[statut] ?? { label: statut, badge: 'badge-muted' }
     return (
-        <span className="text-[11px] px-2 py-1 rounded-full font-medium flex-shrink-0"
-              style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+        <span className={`badge ${cfg.badge} flex-shrink-0 uppercase tracking-wide text-[10px] font-semibold`}>
             {cfg.label}
         </span>
     )
@@ -76,16 +80,19 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
     familial:          'Antécédent familial',
     autre:             'Autre',
 }
+
+// Couleurs douces en thème clair, cohérentes avec la palette ht-*
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: '#0e7490',
-    chirurgie:         '#ea580c',
-    allergie:          '#dc2626',
-    familial:          '#9333ea',
-    autre:             '#6b7280',
+    maladie_chronique: 'border-blue-100 bg-blue-50 text-blue-700',
+    chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
+    allergie:          'border-red-100 bg-red-50 text-red-700',
+    familial:          'border-purple-100 bg-purple-50 text-purple-700',
+    autre:             'border-gray-200 bg-gray-50 text-gray-600',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function calcAge(dateStr: string) {
+    if (!dateStr) return 0
     const today = new Date()
     const birth = new Date(dateStr)
     let age = today.getFullYear() - birth.getFullYear()
@@ -106,24 +113,12 @@ function formatDateHeure(iso: string) {
     })
 }
 
-// ─── Badge tag affiché (allergie ou antécédent) ───────────────────────────────
-function MedTag({ label, color = '#003152' }: { label: string; color?: string }) {
-    return (
-        <span
-            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
-            style={{ backgroundColor: color + '15', color }}
-        >
-            {label}
-        </span>
-    )
-}
-
 // ─── Section info simple ──────────────────────────────────────────────────────
 function InfoRow({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
     return (
-        <div>
-            <p className="text-xs text-gray-400 mb-0.5">{label}</p>
-            <p className={`text-sm font-medium text-gray-900 ${mono ? 'font-mono' : ''}`}>{value}</p>
+        <div className="ht-info-row flex-col items-start gap-0.5">
+            <p className="ht-label mb-0">{label}</p>
+            <p className={`text-sm font-semibold ${mono ? 'ht-mono' : ''}`} style={{ color: 'var(--ht-text)' }}>{value || '—'}</p>
         </div>
     )
 }
@@ -133,20 +128,20 @@ function DeleteModal({ name, onConfirm, onCancel, loading }: {
     name: string; onConfirm: () => void; onCancel: () => void; loading: boolean
 }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-sm w-full mx-4">
-                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-2xl mb-4">🗑️</div>
-                <h3 className="text-base font-semibold text-gray-900 mb-1">Supprimer le dossier ?</h3>
-                <p className="text-sm text-gray-500 mb-6">
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm">
+                <div className="w-12 h-12 rounded-xl flex items-center justify-center mb-4" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
+                    <Trash2 size={24} />
+                </div>
+                <h3 className="ht-modal-title">Supprimer le dossier ?</h3>
+                <p className="ht-modal-subtitle">
                     Le dossier de <strong>{name}</strong> sera supprimé définitivement. Cette action est irréversible.
                 </p>
                 <div className="flex gap-3">
-                    <button onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                    <button onClick={onCancel} className="btn btn-secondary flex-1 justify-center">
                         Annuler
                     </button>
-                    <button onClick={onConfirm} disabled={loading}
-                            className="flex-1 px-4 py-2.5 bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white rounded-lg text-sm font-medium transition-colors">
+                    <button onClick={onConfirm} disabled={loading} className="btn btn-danger flex-1 justify-center">
                         {loading ? 'Suppression...' : 'Supprimer'}
                     </button>
                 </div>
@@ -154,18 +149,6 @@ function DeleteModal({ name, onConfirm, onCancel, loading }: {
         </div>
     )
 }
-
-// ─── Champ d'édition (mode édition pleine page, façon EmployeDetail) ─────────
-function EditField({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-        <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</label>
-            {children}
-        </div>
-    )
-}
-
-const inputCls = "w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-100 transition-all"
 
 // ─── Modal d'ajout d'un antécédent manuel ────────────────────────────────────
 function AddAntecedentModal({ onSave, onCancel, loading }: {
@@ -179,59 +162,49 @@ function AddAntecedentModal({ onSave, onCancel, loading }: {
     const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-base font-semibold text-gray-900 mb-4">Ajouter un antécédent</h3>
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-md space-y-4">
+                <h3 className="ht-modal-title mb-2">Ajouter un antécédent</h3>
                 <div className="space-y-4">
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Libellé *</label>
+                    <div className="ht-field">
+                        <label className="ht-label">Libellé *</label>
                         <input value={libelle} onChange={e => setLibelle(e.target.value)}
                                placeholder="Ex : Diabète type 2"
-                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                               onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                               onBlur={e => e.target.style.boxShadow = 'none'}
+                               className="ht-input"
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Catégorie</label>
+                    <div className="ht-field">
+                        <label className="ht-label">Catégorie</label>
                         <select value={type} onChange={e => setType(e.target.value as TypeAntecedent)}
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                                onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                onBlur={e => e.target.style.boxShadow = 'none'}
+                                className="ht-input"
                         >
                             {(Object.entries(TYPE_ANTECEDENT_LABELS) as [TypeAntecedent, string][]).map(([k, label]) => (
                                 <option key={k} value={k}>{label}</option>
                             ))}
                         </select>
                     </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Date de diagnostic</label>
+                    <div className="ht-field">
+                        <label className="ht-label">Date de diagnostic</label>
                         <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                               className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none"
-                               onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                               onBlur={e => e.target.style.boxShadow = 'none'}
+                               className="ht-input"
                         />
                     </div>
-                    <div>
-                        <label className="block text-xs text-gray-500 mb-1">Observations</label>
+                    <div className="ht-field">
+                        <label className="ht-label">Observations</label>
                         <textarea value={observations} onChange={e => setObservations(e.target.value)} rows={2}
                                   placeholder="Détails complémentaires..."
-                                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none resize-none"
-                                  onFocus={e => e.target.style.boxShadow = '0 0 0 2px #003152'}
-                                  onBlur={e => e.target.style.boxShadow = 'none'}
+                                  className="ht-input ht-textarea"
                         />
                     </div>
                 </div>
-                <div className="flex gap-3 mt-6">
-                    <button onClick={onCancel}
-                            className="flex-1 px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+                <div className="flex gap-3 pt-2">
+                    <button onClick={onCancel} className="btn btn-secondary flex-1 justify-center">
                         Annuler
                     </button>
                     <button
                         onClick={() => onSave({ libelle: libelle.trim(), type_antecedent: type, observations, date_diagnostic: date })}
                         disabled={!libelle.trim() || loading}
-                        className="flex-1 px-4 py-2.5 text-white rounded-lg text-sm font-medium disabled:opacity-50"
-                        style={{ backgroundColor: '#003152' }}
+                        className="btn btn-primary flex-1 justify-center"
                     >
                         {loading ? 'Ajout...' : 'Ajouter'}
                     </button>
@@ -251,61 +224,46 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
     const actifs = antecedents.filter(a => a.statut === 'actif')
 
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Antécédents médicaux</h2>
+        <div className="ht-card ht-card-padded-sm">
+            <div className="ht-card-header !px-0 !pt-0 mb-4">
+                <h2 className="flex-1">Antécédents médicaux</h2>
                 <div className="flex items-center gap-2">
                     {actifs.length > 0 && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: '#003152' }}>
-                            {actifs.length}
+                        <span className="badge badge-tint">
+                            {actifs.length} actif{actifs.length > 1 ? 's' : ''}
                         </span>
                     )}
-                    <button onClick={onAdd}
-                            className="text-xs font-medium px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                        + Ajouter
+                    <button onClick={onAdd} className="btn btn-secondary btn-sm">
+                        <Plus size={12} /> Ajouter
                     </button>
                 </div>
             </div>
             {antecedents.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucun antécédent renseigné</span></div>
+                <div className="ht-empty">Aucun antécédent renseigné</div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {antecedents.map(a => (
-                        <div key={a.id}
-                             className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg"
-                             style={{ backgroundColor: TYPE_ANTECEDENT_COLORS[a.type_antecedent] + '0D' }}
-                        >
+                        <div key={a.id} className={`flex items-start justify-between gap-3 px-3 py-2.5 rounded-xl border ${TYPE_ANTECEDENT_COLORS[a.type_antecedent]}`}>
                             <div className="min-w-0">
                                 <div className="flex items-center gap-2 flex-wrap">
-                                    <span className="text-sm font-medium" style={{ color: TYPE_ANTECEDENT_COLORS[a.type_antecedent] }}>
-                                        {a.libelle}
-                                    </span>
-                                    <span className="text-[10px] uppercase tracking-wide text-gray-400">
+                                    <span className="text-sm font-bold">{a.libelle}</span>
+                                    <span className="text-[10px] uppercase tracking-wider opacity-70 font-medium">
                                         {TYPE_ANTECEDENT_LABELS[a.type_antecedent]}
                                     </span>
                                 </div>
-                                {a.observations && (
-                                    <p className="text-xs text-gray-400 mt-0.5">{a.observations}</p>
-                                )}
-                                <p className="text-[11px] text-gray-300 mt-0.5">
-                                    Depuis le {new Date(a.date_diagnostic).toLocaleDateString('fr-FR')}
-                                    {a.consultation_source && ' · via consultation'}
+                                {a.observations && <p className="text-xs opacity-80 mt-1">{a.observations}</p>}
+                                <p className="text-[11px] opacity-60 mt-0.5">
+                                    Diagnostic : {new Date(a.date_diagnostic).toLocaleDateString('fr-FR')}
+                                    {a.consultation_source && ' · Via consultation'}
                                 </p>
                             </div>
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
                                 <button onClick={() => onToggleStatut(a)}
-                                        title={a.statut === 'actif' ? 'Marquer comme résolu' : 'Marquer comme actif'}
-                                        className="text-[11px] px-2 py-1 rounded-full font-medium transition-colors"
-                                        style={a.statut === 'actif'
-                                            ? { backgroundColor: TYPE_ANTECEDENT_COLORS[a.type_antecedent], color: 'white' }
-                                            : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
-                                        }>
+                                        className={`badge ${a.statut === 'actif' ? 'badge-danger' : 'badge-muted'} cursor-pointer`}>
                                     {a.statut === 'actif' ? 'Actif' : 'Résolu'}
                                 </button>
-                                <button onClick={() => onDelete(a)}
-                                        title="Supprimer"
-                                        className="text-gray-300 hover:text-red-500 transition-colors px-1.5">
-                                    ✕
+                                <button onClick={() => onDelete(a)} className="p-1 rounded-md hover:bg-black/5 transition-colors" style={{ color: 'var(--ht-text-muted)' }}>
+                                    <X size={14} />
                                 </button>
                             </div>
                         </div>
@@ -316,7 +274,6 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
     )
 }
 
-
 // ─── Panel historique des analyses ────────────────────────────────────────────
 function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
     demandes: DemandeAnalyse[]
@@ -325,54 +282,45 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
     onVoirResultats: (d: DemandeAnalyse) => void
 }) {
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Analyses de laboratoire</h2>
+        <div className="ht-card ht-card-padded-sm">
+            <div className="ht-card-header !px-0 !pt-0 mb-4">
+                <h2 className="flex-1">Analyses de laboratoire</h2>
                 <div className="flex items-center gap-2">
                     {demandes.length > 0 && (
-                        <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: '#003152' }}>
-                            {demandes.length}
-                        </span>
+                        <span className="badge badge-muted">{demandes.length}</span>
                     )}
                     {canRequest && (
-                        <button onClick={onRequest}
-                                className="text-xs font-medium px-2.5 py-1 rounded-full border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
-                            + Demander
+                        <button onClick={onRequest} className="btn btn-secondary btn-sm">
+                            <Plus size={12} /> Demander
                         </button>
                     )}
                 </div>
             </div>
             {demandes.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucune demande d'analyse</span></div>
+                <div className="ht-empty">Aucune demande d'analyse</div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {demandes.map(d => {
-                        const cfg = STATUT_ANALYSE_CONFIG[d.statut] ?? STATUT_ANALYSE_CONFIG.en_attente
                         const isTerminee = d.statut === 'terminee'
                         return (
                             <div key={d.id}
                                  onClick={() => isTerminee && onVoirResultats(d)}
-                                 className={`flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50 ${isTerminee ? 'cursor-pointer hover:bg-gray-100 transition-colors' : ''}`}>
+                                 className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${isTerminee ? 'cursor-pointer hover:border-gray-300 transition-colors' : ''}`}
+                                 style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
-                                        <span className="text-sm font-medium text-gray-800">
-                                            {d.type_label || d.type_analyse}
-                                        </span>
+                                        <span className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>{d.type_label || d.type_analyse}</span>
                                         {d.urgence === 'urgente' && (
-                                            <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full text-white" style={{ backgroundColor: '#b91c1c' }}>
-                                                🚨 Urgente
+                                            <span className="badge badge-danger text-[9px] uppercase tracking-wide">
+                                                Urgent
                                             </span>
                                         )}
                                     </div>
-                                    <p className="text-[11px] text-gray-300 mt-0.5">
-                                        Demandée le {new Date(d.date_demande).toLocaleDateString('fr-FR')}
-                                        {d.demandeur_nom && ` · ${d.demandeur_nom}`}
+                                    <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                        Le {new Date(d.date_demande).toLocaleDateString('fr-FR')} {d.demandeur_nom && `· Dr. ${d.demandeur_nom}`}
                                     </p>
                                 </div>
-                                <span className="text-[11px] px-2 py-1 rounded-full font-medium flex-shrink-0"
-                                      style={{ color: cfg.color, backgroundColor: cfg.bg }}>
-                                    {cfg.label}
-                                </span>
+                                <StatutMini statut={d.statut} config={STATUT_ANALYSE_CONFIG} />
                             </div>
                         )
                     })}
@@ -386,26 +334,24 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
 function RendezVousPanel({ rendezVous, onVoirTous }: { rendezVous: RendezVous[]; onVoirTous: () => void }) {
     const tries = [...rendezVous].sort((a, b) => new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime())
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">
-                    Rendez-vous {tries.length > 0 && `(${tries.length})`}
-                </h2>
+        <div className="ht-card ht-card-padded-sm">
+            <div className="ht-card-header !px-0 !pt-0 mb-4">
+                <h2 className="flex-1">Rendez-vous</h2>
                 {tries.length > 0 && (
-                    <button onClick={onVoirTous} className="text-xs font-medium text-gray-400 hover:text-gray-700">
-                        Voir dans l'agenda →
+                    <button onClick={onVoirTous} className="text-xs font-medium transition-colors flex items-center gap-0.5" style={{ color: 'var(--ht-primary)' }}>
+                        Agenda <ChevronRight size={14} />
                     </button>
                 )}
             </div>
             {tries.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucun rendez-vous enregistré</span></div>
+                <div className="ht-empty">Aucun rendez-vous enregistré</div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {tries.map(r => (
-                        <div key={r.id} className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50">
+                        <div key={r.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
                             <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{r.motif}</p>
-                                <p className="text-[11px] text-gray-300 mt-0.5">{formatDateHeure(r.date_heure)}</p>
+                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{r.motif}</p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>{formatDateHeure(r.date_heure)}</p>
                             </div>
                             <StatutMini statut={r.statut} config={STATUT_RDV_CONFIG} />
                         </div>
@@ -420,21 +366,18 @@ function RendezVousPanel({ rendezVous, onVoirTous }: { rendezVous: RendezVous[];
 function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
     const tries = [...passages].sort((a, b) => new Date(b.date_arrivee).getTime() - new Date(a.date_arrivee).getTime())
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                Passages aux urgences {tries.length > 0 && `(${tries.length})`}
-            </h2>
+        <div className="ht-card ht-card-padded-sm">
+            <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Passages aux urgences</h2>
             {tries.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucun passage aux urgences</span></div>
+                <div className="ht-empty">Aucun passage aux urgences</div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {tries.map(p => (
-                        <div key={p.id} className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50">
+                        <div key={p.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
                             <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">{p.motif}</p>
-                                <p className="text-[11px] text-gray-300 mt-0.5">
-                                    {formatDateHeure(p.date_arrivee)}
-                                    {p.medecin_nom && ` · Dr ${p.medecin_nom}`}
+                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{p.motif}</p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                    {formatDateHeure(p.date_arrivee)} {p.medecin_nom && `· Dr. ${p.medecin_nom}`}
                                 </p>
                             </div>
                             <StatutMini statut={p.statut} config={STATUT_URGENCE_CONFIG} />
@@ -450,25 +393,21 @@ function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
 function HospitalisationsPanel({ hospitalisations }: { hospitalisations: Hospitalisation[] }) {
     const tries = [...hospitalisations].sort((a, b) => new Date(b.date_admission).getTime() - new Date(a.date_admission).getTime())
     return (
-        <div className="bg-white rounded-xl border border-gray-100 p-5">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-                Hospitalisations {tries.length > 0 && `(${tries.length})`}
-            </h2>
+        <div className="ht-card ht-card-padded-sm">
+            <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Hospitalisations</h2>
             {tries.length === 0 ? (
-                <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucune hospitalisation enregistrée</span></div>
+                <div className="ht-empty">Aucune hospitalisation enregistrée</div>
             ) : (
-                <div className="space-y-2">
+                <div className="space-y-2.5">
                     {tries.map(h => (
-                        <div key={h.id} className="flex items-start justify-between gap-3 px-3 py-2 rounded-lg bg-gray-50">
+                        <div key={h.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
                             <div className="min-w-0">
-                                <p className="text-sm font-medium text-gray-800 truncate">
-                                    {h.motif_admission || 'Motif non précisé'}
+                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{h.motif_admission || 'Motif non précisé'}</p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
+                                    {h.service_nom && `${h.service_nom} `}
+                                    {h.chambre && `· Ch. ${h.chambre}`}{h.lit && ` · Lit ${h.lit}`}
                                 </p>
-                                <p className="text-[11px] text-gray-300 mt-0.5">
-                                    {h.service_nom && `${h.service_nom} · `}
-                                    {h.chambre && `Chambre ${h.chambre}`}{h.lit && ` · Lit ${h.lit}`}
-                                </p>
-                                <p className="text-[11px] text-gray-300 mt-0.5">
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
                                     Admis le {formatDate(h.date_admission)}
                                     {h.date_sortie && ` · Sorti le ${formatDate(h.date_sortie)}`}
                                 </p>
@@ -494,49 +433,49 @@ function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
     const [notes, setNotes] = useState('')
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-base font-semibold text-gray-900">Demander une analyse</h3>
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-lg space-y-4">
+                <h3 className="ht-modal-title">Demander une analyse</h3>
 
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Type d'analyse</label>
+                <div className="ht-field">
+                    <label className="ht-label">Type d'analyse</label>
                     <select value={typeAnalyse} onChange={e => setTypeAnalyse(e.target.value as TypeAnalyse)}
-                            className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none">
+                            className="ht-input">
                         {TYPES_ANALYSE.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                     </select>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Urgence</label>
-                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-sm">
-                        <button type="button" onClick={() => setUrgence('normale')} className="flex-1 py-2 transition-colors"
-                                style={urgence === 'normale' ? { backgroundColor: '#003152', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
+                <div className="ht-field">
+                    <label className="ht-label">Urgence</label>
+                    <div className="flex rounded-xl border overflow-hidden text-sm p-1 gap-1" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+                        <button type="button" onClick={() => setUrgence('normale')}
+                                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${urgence === 'normale' ? 'badge-tint' : ''}`}
+                                style={urgence === 'normale' ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' } : { color: 'var(--ht-text-muted)' }}>
                             Normale
                         </button>
-                        <button type="button" onClick={() => setUrgence('urgente')} className="flex-1 py-2 transition-colors"
-                                style={urgence === 'urgente' ? { backgroundColor: '#b91c1c', color: 'white' } : { backgroundColor: 'white', color: '#6b7280' }}>
-                            🚨 Urgente
+                        <button type="button" onClick={() => setUrgence('urgente')}
+                                className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                style={urgence === 'urgente' ? { backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' } : { color: 'var(--ht-text-muted)' }}>
+                            Urgent
                         </button>
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes pour le laboratoire (optionnel)</label>
+                <div className="ht-field">
+                    <label className="ht-label">Notes pour le laboratoire (optionnel)</label>
                     <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                              className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm focus:outline-none"
+                              className="ht-input ht-textarea"
                               placeholder="Contexte clinique, suspicion diagnostique..." />
                 </div>
 
-                {error && <p className="text-sm text-red-500">{error}</p>}
+                {error && <p className="text-xs font-medium" style={{ color: 'var(--ht-danger)' }}>{error}</p>}
 
                 <div className="flex gap-3 pt-2">
-                    <button onClick={onCancel} disabled={loading}
-                            className="flex-1 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                    <button onClick={onCancel} disabled={loading} className="btn btn-secondary flex-1 justify-center">
                         Annuler
                     </button>
                     <button onClick={() => onSave({ type_analyse: typeAnalyse, urgence, notes_medecin: notes })} disabled={loading}
-                            className="flex-1 py-2.5 rounded-lg text-sm font-medium text-white transition-colors disabled:opacity-60"
-                            style={{ backgroundColor: '#003152' }}>
+                            className="btn btn-primary flex-1 justify-center">
                         {loading ? 'Envoi…' : 'Envoyer la demande'}
                     </button>
                 </div>
@@ -548,549 +487,505 @@ function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
 // ─── Modale : voir les résultats d'une analyse terminée ────────────────────────
 function ResultatsAnalyseModal({ demande, onClose }: { demande: DemandeAnalyse; onClose: () => void }) {
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
-            <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full space-y-4 max-h-[90vh] overflow-y-auto">
-                <div>
-                    <h3 className="text-base font-semibold text-gray-900">{demande.type_label || demande.type_analyse}</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                        Résultat du {demande.date_resultat ? new Date(demande.date_resultat).toLocaleDateString('fr-FR') : '—'}
-                        {demande.laborantin_nom && ` · ${demande.laborantin_nom}`}
-                    </p>
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-lg space-y-4">
+                <div className="flex items-start justify-between gap-4 pb-3" style={{ borderBottom: '1px solid var(--ht-border)' }}>
+                    <div>
+                        <h3 className="ht-modal-title">{demande.type_label || demande.type_analyse}</h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                            Résultat du {demande.date_resultat ? new Date(demande.date_resultat).toLocaleDateString('fr-FR') : '—'} {demande.laborantin_nom && `· ${demande.laborantin_nom}`}
+                        </p>
+                    </div>
+                    <button onClick={onClose} className="btn btn-ghost btn-sm !p-1.5">
+                        <X size={16} />
+                    </button>
                 </div>
                 <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Résultats</label>
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2.5">
+                    <label className="ht-label">Résultats</label>
+                    <p className="text-sm whitespace-pre-wrap rounded-xl px-3 py-2.5 border" style={{ color: 'var(--ht-text)', backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border-input)' }}>
                         {demande.resultats || '—'}
                     </p>
                 </div>
                 {demande.valeurs_normales && (
                     <div>
-                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Valeurs normales de référence</label>
-                        <p className="text-sm text-gray-500 whitespace-pre-wrap bg-gray-50 rounded-lg px-3 py-2.5">
+                        <label className="ht-label">Valeurs de référence</label>
+                        <p className="text-sm whitespace-pre-wrap rounded-xl px-3 py-2.5 ht-mono border" style={{ color: 'var(--ht-text-secondary)', backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border-input)' }}>
                             {demande.valeurs_normales}
                         </p>
                     </div>
                 )}
-                {demande.notes_medecin && (
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-1.5">Notes de la demande</label>
-                        <p className="text-sm text-gray-500 whitespace-pre-wrap">{demande.notes_medecin}</p>
-                    </div>
-                )}
-                <button onClick={onClose}
-                        className="w-full py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
-                        style={{ backgroundColor: '#003152' }}>
-                    Fermer
-                </button>
             </div>
         </div>
     )
 }
 
-// ─── Page principale ──────────────────────────────────────────────────────────
+// ─── PAGE PRINCIPALE DETAIL PATIENT ───────────────────────────────────────────
 export default function PatientDetail() {
-    const { id } = useParams<{ id: string }>()
+    const {id} = useParams<{ id: string }>()
     const navigate = useNavigate()
+    const {hasRole} = useAuth()
+
+    const canEdit = hasRole('admin', 'secretaire', 'medecin')
+    const canDelete = hasRole('admin')
+    const canRequestLab = hasRole('admin', 'medecin')
+
     const [patient, setPatient] = useState<Patient | null>(null)
-    const [loading, setLoading] = useState(true)
-    const [editing, setEditing] = useState(false)
-    const [saving, setSaving] = useState(false)
-    const [showDelete, setShowDelete] = useState(false)
-    const [deleteLoading, setDeleteLoading] = useState(false)
-    const [saveError, setSaveError] = useState('')
-    const [saveSuccess, setSaveSuccess] = useState(false)
     const [signes, setSignes] = useState<SignesVitaux[]>([])
-    const [consultations, setConsultations] = useState<Consultation[]>([])
     const [antecedents, setAntecedents] = useState<Antecedent[]>([])
-    const [showAddAntecedent, setShowAddAntecedent] = useState(false)
-    const [antecedentLoading, setAntecedentLoading] = useState(false)
-    const [services, setServices] = useState<Service[]>([])
-    const [medecins, setMedecins] = useState<Employe[]>([])
-    const [demandesAnalyses, setDemandesAnalyses] = useState<DemandeAnalyse[]>([])
-    const [showDemandeAnalyse, setShowDemandeAnalyse] = useState(false)
-    const [demandeLoading, setDemandeLoading] = useState(false)
-    const [demandeError, setDemandeError] = useState('')
-    const [resultatsAffiches, setResultatsAffiches] = useState<DemandeAnalyse | null>(null)
-    const [rendezVous, setRendezVous] = useState<RendezVous[]>([])
+    const [consultations, setConsultations] = useState<Consultation[]>([])
+    const [demandes, setDemandes] = useState<DemandeAnalyse[]>([])
+    const [rdvs, setRdvs] = useState<RendezVous[]>([])
     const [urgences, setUrgences] = useState<PassageUrgence[]>([])
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[]>([])
-    const { hasRole } = useAuth()
-    const canRequestAnalyse = hasRole('admin', 'medecin')
-    const canSeeAnalyses = hasRole('admin', 'medecin')
 
-    // Formulaire d'édition (mode pleine page, pas une petite modale)
-    const [form, setForm] = useState<Partial<Patient>>({})
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+
+    // Modales
+    const [showDelete, setShowDelete] = useState(false)
+    const [deleteLoading, setDeleteLoading] = useState(false)
+    const [showAddAntecedent, setShowAddAntecedent] = useState(false)
+    const [antecedentLoading, setAntecedentLoading] = useState(false)
+    const [showLabModal, setShowLabModal] = useState(false)
+    const [labLoading, setLabLoading] = useState(false)
+    const [labError, setLabError] = useState('')
+    const [selectedAnalyse, setSelectedAnalyse] = useState<DemandeAnalyse | null>(null)
+
+    // Mode édition complète du profil (façon EmployeDetail)
+    const [isEditing, setIsEditing] = useState(false)
+    const [editForm, setEditForm] = useState<Partial<Patient>>({})
+    const [updateLoading, setUpdateLoading] = useState(false)
+    const [updateError] = useState('')
+    const [services] = useState<{id: number; nom: string}[]>([])
+    const [medecins] = useState<{id: number; nom: string; prenom: string}[]>([])
 
     useEffect(() => {
         if (!id) return
-        getPatient(Number(id))
-            .then(setPatient)
-            .catch(() => navigate('/dashboard'))
+        const patientId = Number(id)
+        setLoading(true)
+        Promise.all([
+            getPatient(patientId),
+            getSignesVitaux(patientId).catch(() => []),
+            getAntecedents(patientId).catch(() => []),
+            getConsultations(patientId).catch(() => []),
+            getDemandesPatient(patientId).catch(() => []),
+            getRendezVousPatient(patientId).catch(() => []),
+            getUrgencesPatient(patientId).catch(() => []),
+            getHospitalisations(patientId).catch(() => [])
+        ])
+            .then(([p, s, a, c, d, r, u, h]) => {
+                setPatient(p)
+                setEditForm(p)
+                setSignes(s)
+                setAntecedents(a)
+                setConsultations(c)
+                setDemandes(d)
+                setRdvs(r)
+                setUrgences(u)
+                setHospitalisations(h)
+                setError('')
+            })
+            .catch(() => {
+                setError("Impossible de charger les données du patient.")
+            })
             .finally(() => setLoading(false))
-        getSignesVitaux(Number(id)).then(setSignes).catch(() => {})
-        getConsultations(Number(id)).then(setConsultations).catch(() => {})
-        getAntecedents(Number(id)).then(setAntecedents).catch(() => {})
-        getServices().then(setServices).catch(() => {})
-        getEmployes().then(emps => setMedecins(emps.filter(e => e.role === 'medecin' && e.actif))).catch(() => {})
-        getRendezVousPatient(Number(id)).then(setRendezVous).catch(() => {})
-        getUrgencesPatient(Number(id)).then(setUrgences).catch(() => {})
-        getHospitalisations(Number(id)).then(setHospitalisations).catch(() => {})
-        if (canSeeAnalyses) getDemandesPatient(Number(id)).then(setDemandesAnalyses).catch(() => {})
     }, [id])
 
-    const handleDemandeAnalyse = async (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => {
-        if (!patient) return
-        setDemandeLoading(true)
-        setDemandeError('')
-        try {
-            const created = await createDemande({ ...data, patient: patient.id })
-            setDemandesAnalyses(prev => [created, ...prev])
-            setShowDemandeAnalyse(false)
-        } catch {
-            setDemandeError("Erreur lors de l'enregistrement de la demande.")
-        } finally {
-            setDemandeLoading(false)
-        }
-    }
-
-    const startEdit = () => {
-        if (!patient) return
-        setForm({
-            nom: patient.nom,
-            prenom: patient.prenom,
-            date_naissance: patient.date_naissance,
-            sexe: patient.sexe,
-            telephone: patient.telephone ?? '',
-            adresse: patient.adresse ?? '',
-            groupe_sanguin: patient.groupe_sanguin ?? '',
-            allergies: patient.allergies ?? '',
-            service: patient.service ?? null,
-            medecin_referent: patient.medecin_referent ?? null,
-            actif: patient.actif,
-            photo_path: patient.photo_path ?? '',
-        })
-        setSaveError('')
-        setEditing(true)
-    }
-
-    const cancelEdit = () => { setEditing(false); setSaveError('') }
-
-    const set = (key: keyof Patient, value: unknown) =>
-        setForm(f => ({ ...f, [key]: value }))
-
-    const refreshAntecedents = () => {
-        if (id) getAntecedents(Number(id)).then(setAntecedents)
-    }
-
-    const handleAddAntecedent = async (data: { libelle: string; type_antecedent: TypeAntecedent; observations: string; date_diagnostic: string }) => {
-        if (!patient) return
-        setAntecedentLoading(true)
-        try {
-            await createAntecedent({ ...data, patient: patient.id })
-            refreshAntecedents()
-            setShowAddAntecedent(false)
-        } catch {
-            setSaveError("Erreur lors de l'ajout de l'antécédent")
-        } finally {
-            setAntecedentLoading(false)
-        }
-    }
-
-    const handleToggleStatutAntecedent = async (a: Antecedent) => {
-        const nouveauStatut: StatutAntecedent = a.statut === 'actif' ? 'resolu' : 'actif'
-        try {
-            const updated = await updateAntecedent(a.id, { statut: nouveauStatut })
-            setAntecedents(prev => prev.map(x => x.id === a.id ? updated : x))
-        } catch {
-            setSaveError("Erreur lors de la mise à jour de l'antécédent")
-        }
-    }
-
-    const handleDeleteAntecedent = async (a: Antecedent) => {
-        if (!window.confirm(`Supprimer définitivement l'antécédent "${a.libelle}" ?`)) return
-        try {
-            await deleteAntecedent(a.id)
-            setAntecedents(prev => prev.filter(x => x.id !== a.id))
-        } catch {
-            setSaveError("Erreur lors de la suppression de l'antécédent")
-        }
-    }
-
-    const handleSave = async () => {
-        if (!patient) return
-        setSaving(true)
-        setSaveError('')
-        try {
-            const res = await updatePatient(patient.id, form)
-            setPatient(res)
-            setEditing(false)
-            setSaveSuccess(true)
-            setTimeout(() => setSaveSuccess(false), 3000)
-        } catch {
-            setSaveError('Erreur lors de la mise à jour. Vérifiez les informations.')
-        } finally {
-            setSaving(false)
-        }
-    }
-
     const handleDelete = async () => {
-        if (!patient) return
+        if (!id || !patient) return
         setDeleteLoading(true)
         try {
-            await deletePatient(patient.id)
-            navigate('/dashboard')
+            await deletePatient(Number(id))
+            navigate('/patients')
         } catch {
+            alert("Erreur lors de la suppression.")
+        } finally {
             setDeleteLoading(false)
             setShowDelete(false)
         }
     }
 
-    if (loading) return (
-        <div className="min-h-screen bg-gray-50">
-            <SkeletonDetailPage />
-        </div>
-    )
+    const handleSaveProfile = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!id || !patient) return
+        setUpdateLoading(true)
+        try {
+            const updated = await updatePatient(Number(id), editForm)
+            setPatient(updated)
+            setIsEditing(false)
+        } catch {
+            alert("Erreur lors de la mise à jour du profil.")
+        } finally {
+            setUpdateLoading(false)
+        }
+    }
 
-    if (!patient) return null
+    const handleAddAntecedent = async (data: any) => {
+        if (!id) return
+        setAntecedentLoading(true)
+        try {
+            const res = await createAntecedent({...data, patient: parseInt(id)})
+            setAntecedents([res, ...antecedents])
+            setShowAddAntecedent(false)
+        } catch {
+            alert("Erreur lors de l'ajout de l'antécédent.")
+        } finally {
+            setAntecedentLoading(false)
+        }
+    }
 
-    const age = calcAge(patient.date_naissance)
-    const allergiesList = patient.allergies
-        ? patient.allergies.split(',').map(s => s.trim()).filter(Boolean)
-        : []
+    const handleToggleAntecedentStatut = async (a: Antecedent) => {
+        const nextStatut: StatutAntecedent = a.statut === 'actif' ? 'resolu' : 'actif'
+        try {
+            const updated = await updateAntecedent(a.id, {statut: nextStatut})
+            setAntecedents(antecedents.map(item => item.id === a.id ? updated : item))
+        } catch {
+            alert("Erreur lors du changement de statut.")
+        }
+    }
 
-    return (
-        <div className="min-h-screen bg-gray-50">
+    const handleDeleteAntecedent = async (a: Antecedent) => {
+        if (!confirm("Supprimer cet antécédent ?")) return
+        try {
+            await deleteAntecedent(a.id)
+            setAntecedents(antecedents.filter(item => item.id !== a.id))
+        } catch {
+            alert("Erreur lors de la suppression.")
+        }
+    }
 
-            {/* Modals */}
-            {showDelete && (
-                <DeleteModal
-                    name={`${patient.prenom} ${patient.nom}`}
-                    onConfirm={handleDelete}
-                    onCancel={() => setShowDelete(false)}
-                    loading={deleteLoading}
-                />
-            )}
-            {showAddAntecedent && (
-                <AddAntecedentModal
-                    onSave={handleAddAntecedent}
-                    onCancel={() => setShowAddAntecedent(false)}
-                    loading={antecedentLoading}
-                />
-            )}
-            {showDemandeAnalyse && (
-                <DemandeAnalyseModal
-                    onSave={handleDemandeAnalyse}
-                    onCancel={() => { setShowDemandeAnalyse(false); setDemandeError('') }}
-                    loading={demandeLoading}
-                    error={demandeError}
-                />
-            )}
-            {resultatsAffiches && (
-                <ResultatsAnalyseModal
-                    demande={resultatsAffiches}
-                    onClose={() => setResultatsAffiches(null)}
-                />
-            )}
+    const handleCreateLabDemande = async (data: any) => {
+        if (!id) return
+        setLabLoading(true)
+        setLabError('')
+        try {
+            const res = await createDemande({...data, patient: parseInt(id)})
+            setDemandes([res, ...demandes])
+            setShowLabModal(false)
+        } catch {
+            setLabError("Échec de la création de la demande.")
+        } finally {
+            setLabLoading(false)
+        }
+    }
 
-            {/* Sidebar */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
-                <button onClick={() => navigate('/dashboard')}
-                        className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
-                    ← Retour
-                </button>
-                <span className="text-gray-200">|</span>
-                <span className="text-sm font-medium text-gray-900">{patient.prenom} {patient.nom}</span>
-                <div className="ml-auto flex items-center gap-2">
-                    {saveSuccess && (
-                        <span className="text-xs text-green-600 font-medium px-3 py-1.5 bg-green-50 rounded-full">
-                            ✓ Dossier mis à jour
-                        </span>
-                    )}
-                    {saveError && (
-                        <span className="text-xs text-red-600 font-medium px-3 py-1.5 bg-red-50 rounded-full">
-                            {saveError}
-                        </span>
-                    )}
-                    {!editing && (
-                        <button onClick={startEdit}
-                                className="px-4 py-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
-                            ✏️ Modifier
-                        </button>
-                    )}
-                    <button onClick={() => setShowDelete(true)}
-                            className="px-4 py-2 text-sm font-medium rounded-lg border border-red-100 text-red-500 hover:bg-red-50 transition-colors">
-                        🗑️
+    if (loading) return <SkeletonDetailPage/>
+    if (error || !patient) {
+        return (
+            <div className="ht-page">
+                <Sidebar/>
+                <div className="ht-page-content flex flex-col items-center justify-center min-h-screen space-y-4">
+                    <p className="text-sm font-medium"
+                       style={{color: 'var(--ht-text-secondary)'}}>{error || "Patient introuvable."}</p>
+                    <button onClick={() => navigate('/patients')} className="btn btn-secondary btn-sm">
+                        <ArrowLeft size={14}/> Retour à la liste
                     </button>
                 </div>
-            </nav>
+            </div>
+        )
+    }
 
-            <div className="max-w-6xl mx-auto px-6 py-8 space-y-6">
+    return (
+        <div className="ht-page">
+            <Sidebar/>
 
-                {/* ── Header patient ── */}
-                <div className="bg-white rounded-2xl border border-gray-100 p-6">
-                    <div className="flex items-start gap-5">
-                        {patient.photo_path ? (
-                            <img
-                                src={patient.photo_path}
-                                alt={`${patient.prenom} ${patient.nom}`}
-                                className="w-20 h-20 rounded-2xl object-cover flex-shrink-0"
-                                onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
-                            />
-                        ) : (
-                            <div
-                                className="w-20 h-20 rounded-2xl flex items-center justify-center text-2xl font-bold text-white flex-shrink-0"
-                                style={{ backgroundColor: '#003152' }}
-                            >
-                                {patient.prenom[0]}{patient.nom[0]}
-                            </div>
-                        )}
+            <main className="ht-page-content max-w-7xl space-y-6">
 
-                        <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-4">
-                                <div>
-                                    <h1 className="text-2xl font-bold text-gray-900">
-                                        {patient.prenom} {patient.nom}
-                                    </h1>
-                                    <p className="text-gray-400 text-sm mt-0.5">
-                                        {age} ans · {patient.sexe === 'M' ? 'Masculin' : 'Féminin'} · Né(e) le {formatDate(patient.date_naissance)}
-                                    </p>
-                                </div>
-                                <span
-                                    className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-medium"
-                                    style={patient.actif
-                                        ? { backgroundColor: '#003152', color: 'white' }
-                                        : { backgroundColor: '#f3f4f6', color: '#9ca3af' }
-                                    }
-                                >
-                                    {patient.actif ? '● Actif' : '○ Inactif'}
-                                </span>
-                            </div>
+                {/* ── Fil d'Ariane & Actions Générales ── */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4"
+                     style={{borderBottom: '1px solid var(--ht-border)'}}>
+                    <button onClick={() => navigate('/patients')}
+                            className="flex items-center gap-1.5 text-xs font-medium transition-colors w-fit"
+                            style={{color: 'var(--ht-text-secondary)'}}>
+                        <ArrowLeft size={14}/> Revenir aux patients
+                    </button>
 
-                            <div className="flex flex-wrap gap-2 mt-3">
-                                <span className="px-3 py-1 rounded-full text-xs font-semibold"
-                                      style={patient.groupe_sanguin
-                                          ? { backgroundColor: '#ADDFF1', color: '#003152' }
-                                          : { backgroundColor: '#f3f4f6', color: '#9ca3af' }}>
-                                    🩸 {patient.groupe_sanguin ? `Groupe ${patient.groupe_sanguin}` : 'Groupe sanguin non renseigné'}
-                                </span>
-                                {patient.telephone && (
-                                    <span className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
-                                        📞 {patient.telephone}
-                                    </span>
-                                )}
-                                {patient.adresse && (
-                                    <span className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-600">
-                                        📍 {patient.adresse}
-                                    </span>
-                                )}
-                                <span className="px-3 py-1 rounded-full text-xs bg-gray-100 text-gray-500">
-                                    Dossier #{patient.id} · créé le {formatDate(patient.date_creation)}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* ── Grille infos médicales ── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-xl border border-gray-100 p-5">
-                        <div className="flex items-center justify-between mb-3">
-                            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Allergies connues</h2>
-                            {allergiesList.length > 0 && (
-                                <span className="text-xs font-medium px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: '#e53e3e' }}>
-                                    ⚠ {allergiesList.length}
-                                </span>
+                    {!isEditing && (
+                        <div className="flex items-center gap-2">
+                            {canEdit && (
+                                <button onClick={() => {
+                                    setEditForm(patient);
+                                    setIsEditing(true);
+                                }} className="btn btn-secondary btn-sm">
+                                    <Edit3 size={12}/> Modifier l'identité
+                                </button>
+                            )}
+                            {canDelete && (
+                                <button onClick={() => setShowDelete(true)} className="btn btn-danger btn-sm">
+                                    <Trash2 size={12}/> Supprimer le dossier
+                                </button>
                             )}
                         </div>
-                        {allergiesList.length === 0 ? (
-                            <div className="flex items-center gap-2 text-sm text-gray-300 py-2"><span>✓</span><span>Aucune allergie renseignée</span></div>
-                        ) : (
-                            <div className="flex flex-wrap gap-2">
-                                {allergiesList.map(a => <MedTag key={a} label={a} color="#dc2626" />)}
-                            </div>
-                        )}
-                    </div>
-
-                    <AntecedentsPanel
-                        antecedents={antecedents}
-                        onAdd={() => setShowAddAntecedent(true)}
-                        onToggleStatut={handleToggleStatutAntecedent}
-                        onDelete={handleDeleteAntecedent}
-                    />
-
-                    {canSeeAnalyses && (
-                        <AnalysesPanel
-                            demandes={demandesAnalyses}
-                            canRequest={canRequestAnalyse}
-                            onRequest={() => setShowDemandeAnalyse(true)}
-                            onVoirResultats={setResultatsAffiches}
-                        />
                     )}
                 </div>
 
-                {/* ── Alerte allergies ── */}
-                {allergiesList.length > 0 && (
-                    <div className="rounded-xl border border-red-100 p-4 flex gap-3" style={{ backgroundColor: '#fff5f5' }}>
-                        <span className="text-xl flex-shrink-0">⚠️</span>
-                        <div>
-                            <p className="text-sm font-semibold text-red-700">Attention aux allergies</p>
-                            <p className="text-xs text-red-500 mt-0.5">
-                                Ce patient présente {allergiesList.length} allergie{allergiesList.length > 1 ? 's' : ''} connue{allergiesList.length > 1 ? 's' : ''} :
-                                {' '}<strong>{allergiesList.join(', ')}</strong>
-                            </p>
-                        </div>
-                    </div>
-                )}
-
-                {/* ── Infos personnelles (lecture) ── */}
-                {!editing && (
-                    <div className="bg-white rounded-xl border border-gray-100 p-5">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Informations personnelles</h2>
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                            <InfoRow label="Prénom" value={patient.prenom} />
-                            <InfoRow label="Nom" value={patient.nom} />
-                            <InfoRow label="Date de naissance" value={formatDate(patient.date_naissance)} />
-                            <InfoRow label="Âge" value={`${age} ans`} />
-                            <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
-                            <InfoRow label="Groupe sanguin" value={patient.groupe_sanguin || 'Non renseigné'} />
-                            {patient.telephone && <InfoRow label="Téléphone" value={patient.telephone} />}
-                            {patient.adresse && <InfoRow label="Adresse" value={patient.adresse} />}
-                            <InfoRow label="Service" value={patient.service_nom || 'Non assigné'} />
-                            <InfoRow label="Médecin référent" value={patient.medecin_nom || 'Non assigné'} />
-                            <InfoRow label="ID dossier" value={`#${patient.id}`} mono />
-                            <InfoRow label="N° dossier" value={patient.numero_dossier || '—'} mono />
-                            <InfoRow label="Créé le" value={formatDate(patient.date_creation)} />
-                        </div>
-                    </div>
-                )}
-
-                {/* ── Infos personnelles  ── */}
-                {editing && (
-                    <div className="space-y-5">
+                {isEditing ? (
+                    /* ── MODE ÉDITION DU PROFIL ── */
+                    <form onSubmit={handleSaveProfile} className="space-y-5">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                             {/* Identité */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                                    👤 Informations personnelles
+                            <div className="ht-card ht-card-padded space-y-4">
+                                <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
+                                    <User size={16} style={{ color: 'var(--ht-text-muted)' }} /> Informations personnelles
                                 </h3>
                                 <div className="grid grid-cols-2 gap-3">
-                                    <EditField label="Prénom">
-                                        <input className={inputCls} value={form.prenom ?? ''} onChange={e => set('prenom', e.target.value)} />
-                                    </EditField>
-                                    <EditField label="Nom">
-                                        <input className={inputCls} value={form.nom ?? ''} onChange={e => set('nom', e.target.value)} />
-                                    </EditField>
+                                    <div className="ht-field">
+                                        <label className="ht-label">Prénom *</label>
+                                        <input required className="ht-input" value={editForm.prenom || ''} onChange={e => setEditForm({...editForm, prenom: e.target.value})} />
+                                    </div>
+                                    <div className="ht-field">
+                                        <label className="ht-label">Nom *</label>
+                                        <input required className="ht-input" value={editForm.nom || ''} onChange={e => setEditForm({...editForm, nom: e.target.value})} />
+                                    </div>
                                 </div>
-                                <EditField label="Date de naissance">
-                                    <input type="date" className={inputCls} value={form.date_naissance ?? ''} onChange={e => set('date_naissance', e.target.value)} />
-                                </EditField>
-                                <EditField label="Sexe">
-                                    <select className={inputCls} value={form.sexe ?? ''} onChange={e => set('sexe', e.target.value)}>
-                                        <option value="M">♂ Masculin</option>
-                                        <option value="F">♀ Féminin</option>
+                                <div className="ht-field">
+                                    <label className="ht-label">Date de naissance *</label>
+                                    <input type="date" required className="ht-input" value={editForm.date_naissance || ''} onChange={e => setEditForm({...editForm, date_naissance: e.target.value})} />
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Sexe *</label>
+                                    <select className="ht-input" value={editForm.sexe || 'M'} onChange={e => setEditForm({...editForm, sexe: e.target.value as 'M' | 'F'})}>
+                                        <option value="M">Masculin</option>
+                                        <option value="F">Féminin</option>
                                     </select>
-                                </EditField>
-                                <EditField label="Téléphone">
-                                    <input className={inputCls} value={form.telephone ?? ''} onChange={e => set('telephone', e.target.value)} placeholder="+221 7X XXX XX XX" />
-                                </EditField>
-                                <EditField label="Adresse">
-                                    <input className={inputCls} value={form.adresse ?? ''} onChange={e => set('adresse', e.target.value)} />
-                                </EditField>
-                                <EditField label="Photo (URL)">
-                                    <input className={inputCls} value={form.photo_path ?? ''} onChange={e => set('photo_path', e.target.value)} placeholder="https://…" />
-                                </EditField>
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Téléphone</label>
+                                    <input className="ht-input" value={editForm.telephone || ''} onChange={e => setEditForm({...editForm, telephone: e.target.value})} placeholder="+221 7X XXX XX XX" />
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Adresse</label>
+                                    <input className="ht-input" value={editForm.adresse || ''} onChange={e => setEditForm({...editForm, adresse: e.target.value})} />
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Photo (URL)</label>
+                                    <input className="ht-input" value={editForm.photo_path || ''} onChange={e => setEditForm({...editForm, photo_path: e.target.value})} placeholder="https://…" />
+                                </div>
                             </div>
 
                             {/* Médical & administratif */}
-                            <div className="bg-white rounded-xl border border-gray-100 p-5 space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                                    🩺 Médical & administratif
+                            <div className="ht-card ht-card-padded space-y-4">
+                                <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
+                                    <Stethoscope size={16} style={{ color: 'var(--ht-text-muted)' }} /> Médical & administratif
                                 </h3>
-                                <EditField label="Groupe sanguin">
-                                    <select className={inputCls} value={form.groupe_sanguin ?? ''} onChange={e => set('groupe_sanguin', e.target.value)}>
+                                <div className="ht-field">
+                                    <label className="ht-label">Groupe sanguin</label>
+                                    <select className="ht-input" value={(editForm as any).groupe_sanguin || ''} onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}>
                                         <option value="">Inconnu</option>
                                         {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => (
                                             <option key={g} value={g}>{g}</option>
                                         ))}
                                     </select>
-                                </EditField>
-                                <EditField label="Allergies (séparées par des virgules)">
-                                    <input className={inputCls} value={form.allergies ?? ''} onChange={e => set('allergies', e.target.value)} placeholder="Ex : Pénicilline, Arachide" />
-                                </EditField>
-                                <EditField label="Service">
-                                    <select className={inputCls} value={form.service ?? ''} onChange={e => set('service', e.target.value ? Number(e.target.value) : null)}>
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Allergies (séparées par des virgules)</label>
+                                    <input className="ht-input" value={(editForm as any).allergies || ''} onChange={e => setEditForm({...editForm, allergies: e.target.value})} placeholder="Ex : Pénicilline, Arachide" />
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Service</label>
+                                    <select className="ht-input" value={(editForm as any).service || ''} onChange={e => setEditForm({...editForm, service: e.target.value ? Number(e.target.value) : null})}>
                                         <option value="">— Aucun service —</option>
-                                        {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                                        {typeof services !== 'undefined' && services.map((s: any) => <option key={s.id} value={s.id}>{s.nom}</option>)}
                                     </select>
-                                </EditField>
-                                <EditField label="Médecin référent">
-                                    <select className={inputCls} value={form.medecin_referent ?? ''} onChange={e => set('medecin_referent', e.target.value ? Number(e.target.value) : null)}>
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Médecin référent</label>
+                                    <select className="ht-input" value={(editForm as any).medecin_referent || ''} onChange={e => setEditForm({...editForm, medecin_referent: e.target.value ? Number(e.target.value) : null})}>
                                         <option value="">— Aucun —</option>
-                                        {medecins.map(m => <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom}</option>)}
+                                        {typeof medecins !== 'undefined' && medecins.map((m: any) => <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom}</option>)}
                                     </select>
-                                </EditField>
-                                <EditField label="Statut du dossier">
-                                    <select className={inputCls} value={form.actif ? '1' : '0'} onChange={e => set('actif', e.target.value === '1')}>
+                                </div>
+                                <div className="ht-field">
+                                    <label className="ht-label">Statut du dossier</label>
+                                    <select className="ht-input" value={(editForm as any).actif ? '1' : '0'} onChange={e => setEditForm({...editForm, actif: e.target.value === '1'})}>
                                         <option value="1">Actif</option>
                                         <option value="0">Inactif</option>
                                     </select>
-                                </EditField>
+                                </div>
                             </div>
                         </div>
 
-                        {saveError && (
-                            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                                <p className="text-sm text-red-600">{saveError}</p>
+                        {/* Zone Erreur d'enregistrement */}
+                        {updateError && (
+                            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
+                                <p className="text-sm text-red-400">{updateError}</p>
                             </div>
                         )}
 
+                        {/* Actions d'édition bas de page */}
                         <div className="flex gap-3">
-                            <button onClick={cancelEdit}
-                                    className="flex-1 px-4 py-3 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+                            <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary flex-1 py-3">
                                 Annuler
                             </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="flex-1 px-4 py-3 rounded-xl text-sm font-medium text-white transition-colors"
-                                style={{ backgroundColor: saving ? '#9ca3af' : '#003152' }}
-                                onMouseEnter={e => { if (!saving) e.currentTarget.style.backgroundColor = '#004070' }}
-                                onMouseLeave={e => { if (!saving) e.currentTarget.style.backgroundColor = '#003152' }}
-                            >
-                                {saving ? 'Enregistrement…' : 'Sauvegarder les modifications'}
+                            <button type="submit" disabled={updateLoading} className="btn btn-primary flex-1 py-3 font-semibold">
+                                {updateLoading ? 'Enregistrement…' : 'Sauvegarder les modifications'}
                             </button>
+                        </div>
+                    </form>
+                ) : (
+                    /* ── MODE VUE COMPLÈTE DU DOSSIER (Flux vertical unique) ── */
+                    <div className="space-y-6">
+                        {/* ── Header patient (Bannière supérieure pleine largeur) ── */}
+                        <div className="ht-card ht-card-padded">
+                            <div className="flex flex-col md:flex-row items-start gap-5">
+
+                                {/* Photo ou Avatar XL */}
+                                {patient.photo_path ? (
+                                    <img
+                                        src={patient.photo_path}
+                                        alt={`${patient.prenom} ${patient.nom}`}
+                                        className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 border border-neutral-800"
+                                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                                    />
+                                ) : (
+                                    <div className="ht-avatar ht-avatar-xl flex-shrink-0" style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)', width: '5rem', height: '5rem', fontSize: '1.5rem' }}>
+                                        {patient.prenom?.[0] || ''}{patient.nom?.[0] || ''}
+                                    </div>
+                                )}
+
+                                {/* Corps des informations */}
+                                <div className="flex-1 min-w-0 w-full">
+                                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                                        <div>
+                                            <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
+                                                {patient.prenom} {patient.nom}
+                                            </h1>
+                                            <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
+                                                {calcAge(patient.date_naissance)} ans · {patient.sexe === 'M' ? 'Masculin' : 'Féminin'} · Né(e) le {formatDate(patient.date_naissance)}
+                                            </p>
+                                        </div>
+
+                                        {/* Badge de statut */}
+                                        <span
+                                            className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
+                                            style={(patient as any).actif ?? true
+                                                ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)', border: '1px solid var(--ht-primary)' }
+                                                : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
+                                            }
+                                        >
+                                        {((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
+                                    </span>
+                                    </div>
+
+                                    {/* Badges de métadonnées sans émojis */}
+                                    <div className="flex flex-wrap gap-2 mt-4">
+                                        {/* Groupe Sanguin */}
+                                        <span className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                                              style={(patient as any).groupe_sanguin
+                                                  ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }
+                                                  : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
+                                              }>
+                                          <Activity size={12} />
+                                            {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin non renseigné'}
+                                    </span>
+                                        {/* Téléphone */}
+                                        {patient.telephone && (
+                                            <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
+                                            <Phone size={12} style={{ color: 'var(--ht-text-muted)' }} /> {patient.telephone}
+                                        </span>
+                                        )}
+                                        {/* Adresse */}
+                                        {patient.adresse && (
+                                            <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
+                                            <MapPin size={12} style={{ color: 'var(--ht-text-muted)' }} /> {patient.adresse}
+                                        </span>
+                                        )}
+
+                                        {/* Identifiant et date de création */}
+                                        <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }}>
+                                        <User size={12} /> Dossier #{(patient as any).nip || patient.id} · Créé le {formatDate(patient.date_creation)}
+                                    </span>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                        {/* ─── BLOC 1.5 : Informations personnelles étendues (Lecture) ─── */}
+                        <div className="ht-card ht-card-padded">
+                            <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--ht-text-muted)' }}>
+                                Informations personnelles détaillées
+                            </h2>
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                                <InfoRow label="Prénom" value={patient.prenom} />
+                                <InfoRow label="Nom" value={patient.nom} />
+                                <InfoRow label="Date de naissance" value={formatDate(patient.date_naissance)} />
+                                <InfoRow label="Âge" value={`${calcAge(patient.date_naissance)} ans`} />
+                                <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
+                                <InfoRow label="Groupe sanguin" value={(patient as any).groupe_sanguin || 'Non renseigné'} />
+                                {patient.telephone && <InfoRow label="Téléphone" value={patient.telephone} />}
+                                {patient.adresse && <InfoRow label="Adresse" value={patient.adresse} />}
+                                <InfoRow label="Service" value={(patient as any).service_nom || 'Non assigné'} />
+                                <InfoRow label="Médecin référent" value={(patient as any).medecin_nom || 'Non assigné'} />
+                                <InfoRow label="ID dossier" value={`#${patient.id}`} mono />
+                                <InfoRow label="N° dossier" value={(patient as any).numero_dossier || '—'} mono />
+                                <InfoRow label="Créé le" value={formatDate(patient.date_creation)} />
+                            </div>
+                        </div>
+
+                        {/* ─── BLOC 2 : Signes vitaux ─── */}
+                        <div className="ht-card ht-card-padded-sm">
+                            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"
+                                style={{color: 'var(--ht-text)'}}>
+                                <Activity size={16} style={{color: 'var(--ht-text-muted)'}}/> Évolution des constantes vitales
+                            </h3>
+                            <SignesVitauxCharts data={signes}/>
+                        </div>
+
+                        {/* ─── BLOC 3 : Consultations ─── */}  {/* ← monté ici */}
+                        <div className="ht-card ht-card-padded-sm">
+                            <Consultations
+                                patientId={patient.id}
+                                consultations={consultations}
+                                onUpdate={setConsultations}
+                            />
+                        </div>
+
+                        {/* ─── BLOC 4 : Antécédents & Analyses ─── */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <AntecedentsPanel
+                                antecedents={antecedents}
+                                onAdd={() => setShowAddAntecedent(true)}
+                                onToggleStatut={handleToggleAntecedentStatut}
+                                onDelete={handleDeleteAntecedent}
+                            />
+                            <AnalysesPanel
+                                demandes={demandes}
+                                canRequest={canRequestLab}
+                                onRequest={() => setShowLabModal(true)}
+                                onVoirResultats={(d) => setSelectedAnalyse(d)}
+                            />
+                        </div>
+
+                        {/* ─── BLOC 5 : Urgences & Hospitalisations ─── */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <UrgencesPanel passages={urgences}/>
+                            <HospitalisationsPanel hospitalisations={hospitalisations}/>
+                        </div>
+
+                        {/* ─── BLOC 6 : Rendez-vous ─── */}
+                        <div className="ht-card ht-card-padded-sm">
+                            <RendezVousPanel
+                                rendezVous={rdvs}
+                                onVoirTous={() => navigate('/rendez_vous')}
+                            />
                         </div>
                     </div>
                 )}
+            </main>
 
-                {/* ── Signes vitaux (au-dessus) ── */}
-                <div>
-                    <h2 className="text-sm font-semibold text-gray-900 mb-4">
-                        Suivi des signes vitaux
-                    </h2>
-                    <SignesVitauxCharts data={signes} />
-                </div>
-
-                {/* ── Historique médical (consultations) ── */}
-                <div>
-                    <Consultations
-                        patientId={patient.id}
-                        consultations={consultations}
-                        onUpdate={setConsultations}
-                    />
-                </div>
-
-                {/* ── Rendez-vous ── */}
-                <RendezVousPanel rendezVous={rendezVous} onVoirTous={() => navigate('/rendez_vous')} />
-
-                {/* ── Passages aux urgences ── */}
-                <UrgencesPanel passages={urgences} />
-
-                {/* ── Hospitalisations ── */}
-                <HospitalisationsPanel hospitalisations={hospitalisations} />
-
-            </div>
+            {/* Modales de contrôle contextuel */}
+            {showDelete && <DeleteModal name={`${patient.prenom} ${patient.nom}`} onConfirm={handleDelete}
+                                        onCancel={() => setShowDelete(false)} loading={deleteLoading}/>}
+            {showAddAntecedent &&
+                <AddAntecedentModal onSave={handleAddAntecedent} onCancel={() => setShowAddAntecedent(false)}
+                                    loading={antecedentLoading}/>}
+            {showLabModal &&
+                <DemandeAnalyseModal onSave={handleCreateLabDemande} onCancel={() => setShowLabModal(false)}
+                                     loading={labLoading} error={labError}/>}
+            {selectedAnalyse &&
+                <ResultatsAnalyseModal demande={selectedAnalyse} onClose={() => setSelectedAnalyse(null)}/>}
         </div>
     )
 }

@@ -6,19 +6,31 @@ import type { Patient, RendezVous, StatutRendezVous } from '../types'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
+import {
+    Calendar,
+    Clock,
+    Search,
+    Plus,
+    X,
+    Pencil,
+    Trash2,
+    Check,
+    CheckCircle,
+    Ban
+} from 'lucide-react'
 
-// ─── Config statuts ───────────────────────────────────────────────────────────
-const STATUT_CONFIG: Record<StatutRendezVous, { label: string; color: string; bg: string }> = {
-    planifie: { label: 'Planifié', color: 'var(--ht-warning)', bg: 'var(--ht-warning-bg)' },
-    confirme: { label: 'Confirmé', color: '#1d4ed8', bg: '#dbeafe' },
-    termine:  { label: 'Terminé',  color: '#166534', bg: '#bbf7d0' },
-    annule:   { label: 'Annulé',   color: 'var(--ht-muted)', bg: 'var(--ht-muted-bg)' },
+// ─── Config statuts : réutilise les classes badge-* déjà définies dans index.css ──
+const STATUT_CONFIG: Record<StatutRendezVous, { label: string; badge: string }> = {
+    planifie: { label: 'Planifié', badge: 'badge-warning' },
+    confirme: { label: 'Confirmé', badge: 'badge-tint' },
+    termine:  { label: 'Terminé',  badge: 'badge-success' },
+    annule:   { label: 'Annulé',   badge: 'badge-muted' },
 }
 
 function StatutBadge({ statut }: { statut: StatutRendezVous }) {
     const cfg = STATUT_CONFIG[statut]
     return (
-        <span className="badge" style={{ color: cfg.color, backgroundColor: cfg.bg }}>
+        <span className={`badge ${cfg.badge}`}>
             {cfg.label}
         </span>
     )
@@ -81,86 +93,94 @@ function RdvModal({ patients, rdv, onClose, onSaved }: {
     }
 
     return (
-        <div className="ht-modal-overlay">
-            <div className="ht-modal ht-modal-md space-y-4 max-h-[90vh] overflow-y-auto">
-                <h3 className="text-base font-semibold text-gray-900">
-                    {isEdit ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}
-                </h3>
+        <div className="ht-modal-overlay" onClick={onClose}>
+            <div className="ht-modal ht-modal-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>
+                        {isEdit ? 'Modifier le rendez-vous' : 'Nouveau rendez-vous'}
+                    </h3>
+                    <button onClick={onClose} className="btn btn-ghost btn-sm !p-1.5">
+                        <X size={18} />
+                    </button>
+                </div>
 
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Patient</label>
-                    {selectedPatient ? (
-                        <div className="flex items-center justify-between px-3 py-2.5 border border-gray-200 rounded-lg text-sm">
-                            <span>{selectedPatient.prenom} {selectedPatient.nom}</span>
-                            {!isEdit && (
-                                <button onClick={() => setPatientId(null)} className="text-xs text-gray-400 hover:text-gray-700">Changer</button>
-                            )}
+                <div className="space-y-4">
+                    <div className="ht-field">
+                        <label className="ht-label">Patient</label>
+                        {selectedPatient ? (
+                            <div className="flex items-center justify-between px-3 py-2 border rounded-xl text-sm"
+                                 style={{ borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}>
+                                <span>{selectedPatient.prenom} {selectedPatient.nom}</span>
+                                {!isEdit && (
+                                    <button onClick={() => setPatientId(null)} className="text-xs transition-colors" style={{ color: 'var(--ht-text-muted)' }}>Changer</button>
+                                )}
+                            </div>
+                        ) : (
+                            <>
+                                <input
+                                    type="text"
+                                    placeholder="Rechercher un patient par nom…"
+                                    value={search}
+                                    onChange={e => setSearch(e.target.value)}
+                                    className="ht-input"
+                                />
+                                {results.length > 0 && (
+                                    <div className="mt-1 border rounded-xl overflow-hidden" style={{ borderColor: 'var(--ht-border)' }}>
+                                        {results.map(p => (
+                                            <button
+                                                key={p.id}
+                                                onClick={() => { setPatientId(p.id); setSearch('') }}
+                                                className="w-full text-left px-3 py-2 text-sm border-b last:border-0 transition-colors"
+                                                style={{ borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}
+                                            >
+                                                {p.prenom} {p.nom} <span style={{ color: 'var(--ht-text-muted)' }} className="text-xs">· {p.date_naissance}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
+                            </>
+                        )}
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="ht-field">
+                            <label className="ht-label">Date</label>
+                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="ht-input" />
                         </div>
-                    ) : (
-                        <>
-                            <input
-                                type="text"
-                                placeholder="Rechercher un patient par nom…"
-                                value={search}
-                                onChange={e => setSearch(e.target.value)}
-                                className="ht-input w-full px-3 py-2.5 text-sm"
-                            />
-                            {results.length > 0 && (
-                                <div className="mt-1 border border-gray-100 rounded-lg overflow-hidden">
-                                    {results.map(p => (
-                                        <button
-                                            key={p.id}
-                                            onClick={() => { setPatientId(p.id); setSearch('') }}
-                                            className="w-full text-left px-3 py-2 text-sm hover:bg-gray-50 border-b border-gray-50 last:border-0"
-                                        >
-                                            {p.prenom} {p.nom} <span className="text-gray-400 text-xs">· {p.date_naissance}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            )}
-                        </>
+                        <div className="ht-field">
+                            <label className="ht-label">Heure</label>
+                            <input type="time" value={heure} onChange={e => setHeure(e.target.value)} className="ht-input" />
+                        </div>
+                    </div>
+
+                    <div className="ht-field">
+                        <label className="ht-label">Motif</label>
+                        <input value={motif} onChange={e => setMotif(e.target.value)} placeholder="Ex : Consultation de suivi" className="ht-input" />
+                    </div>
+
+                    <div className="ht-field">
+                        <label className="ht-label">Notes (optionnel)</label>
+                        <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} className="ht-input ht-textarea" />
+                    </div>
+
+                    {erreur && (
+                        <div className="ht-alert ht-alert-danger">
+                            {erreur}
+                        </div>
                     )}
-                </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Date</label>
-                        <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                               className="ht-input w-full px-3 py-2.5 text-sm" />
+                    <div className="flex gap-3 pt-2">
+                        <button onClick={onClose} className="btn btn-secondary flex-1">
+                            Annuler
+                        </button>
+                        <button
+                            onClick={handleSubmit}
+                            disabled={!patientId || !motif.trim() || submitting}
+                            className="btn btn-primary flex-1"
+                        >
+                            {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer le rendez-vous'}
+                        </button>
                     </div>
-                    <div>
-                        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Heure</label>
-                        <input type="time" value={heure} onChange={e => setHeure(e.target.value)}
-                               className="ht-input w-full px-3 py-2.5 text-sm" />
-                    </div>
-                </div>
-
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Motif</label>
-                    <input value={motif} onChange={e => setMotif(e.target.value)}
-                           placeholder="Ex : Consultation de suivi"
-                           className="ht-input w-full px-3 py-2.5 text-sm" />
-                </div>
-
-                <div>
-                    <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Notes (optionnel)</label>
-                    <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-                              className="ht-input w-full px-3 py-2.5 text-sm" />
-                </div>
-
-                {erreur && <p className="text-sm text-red-500">{erreur}</p>}
-
-                <div className="flex gap-3 pt-2">
-                    <button onClick={onClose} className="btn btn-ghost flex-1">
-                        Annuler
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={!patientId || !motif.trim() || submitting}
-                        className="btn btn-primary flex-1"
-                    >
-                        {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer le rendez-vous'}
-                    </button>
                 </div>
             </div>
         </div>
@@ -179,50 +199,61 @@ function RdvCard({ rdv, isAdmin, onEdit, onStatutChange, onDelete }: {
     const { date, heure } = formatDateHeure(rdv.date_heure)
 
     return (
-        <div className="ht-card p-4 flex items-start gap-4">
+        <div className="ht-card ht-card-padded-sm flex items-start gap-4">
             <div className="flex flex-col items-center justify-center w-14 h-14 rounded-xl flex-shrink-0"
-                 style={{ backgroundColor: 'var(--ht-primary-light)' }}>
+                 style={{ backgroundColor: 'var(--ht-primary-tint)' }}>
                 <span className="text-sm font-bold" style={{ color: 'var(--ht-primary)' }}>{heure}</span>
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                     <button onClick={() => navigate(`/patients/${rdv.patient}`)}
-                            className="text-sm font-medium text-gray-900 hover:underline">
+                            className="text-sm font-semibold hover:underline text-left"
+                            style={{ color: 'var(--ht-text)' }}>
                         {rdv.patient_prenom} {rdv.patient_nom}
                     </button>
                     <StatutBadge statut={rdv.statut} />
                 </div>
-                <p className="text-sm text-gray-600 mt-1 truncate">{rdv.motif}</p>
-                <p className="text-xs text-gray-400 mt-1 capitalize">{date} · {heure}</p>
+                <p className="text-xs mt-1 truncate" style={{ color: 'var(--ht-text-secondary)' }}>{rdv.motif}</p>
+                <p className="text-xs mt-1 flex items-center gap-1 capitalize" style={{ color: 'var(--ht-text-muted)' }}>
+                    <Calendar size={12} /> {date}
+                </p>
             </div>
-            <div className="flex flex-col gap-2 flex-shrink-0 items-end">
-                {rdv.statut === 'planifie' && (
-                    <button onClick={() => onStatutChange(rdv, 'confirme')}
-                            className="btn btn-primary btn-sm">
-                        Confirmer
-                    </button>
-                )}
-                {(rdv.statut === 'planifie' || rdv.statut === 'confirme') && (
-                    <button onClick={() => onStatutChange(rdv, 'termine')}
-                            className="btn btn-success btn-sm">
-                        Marquer terminé
-                    </button>
-                )}
-                <div className="flex gap-2">
+            <div className="flex flex-col gap-2 flex-shrink-0 items-end self-center">
+                <div className="flex gap-1.5">
+                    {rdv.statut === 'planifie' && (
+                        <button onClick={() => onStatutChange(rdv, 'confirme')}
+                                className="btn btn-primary btn-sm text-xs gap-1">
+                            <Check size={12} /> Confirmer
+                        </button>
+                    )}
+                    {(rdv.statut === 'planifie' || rdv.statut === 'confirme') && (
+                        <button onClick={() => onStatutChange(rdv, 'termine')}
+                                className="btn btn-success btn-sm text-xs gap-1">
+                            <CheckCircle size={12} /> Terminer
+                        </button>
+                    )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5">
                     <button onClick={() => onEdit(rdv)}
-                            className="px-2 py-1 text-xs text-gray-400 hover:text-gray-700">
-                        ✏️
+                            title="Modifier"
+                            className="p-1 rounded transition-colors"
+                            style={{ color: 'var(--ht-text-muted)' }}>
+                        <Pencil size={14} />
                     </button>
                     {(rdv.statut === 'planifie' || rdv.statut === 'confirme') && (
                         <button onClick={() => onStatutChange(rdv, 'annule')}
-                                className="px-2 py-1 text-xs text-red-400 hover:text-red-600">
-                            Annuler
+                                title="Annuler"
+                                className="p-1 rounded transition-colors"
+                                style={{ color: 'var(--ht-danger)' }}>
+                            <Ban size={14} />
                         </button>
                     )}
                     {isAdmin && (
                         <button onClick={() => onDelete(rdv)}
-                                className="px-2 py-1 text-xs text-gray-300 hover:text-red-500">
-                            🗑️
+                                title="Supprimer"
+                                className="p-1 rounded transition-colors"
+                                style={{ color: 'var(--ht-text-muted)' }}>
+                            <Trash2 size={14} />
                         </button>
                     )}
                 </div>
@@ -310,49 +341,62 @@ export default function RendezVousPage() {
                 />
             )}
 
-            <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-                <div className="flex items-center justify-between flex-wrap gap-3">
+            <main className="ht-page-content max-w-4xl mx-auto space-y-6">
+
+                {/* Section En-tête */}
+                <div className="flex items-center justify-between flex-wrap gap-4 pb-4" style={{ borderBottom: '1px solid var(--ht-border)' }}>
                     <div>
-                        <h1 className="text-2xl font-semibold text-gray-900">Rendez-vous</h1>
-                        <p className="text-gray-400 text-sm mt-1">Planification et suivi des rendez-vous patients</p>
+                        <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>Rendez-vous</h1>
+                        <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>Planification et suivi des rendez-vous patients</p>
                     </div>
                     <button
                         onClick={() => { setEditTarget(null); setShowModal(true) }}
-                        className="btn btn-primary"
+                        className="btn btn-primary gap-1.5"
                     >
-                        + Nouveau rendez-vous
+                        <Plus size={16} /> Nouveau rendez-vous
                     </button>
                 </div>
 
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                    <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-lg p-1">
+                {/* Filtres et barre de recherche */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-center gap-1 border p-1 rounded-xl" style={{ backgroundColor: 'var(--ht-muted-bg)', borderColor: 'var(--ht-border)' }}>
                         {tabs.map(t => (
                             <button
                                 key={t.key}
                                 onClick={() => setFiltre(t.key)}
-                                className="px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                                className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
                                 style={filtre === t.key
                                     ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
-                                    : { color: 'var(--ht-muted)' }}
+                                    : { color: 'var(--ht-text-secondary)' }}
                             >
                                 {t.label}
                             </button>
                         ))}
                     </div>
-                    <input
-                        type="text"
-                        placeholder="Rechercher un patient…"
-                        value={search}
-                        onChange={e => setSearch(e.target.value)}
-                        className="ht-input px-3 py-2 text-sm w-56"
-                    />
+
+                    <div className="relative flex items-center max-w-xs w-full sm:w-64">
+                        <Search size={14} className="absolute left-3" style={{ color: 'var(--ht-text-muted)' }} />
+                        <input
+                            type="text"
+                            placeholder="Rechercher un patient…"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            className="ht-input pl-9 text-sm w-full"
+                        />
+                    </div>
                 </div>
 
+                {/* Contenu principal / Liste */}
                 {loading ? (
                     <SkeletonSimpleList rows={4} />
                 ) : filtered.length === 0 ? (
-                    <div className="ht-card px-5 py-16 text-center text-sm text-gray-300">
-                        Aucun rendez-vous {filtre === 'aujourdhui' ? "aujourd'hui" : filtre === 'venir' ? 'à venir' : filtre === 'passes' ? 'passé' : ''}
+                    <div className="ht-card text-center py-16 flex flex-col items-center justify-center">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-2.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }}>
+                            <Clock size={20} />
+                        </div>
+                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>
+                            Aucun rendez-vous {filtre === 'aujourdhui' ? "aujourd'hui" : filtre === 'venir' ? 'à venir' : filtre === 'passes' ? 'passé' : ''}.
+                        </p>
                     </div>
                 ) : (
                     <div className="space-y-3">
@@ -368,7 +412,7 @@ export default function RendezVousPage() {
                         ))}
                     </div>
                 )}
-            </div>
+            </main>
         </div>
     )
 }

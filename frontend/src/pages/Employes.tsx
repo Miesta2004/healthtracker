@@ -96,9 +96,9 @@ function KpiCard({ label, value, sub, icon, accent }: {
                 {icon}
             </div>
             <div>
-                <p className={`text-xs font-medium ${accent ? 'text-blue-200' : 'text-gray-400'}`}>{label}</p>
-                <p className={`text-2xl font-bold mt-0.5 ${accent ? 'text-white' : 'text-gray-900'}`}>{value}</p>
-                {sub && <p className={`text-xs mt-0.5 ${accent ? 'text-blue-300' : 'text-gray-400'}`}>{sub}</p>}
+                <p className="text-xs font-medium" style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{label}</p>
+                <p className="text-2xl font-bold mt-0.5" style={{ color: accent ? '#fff' : 'var(--ht-text)' }}>{value}</p>
+                {sub && <p className="text-xs mt-0.5" style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{sub}</p>}
             </div>
         </div>
     )
@@ -219,7 +219,7 @@ export default function Employes() {
                 </div>
 
                 {actionError && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg">
+                    <div className="ht-alert ht-alert-danger">
                         {actionError}
                     </div>
                 )}
