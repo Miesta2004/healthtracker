@@ -5,6 +5,9 @@ import type { Patient } from '../types'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
+import Pagination from '../components/Pagination'
+
+const PAGE_SIZE = 20
 
 function MiniBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
     const pct = max > 0 ? (value / max) * 100 : 0
@@ -83,6 +86,7 @@ export default function Patients() {
     const [filterStatut, setFilterStatut] = useState<'tous' | 'actif' | 'inactif'>('tous')
     const [filterGroupe, setFilterGroupe] = useState('')
     const [sortBy,       setSortBy]       = useState<'nom' | 'date'>('nom')
+    const [page,         setPage]         = useState(1)
 
     // Recherche ciblée pour infirmier
     const [nurseQuery,    setNurseQuery]    = useState('')
@@ -151,7 +155,13 @@ export default function Patients() {
     }, [patients, search, filterSexe, filterStatut, filterGroupe, sortBy])
 
     const hasActiveFilters = search || filterSexe !== 'tous' || filterStatut !== 'tous' || filterGroupe
-    const resetFilters = () => { setSearch(''); setFilterSexe('tous'); setFilterStatut('tous'); setFilterGroupe('') }
+    const resetFilters = () => { setSearch(''); setFilterSexe('tous'); setFilterStatut('tous'); setFilterGroupe(''); setPage(1) }
+
+    useEffect(() => { setPage(1) }, [search, filterSexe, filterStatut, filterGroupe, sortBy])
+
+    const totalPages    = Math.max(1, Math.ceil(patientsFiltres.length / PAGE_SIZE))
+    const pageCourante  = Math.min(page, totalPages)
+    const patientsPage  = patientsFiltres.slice((pageCourante - 1) * PAGE_SIZE, pageCourante * PAGE_SIZE)
 
     return (
         <div className="ht-page flex flex-col">
@@ -405,7 +415,7 @@ export default function Patients() {
                                 </div>
                             ) : (
                                 <div>
-                                    {patientsFiltres.map(patient => {
+                                    {patientsPage.map(patient => {
                                         const allergies = patient.allergies
                                             ? patient.allergies.split(',').map(s => s.trim()).filter(Boolean)
                                             : []
@@ -461,11 +471,20 @@ export default function Patients() {
                             )}
 
                             {patientsFiltres.length > 0 && (
-                                <div className="px-6 py-3 border-t border-gray-50 flex justify-between items-center">
-                                    <p className="text-xs text-gray-400">
-                                        {patientsFiltres.length} patient{patientsFiltres.length > 1 ? 's' : ''} affiché{patientsFiltres.length > 1 ? 's' : ''}
-                                    </p>
-                                    <p className="text-xs text-gray-300">Cliquer sur une ligne pour voir le dossier</p>
+                                <div className="px-6 py-3 border-t border-gray-50">
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-xs text-gray-400">
+                                            {patientsFiltres.length} patient{patientsFiltres.length > 1 ? 's' : ''} au total
+                                        </p>
+                                        <p className="text-xs text-gray-300">Cliquer sur une ligne pour voir le dossier</p>
+                                    </div>
+                                    <Pagination
+                                        page={pageCourante}
+                                        totalPages={totalPages}
+                                        totalItems={patientsFiltres.length}
+                                        pageSize={PAGE_SIZE}
+                                        onPageChange={setPage}
+                                    />
                                 </div>
                             )}
                         </div>

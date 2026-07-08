@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { createPatient } from '../api/patients'
+import { createAntecedent } from '../api/antecedents'
+import type { TypeAntecedent } from '../types'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import {
     Search,
@@ -35,6 +37,16 @@ const ANTECEDENTS_COMMUNS = [
     'Drépanocytose', 'Paludisme chronique', 'Tuberculose',
     'VIH / SIDA', 'Hypothyroïdie', 'Hyperthyroïdie',
 ]
+
+// Antécédents de la liste ci-dessus qui correspondent à une chirurgie plutôt qu'à une maladie chronique
+const ANTECEDENTS_CHIRURGICAUX = new Set([
+    'Appendicectomie', 'Cholécystectomie', 'Césarienne',
+    'Bypass gastrique', 'Amygdalectomie', 'Hernie inguinale opérée',
+])
+
+function inferTypeAntecedent(libelle: string): TypeAntecedent {
+    return ANTECEDENTS_CHIRURGICAUX.has(libelle) ? 'chirurgie' : 'maladie_chronique'
+}
 
 // ─── Composant tag sélectionnable ─────────────────────────────────────────────
 function TagButton({
@@ -166,6 +178,23 @@ export default function AddPatient() {
                 antecedents: allAntecedents.join(', ') || '',
             }
             const response = await createPatient(payload)
+
+            // Les antécédents saisis à la création doivent aussi exister comme
+            // entrées structurées dans le dossier (celles affichées dans le panneau
+            // « Antécédents »), pas seulement dans le champ texte du patient.
+            const today = new Date().toISOString().slice(0, 10)
+            await Promise.all(
+                allAntecedents.map(libelle =>
+                    createAntecedent({
+                        patient: response.id,
+                        type_antecedent: inferTypeAntecedent(libelle),
+                        libelle,
+                        statut: 'actif',
+                        date_diagnostic: today,
+                    }).catch(() => null)
+                )
+            )
+
             navigate(`/patients/${response.id}`)
         } catch {
             setError('Erreur lors de la création du patient. Vérifie les informations.')

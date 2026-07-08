@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { Consultation, ConsultationStatut, TypeEvenement } from '../types'
 import { deleteConsultation } from '../api/consultations'
+import Pagination from './Pagination'
 import {
     Stethoscope,
     FlaskConical,
@@ -11,8 +12,6 @@ import {
     Trash2,
     ChevronUp,
     ChevronDown,
-    ChevronLeft,
-    ChevronRight,
     Plus,
     type LucideIcon
 } from 'lucide-react'
@@ -70,86 +69,6 @@ function TypeBadge({ type }: { type: TypeEvenement }) {
         >
             <Icon size={12} /> {cfg.label}
         </span>
-    )
-}
-
-// ─── Pagination ───────────────────────────────────────────────────────────────
-function Pagination({
-                        currentPage,
-                        totalPages,
-                        onPageChange,
-                    }: {
-    currentPage: number
-    totalPages: number
-    onPageChange: (page: number) => void
-}) {
-    if (totalPages <= 1) return null
-
-    const pages: (number | 'ellipsis')[] = []
-    const neighbors = 1
-
-    for (let p = 1; p <= totalPages; p++) {
-        if (
-            p === 1 ||
-            p === totalPages ||
-            (p >= currentPage - neighbors && p <= currentPage + neighbors)
-        ) {
-            pages.push(p)
-        } else if (pages[pages.length - 1] !== 'ellipsis') {
-            pages.push('ellipsis')
-        }
-    }
-
-    const btnBase = "min-w-[32px] h-8 px-2 rounded-lg text-sm font-semibold transition-colors flex items-center justify-center border"
-
-    return (
-        <div className="flex items-center justify-center gap-1.5 mt-6">
-            <button
-                onClick={() => onPageChange(currentPage - 1)}
-                disabled={currentPage === 1}
-                className={btnBase}
-                style={{
-                    borderColor: 'var(--ht-border)',
-                    color: 'var(--ht-text-muted)',
-                    opacity: currentPage === 1 ? 0.4 : 1
-                }}
-                title="Précédent"
-            >
-                <ChevronLeft size={16} />
-            </button>
-
-            {pages.map((p, i) =>
-                p === 'ellipsis' ? (
-                    <span key={`ellipsis-${i}`} className="px-1 text-sm" style={{ color: 'var(--ht-border)' }}>…</span>
-                ) : (
-                    <button
-                        key={p}
-                        onClick={() => onPageChange(p)}
-                        className={btnBase}
-                        style={p === currentPage
-                            ? { backgroundColor: 'var(--ht-primary)', color: 'white', borderColor: 'var(--ht-primary)' }
-                            : { color: 'var(--ht-text)', borderColor: 'var(--ht-border)', backgroundColor: 'transparent' }
-                        }
-                    >
-                        {p}
-                    </button>
-                )
-            )}
-
-            <button
-                onClick={() => onPageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
-                className={btnBase}
-                style={{
-                    borderColor: 'var(--ht-border)',
-                    color: 'var(--ht-text-muted)',
-                    opacity: currentPage === totalPages ? 0.4 : 1
-                }}
-                title="Suivant"
-            >
-                <ChevronRight size={16} />
-            </button>
-        </div>
     )
 }
 
@@ -360,8 +279,10 @@ export default function Consultations({
                         ))}
                     </div>
                     <Pagination
-                        currentPage={safePage}
+                        page={safePage}
                         totalPages={totalPages}
+                        totalItems={consultations.length}
+                        pageSize={PAGE_SIZE}
                         onPageChange={setCurrentPage}
                     />
                 </>

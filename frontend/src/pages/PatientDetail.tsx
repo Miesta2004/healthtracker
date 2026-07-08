@@ -17,7 +17,7 @@ import { SkeletonDetailPage } from '../components/Skeleton'
 import Sidebar from '../components/layout/Sidebar'
 import {
     Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight, MapPin,
-    Phone, User, Stethoscope
+    Phone, User, Stethoscope, AlertTriangle
 } from 'lucide-react'
 
 // ─── Config analyses ────────────────────────────────────────────────────────
@@ -879,6 +879,14 @@ export default function PatientDetail() {
                                           <Activity size={12} />
                                             {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin non renseigné'}
                                     </span>
+                                        {/* Allergies */}
+                                        {patient.allergies?.trim() && (
+                                            <span className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5"
+                                                  style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
+                                          <AlertTriangle size={12} />
+                                                Allergies : {patient.allergies}
+                                    </span>
+                                        )}
                                         {/* Téléphone */}
                                         {patient.telephone && (
                                             <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
@@ -914,6 +922,7 @@ export default function PatientDetail() {
                                 <InfoRow label="Âge" value={`${calcAge(patient.date_naissance)} ans`} />
                                 <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
                                 <InfoRow label="Groupe sanguin" value={(patient as any).groupe_sanguin || 'Non renseigné'} />
+                                <InfoRow label="Allergies" value={patient.allergies?.trim() || 'Aucune connue'} />
                                 {patient.telephone && <InfoRow label="Téléphone" value={patient.telephone} />}
                                 {patient.adresse && <InfoRow label="Adresse" value={patient.adresse} />}
                                 <InfoRow label="Service" value={(patient as any).service_nom || 'Non assigné'} />
@@ -926,10 +935,20 @@ export default function PatientDetail() {
 
                         {/* ─── BLOC 2 : Signes vitaux ─── */}
                         <div className="ht-card ht-card-padded-sm">
-                            <h3 className="text-sm font-semibold mb-4 flex items-center gap-2"
-                                style={{color: 'var(--ht-text)'}}>
-                                <Activity size={16} style={{color: 'var(--ht-text-muted)'}}/> Évolution des constantes vitales
-                            </h3>
+                            <div className="flex items-center justify-between mb-4">
+                                <h3 className="text-sm font-semibold flex items-center gap-2"
+                                    style={{color: 'var(--ht-text)'}}>
+                                    <Activity size={16} style={{color: 'var(--ht-text-muted)'}}/> Évolution des constantes vitales
+                                </h3>
+                                {hasRole('admin', 'medecin', 'infirmier') && (
+                                    <button
+                                        onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
+                                        className="btn btn-primary btn-sm"
+                                    >
+                                        <Plus size={14} /> Nouvelle mesure
+                                    </button>
+                                )}
+                            </div>
                             <SignesVitauxCharts data={signes}/>
                         </div>
 

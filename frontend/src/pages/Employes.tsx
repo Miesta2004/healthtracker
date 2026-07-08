@@ -2,9 +2,13 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getEmployes, updateEmploye, deleteEmploye } from '../api/comptes'
-import type { Employe, RoleEmploye } from '../types'
+import { getServices } from '../api/services'
+import type { Employe, RoleEmploye, Service } from '../types'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { SkeletonChartCard, SkeletonTable } from '../components/Skeleton'
+import Pagination from '../components/Pagination'
+
+const PAGE_SIZE = 20
 
 
 
@@ -109,6 +113,7 @@ function KpiCard({ label, value, sub, icon, accent }: {
 export default function Employes() {
     const navigate = useNavigate()
     const [employes, setEmployes] = useState<Employe[]>([])
+    const [services, setServices] = useState<Service[]>([])
     const [loading, setLoading] = useState(true)
     const { user: currentUser } = useAuth()
     const [actionError, setActionError] = useState('')
@@ -117,11 +122,14 @@ export default function Employes() {
     const [search, setSearch] = useState('')
     const [filterRole, setFilterRole] = useState<'tous' | RoleEmploye>('tous')
     const [filterStatut, setFilterStatut] = useState<'tous' | 'actif' | 'inactif'>('tous')
+    const [filterService, setFilterService] = useState<'tous' | number>('tous')
     const [sortBy, setSortBy] = useState<'nom' | 'date'>('nom')
+    const [page, setPage] = useState(1)
 
     // ── Vérification d'accès (admin uniquement) ──
     useEffect(() => {
         getEmployes().then(setEmployes).finally(() => setLoading(false))
+        getServices().then(setServices).catch(() => setServices([]))
     }, [])
 
     const refreshList = () => {
@@ -187,6 +195,7 @@ export default function Employes() {
         if (filterRole !== 'tous') result = result.filter(e => e.role === filterRole)
         if (filterStatut === 'actif') result = result.filter(e => e.actif)
         if (filterStatut === 'inactif') result = result.filter(e => !e.actif)
+        if (filterService !== 'tous') result = result.filter(e => e.service === filterService)
 
         result.sort((a, b) => {
             if (sortBy === 'nom') return a.nom.localeCompare(b.nom)
@@ -194,14 +203,21 @@ export default function Employes() {
         })
 
         return result
-    }, [employes, search, filterRole, filterStatut, sortBy])
+    }, [employes, search, filterRole, filterStatut, filterService, sortBy])
 
-    const hasActiveFilters = search || filterRole !== 'tous' || filterStatut !== 'tous'
+    const hasActiveFilters = search || filterRole !== 'tous' || filterStatut !== 'tous' || filterService !== 'tous'
+
+    useEffect(() => { setPage(1) }, [search, filterRole, filterStatut, filterService, sortBy])
+
+    const totalPages   = Math.max(1, Math.ceil(employesFiltres.length / PAGE_SIZE))
+    const pageCourante = Math.min(page, totalPages)
+    const employesPage = employesFiltres.slice((pageCourante - 1) * PAGE_SIZE, pageCourante * PAGE_SIZE)
 
     const resetFilters = () => {
         setSearch('')
         setFilterRole('tous')
         setFilterStatut('tous')
+        setFilterService('tous')
     }
 
     return (
@@ -338,6 +354,16 @@ export default function Employes() {
                                     <option key={r} value={r}>{ROLE_LABELS[r]}</option>
                                 ))}
                             </select>
+
+                            {/* Service */}
+                            <select value={filterService} onChange={e => setFilterService(e.target.value === 'tous' ? 'tous' : Number(e.target.value))}
+                                    className="ht-input text-xs px-2 py-1.5 text-gray-600"
+                            >
+                                <option value="tous">Tous les services</option>
+                                {services.map(s => (
+                                    <option key={s.id} value={s.id}>{s.nom}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
 
@@ -377,7 +403,7 @@ export default function Employes() {
                         </div>
                     ) : (
                         <div>
-                            {employesFiltres.map(employe => {
+                            {employesPage.map(employe => {
                                 const isSelf = currentUser?.username === employe.username
                                 return (
                                     <div key={employe.id}
@@ -462,11 +488,20 @@ export default function Employes() {
 
                     {/* Footer tableau */}
                     {employesFiltres.length > 0 && (
-                        <div className="px-6 py-3 border-t border-gray-50 flex justify-between items-center">
-                            <p className="text-xs text-gray-400">
-                                {employesFiltres.length} employé{employesFiltres.length > 1 ? 's' : ''} affiché{employesFiltres.length > 1 ? 's' : ''}
-                            </p>
-                            <p className="text-xs text-gray-300">Le rôle et le statut sont modifiables directement dans le tableau</p>
+                        <div className="px-6 py-3 border-t border-gray-50">
+                            <div className="flex justify-between items-center">
+                                <p className="text-xs text-gray-400">
+                                    {employesFiltres.length} employé{employesFiltres.length > 1 ? 's' : ''} au total
+                                </p>
+                                <p className="text-xs text-gray-300">Le rôle et le statut sont modifiables directement dans le tableau</p>
+                            </div>
+                            <Pagination
+                                page={pageCourante}
+                                totalPages={totalPages}
+                                totalItems={employesFiltres.length}
+                                pageSize={PAGE_SIZE}
+                                onPageChange={setPage}
+                            />
                         </div>
                     )}
                 </div>

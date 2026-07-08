@@ -12,8 +12,13 @@ class SignesVitauxViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        patient_id = self.request.query_params.get('patient')
+
         if user.is_superuser:
-            return SignesVitaux.objects.select_related('patient').all()
+            qs = SignesVitaux.objects.select_related('patient').all()
+            if patient_id:
+                qs = qs.filter(patient_id=patient_id)
+            return qs
 
         emp = get_employe(user)
         if emp is None or emp.role in ('secretaire', 'laborantin'):
@@ -28,7 +33,6 @@ class SignesVitauxViewSet(viewsets.ModelViewSet):
             return SignesVitaux.objects.none()
 
         # Filtrer par patient si passé en query param (?patient=<id>)
-        patient_id = self.request.query_params.get('patient')
         if patient_id:
             qs = qs.filter(patient_id=patient_id)
 
