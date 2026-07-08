@@ -14,6 +14,7 @@ import {
 import type { Patient, Service, PassageUrgence, Antecedent, NiveauTri, ModeArrivee, RoleEmploye } from '../types'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { SkeletonSimpleList } from '../components/Skeleton'
+import Pagination from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'
 import {
     AlertTriangle,
@@ -27,6 +28,8 @@ import {
     LogOut,
     FileText
 } from 'lucide-react'
+
+const PAGE_SIZE = 20
 
 // ─── Config triage : réutilise les classes badge-tri-* déjà définies dans index.css ──
 const TRI_LABELS: Record<number, string> = {
@@ -243,7 +246,7 @@ function SortieModal({ passage, onClose, onUpdated, onAdmettre }: {
     return (
         <div className="ht-modal-overlay" onClick={onClose}>
             <div className="ht-modal ht-modal-md" onClick={e => e.stopPropagation()}>
-                <h3 className="text-base font-bold mb-4" style={{ color: 'var(--ht-text)' }}>Sortie de {passage.patient_nom}</h3>
+                <h3 className="text-base font-bold mb-4" style={{ color: 'var(--ht-text)' }}>Sortie de {passage.patient_prenom} {passage.patient_nom}</h3>
 
                 <div className="space-y-4">
                     <div className="ht-field">
@@ -323,7 +326,7 @@ function AdmettreModal({ passage, services, onClose, onUpdated }: {
     return (
         <div className="ht-modal-overlay" onClick={onClose}>
             <div className="ht-modal ht-modal-md" onClick={e => e.stopPropagation()}>
-                <h3 className="text-base font-bold mb-4" style={{ color: 'var(--ht-text)' }}>Admettre {passage.patient_nom}</h3>
+                <h3 className="text-base font-bold mb-4" style={{ color: 'var(--ht-text)' }}>Admettre {passage.patient_prenom} {passage.patient_nom}</h3>
 
                 <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
@@ -516,7 +519,7 @@ function PassageCard({ passage, onPriseEnCharge, onSortie, onOpenDetail, hasRole
             <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onOpenDetail(passage)}>
                 <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-sm font-semibold hover:underline" style={{ color: 'var(--ht-text)' }}>
-                        {passage.patient_nom}
+                        {passage.patient_prenom} {passage.patient_nom}
                     </span>
                     {typeof passage.patient_age === 'number' && (
                         <span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{passage.patient_age} ans</span>
@@ -556,6 +559,7 @@ export default function Urgences() {
     const [sortieTarget, setSortieTarget] = useState<PassageUrgence | null>(null)
     const [admettreTarget, setAdmettreTarget] = useState<PassageUrgence | null>(null)
     const [detailTarget, setDetailTarget] = useState<PassageUrgence | null>(null)
+    const [page, setPage] = useState(1)
 
     const charger = () => {
         getFileAttente().then(setPassages).catch(() => {}).finally(() => setLoading(false))
@@ -587,6 +591,9 @@ export default function Urgences() {
 
     const enAttente = passages.filter(p => p.statut === 'en_attente')
     const enConsultation = passages.filter(p => p.statut === 'en_consultation')
+    const totalPages    = Math.max(1, Math.ceil(passages.length / PAGE_SIZE))
+    const pageCourante   = Math.min(page, totalPages)
+    const passagesPage  = passages.slice((pageCourante - 1) * PAGE_SIZE, pageCourante * PAGE_SIZE)
 
     return (
         <div className="ht-page">
@@ -635,18 +642,27 @@ export default function Urgences() {
                             <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Aucun patient actuellement aux urgences.</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {passages.map(p => (
-                                <PassageCard
-                                    key={p.id}
-                                    passage={p}
-                                    onPriseEnCharge={handlePriseEnCharge}
-                                    onSortie={setSortieTarget}
-                                    onOpenDetail={setDetailTarget}
-                                    hasRole={hasRole}
-                                />
-                            ))}
-                        </div>
+                        <>
+                            <div className="space-y-3">
+                                {passagesPage.map(p => (
+                                    <PassageCard
+                                        key={p.id}
+                                        passage={p}
+                                        onPriseEnCharge={handlePriseEnCharge}
+                                        onSortie={setSortieTarget}
+                                        onOpenDetail={setDetailTarget}
+                                        hasRole={hasRole}
+                                    />
+                                ))}
+                            </div>
+                            <Pagination
+                                page={pageCourante}
+                                totalPages={totalPages}
+                                totalItems={passages.length}
+                                pageSize={PAGE_SIZE}
+                                onPageChange={setPage}
+                            />
+                        </>
                     )}
                 </div>
             </main>

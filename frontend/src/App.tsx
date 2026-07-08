@@ -94,7 +94,7 @@ function App() {
                         <Employes />
                     </ProtectedRoute>
                 } />
-                <Route path="/employes/new" element={
+                <Route path="/employes/newEmploye" element={
                     <ProtectedRoute roles={['admin']}>
                         <AddEmploye />
                     </ProtectedRoute>

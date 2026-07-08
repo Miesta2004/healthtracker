@@ -6,6 +6,7 @@ import type { Patient, RendezVous, StatutRendezVous } from '../types'
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
+import Pagination from '../components/Pagination'
 import {
     Calendar,
     Clock,
@@ -18,6 +19,8 @@ import {
     CheckCircle,
     Ban
 } from 'lucide-react'
+
+const PAGE_SIZE = 20
 
 // ─── Config statuts : réutilise les classes badge-* déjà définies dans index.css ──
 const STATUT_CONFIG: Record<StatutRendezVous, { label: string; badge: string }> = {
@@ -276,6 +279,7 @@ export default function RendezVousPage() {
     const [search, setSearch] = useState('')
     const [showModal, setShowModal] = useState(false)
     const [editTarget, setEditTarget] = useState<RendezVous | null>(null)
+    const [page, setPage] = useState(1)
 
     useEffect(() => {
         Promise.all([getRendezVous(), getPatients()])
@@ -300,6 +304,12 @@ export default function RendezVousPage() {
         }
         return list.sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime())
     }, [rdvs, filtre, search, now])
+
+    useEffect(() => { setPage(1) }, [filtre, search])
+
+    const totalPages   = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+    const pageCourante  = Math.min(page, totalPages)
+    const filteredPage = filtered.slice((pageCourante - 1) * PAGE_SIZE, pageCourante * PAGE_SIZE)
 
     const handleSaved = (r: RendezVous) => {
         setRdvs(prev => {
@@ -399,18 +409,27 @@ export default function RendezVousPage() {
                         </p>
                     </div>
                 ) : (
-                    <div className="space-y-3">
-                        {filtered.map(r => (
-                            <RdvCard
-                                key={r.id}
-                                rdv={r}
-                                isAdmin={isAdmin}
-                                onEdit={r => { setEditTarget(r); setShowModal(true) }}
-                                onStatutChange={handleStatutChange}
-                                onDelete={handleDelete}
-                            />
-                        ))}
-                    </div>
+                    <>
+                        <div className="space-y-3">
+                            {filteredPage.map(r => (
+                                <RdvCard
+                                    key={r.id}
+                                    rdv={r}
+                                    isAdmin={isAdmin}
+                                    onEdit={r => { setEditTarget(r); setShowModal(true) }}
+                                    onStatutChange={handleStatutChange}
+                                    onDelete={handleDelete}
+                                />
+                            ))}
+                        </div>
+                        <Pagination
+                            page={pageCourante}
+                            totalPages={totalPages}
+                            totalItems={filtered.length}
+                            pageSize={PAGE_SIZE}
+                            onPageChange={setPage}
+                        />
+                    </>
                 )}
             </main>
         </div>

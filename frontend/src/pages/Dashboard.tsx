@@ -174,15 +174,6 @@ export default function Dashboard() {
         })
         .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime());
 
-    const calcAge = (dateStr: string) => {
-        if (!dateStr) return 0;
-        const today = new Date();
-        const birth = new Date(dateStr);
-        let age = today.getFullYear() - birth.getFullYear();
-        if (today.getMonth() < birth.getMonth() || (today.getMonth() === birth.getMonth() && today.getDate() < birth.getDate())) age--;
-        return age;
-    };
-
     return (
         <div className="ht-page">
             <Sidebar />
@@ -290,8 +281,7 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <span className={`badge ${u.niveau_tri ? TRI_BADGE[u.niveau_tri] : "badge-muted"}`} style={{ width: "0.625rem", height: "0.625rem", padding: 0 }} />
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-gray-900 truncate">{u.patient_nom || `Patient #${u.patient}`}</p>
-                                                <p className="text-xs text-gray-400 truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>                                                <p className="text-xs text-gray-400 truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
                                             </div>
                                         </div>
                                         <span className="badge badge-muted uppercase">
@@ -315,7 +305,7 @@ export default function Dashboard() {
                                 {(hospitalisations ?? []).slice(0, 5).map(h => (
                                     <div key={h.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{h.patient_nom || `Patient #${h.patient}`}</p>
+                                            <p className="text-sm font-semibold text-gray-900 truncate">{h.patient_prenom ? `${h.patient_prenom} ${h.patient_nom}` : (h.patient_nom || `Patient #${h.patient}`)}</p>
                                             <p className="text-xs text-gray-400 truncate mt-0.5">
                                                 {h.chambre ? `Chambre ${h.chambre}` : "Sans chambre"} {h.lit ? `· Lit ${h.lit}` : ""}
                                             </p>
@@ -344,7 +334,7 @@ export default function Dashboard() {
                                         </div>
                                         <div className="min-w-0 flex-1">
                                             <p className="text-sm font-semibold text-gray-900 truncate">{p.prenom} {p.nom}</p>
-                                            <p className="text-xs text-gray-400 mt-0.5">{calcAge(p.date_naissance)} ans</p>
+                                            <p className="text-xs text-gray-400 mt-0.5">{p.age ?? '—'} ans</p>
                                         </div>
                                     </div>
                                 ))}

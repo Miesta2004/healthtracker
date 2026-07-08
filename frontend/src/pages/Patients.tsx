@@ -153,15 +153,6 @@ export default function Patients() {
     const hasActiveFilters = search || filterSexe !== 'tous' || filterStatut !== 'tous' || filterGroupe
     const resetFilters = () => { setSearch(''); setFilterSexe('tous'); setFilterStatut('tous'); setFilterGroupe('') }
 
-    function calcAge(dateStr: string) {
-        const today = new Date()
-        const birth = new Date(dateStr)
-        let age = today.getFullYear() - birth.getFullYear()
-        const m = today.getMonth() - birth.getMonth()
-        if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-        return age
-    }
-
     return (
         <div className="ht-page flex flex-col">
             <Sidebar />
@@ -436,7 +427,7 @@ export default function Patients() {
                                                     </div>
                                                 </div>
                                                 <div className="col-span-1 text-center">
-                                                    <span className="text-sm font-medium text-gray-700">{calcAge(patient.date_naissance)}</span>
+                                                    <span className="text-sm font-medium text-gray-700">{patient.age ?? '—'}</span>
                                                     <span className="text-xs text-gray-400"> ans</span>
                                                 </div>
                                                 <div className="col-span-2 flex justify-center">

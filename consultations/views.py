@@ -17,17 +17,23 @@ class ConsultViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return Consultation.objects.select_related('patient').all()
+            qs = Consultation.objects.select_related('patient').all()
+        else:
+            emp = get_employe(user)
+            if emp is None or emp.role == 'laborantin':
+                return Consultation.objects.none()
 
-        emp = get_employe(user)
-        if emp is None or emp.role == 'laborantin':
-            return Consultation.objects.none()
+            if emp.service:
+                qs = Consultation.objects.select_related('patient').filter(
+                    patient__service=emp.service
+                )
+            else:
+                return Consultation.objects.none()
 
-        if emp.service:
-            return Consultation.objects.select_related('patient').filter(
-                patient__service=emp.service
-            )
-        return Consultation.objects.none()
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            qs = qs.filter(patient_id=patient_id)
+        return qs
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:
@@ -74,17 +80,23 @@ class RdvViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         if user.is_superuser:
-            return RendezVous.objects.select_related('patient').all()
+            qs = RendezVous.objects.select_related('patient').all()
+        else:
+            emp = get_employe(user)
+            if emp is None or emp.role == 'laborantin':
+                return RendezVous.objects.none()
 
-        emp = get_employe(user)
-        if emp is None or emp.role == 'laborantin':
-            return RendezVous.objects.none()
+            if emp.service:
+                qs = RendezVous.objects.select_related('patient').filter(
+                    patient__service=emp.service
+                )
+            else:
+                return RendezVous.objects.none()
 
-        if emp.service:
-            return RendezVous.objects.select_related('patient').filter(
-                patient__service=emp.service
-            ).order_by('date_heure')
-        return RendezVous.objects.none()
+        patient_id = self.request.query_params.get('patient')
+        if patient_id:
+            qs = qs.filter(patient_id=patient_id)
+        return qs.order_by('date_heure')
 
     def get_permissions(self):
         if self.request.method in SAFE_METHODS:

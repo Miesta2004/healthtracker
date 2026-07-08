@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react"
+import { useNavigate } from "react-router-dom"
 import { getServices, createService, deleteService, updateService } from "../api/services.ts"
 import type { Service } from "../types"
 import Sidebar from '../components/layout/Sidebar.tsx'
@@ -80,11 +81,12 @@ function ServiceModal({ service, onClose, onSave} : {
 }
 
 // ─── Card service ─────────────────────────────────────────────────────────────
-function ServiceCard({ service, onEdit, onDelete, onToggle }: {
+function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes }: {
     service: Service
     onEdit: () => void
     onDelete: () => void
     onToggle: () => void
+    onViewEmployes: () => void
 }) {
     return (
         <div className={`ht-card ht-card-padded-sm ${service.actif ? '' : 'opacity-50'}`}>
@@ -113,12 +115,17 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
 
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 mb-4">
-                <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
+                <button
+                    onClick={onViewEmployes}
+                    title="Voir les employés de ce service"
+                    className="rounded-xl p-2.5 text-center transition-opacity hover:opacity-75"
+                    style={{ backgroundColor: 'var(--ht-muted-bg)' }}
+                >
                     <p className="text-lg font-bold" style={{ color: 'var(--ht-primary)' }}>
                         {service.nb_employes}
                     </p>
-                    <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Employés</p>
-                </div>
+                    <p className="text-xs underline" style={{ color: 'var(--ht-text-muted)' }}>Employés</p>
+                </button>
                 <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
                     <p className="text-lg font-bold" style={{ color: 'var(--ht-text)' }}>
                         {service.nb_patients}
@@ -146,6 +153,7 @@ function ServiceCard({ service, onEdit, onDelete, onToggle }: {
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Services(){
+    const navigate = useNavigate()
     const [services, setServices] = useState<Service[]>([])
     const [loading, setLoading] = useState(true)
     const [modalOpen, setModalOpen] = useState(false)
@@ -264,6 +272,7 @@ export default function Services(){
                                 onEdit={() => { setEditService(service); setModalOpen(true) }}
                                 onDelete={() => handleDelete(service)}
                                 onToggle={() => handleToggle(service)}
+                                onViewEmployes={() => navigate(`/employes?service=${service.id}`)}
                             />
                         ))}
                     </div>

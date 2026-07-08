@@ -11,6 +11,7 @@ import type { Patient, DemandeAnalyse, StatutAnalyse, UrgenceAnalyse, TypeAnalys
 import Sidebar from '../components/layout/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
+import Pagination from '../components/Pagination'
 import {
     FlaskConical,
     Plus,
@@ -26,6 +27,8 @@ import {
     ClipboardCheck,
     HelpCircle
 } from 'lucide-react'
+
+const PAGE_SIZE = 20
 
 // ─── Config ────────────────────────────────────────────────────────────────
 const TYPES: { value: TypeAnalyse; label: string }[] = [
@@ -379,6 +382,7 @@ export default function Laboratoire() {
     const [resultatsCible, setResultatsCible] = useState<DemandeAnalyse | null>(null)
     const [annulationCible, setAnnulationCible] = useState<DemandeAnalyse | null>(null)
     const [erreurAction, setErreurAction] = useState('')
+    const [page, setPage] = useState(1)
 
     useEffect(() => {
         getDemandes().then(setDemandes).catch(() => setDemandes([]))
@@ -392,6 +396,12 @@ export default function Laboratoire() {
             if (aUrg !== bUrg) return aUrg - bUrg
             return new Date(b.date_demande).getTime() - new Date(a.date_demande).getTime()
         })
+
+    useEffect(() => { setPage(1) }, [filtreStatut])
+
+    const totalPages        = Math.max(1, Math.ceil(demandesFiltrees.length / PAGE_SIZE))
+    const pageCourante       = Math.min(page, totalPages)
+    const demandesPage      = demandesFiltrees.slice((pageCourante - 1) * PAGE_SIZE, pageCourante * PAGE_SIZE)
 
     const compteurs = (demandes ?? []).reduce((acc, d) => {
         acc[d.statut] = (acc[d.statut] ?? 0) + 1
@@ -476,7 +486,7 @@ export default function Laboratoire() {
                         </div>
                     ) : (
                         <div className="divide-y" style={{ borderColor: 'var(--ht-border)' }}>
-                            {demandesFiltrees.map(d => (
+                            {demandesPage.map(d => (
                                 <DemandeRow key={d.id} demande={d} isLab={isLab} canManage={canManage}
                                             onPrendreEnCharge={handlePrendreEnCharge}
                                             onAnnuler={setAnnulationCible}
@@ -485,6 +495,13 @@ export default function Laboratoire() {
                             ))}
                         </div>
                     )}
+                    <Pagination
+                        page={pageCourante}
+                        totalPages={totalPages}
+                        totalItems={demandesFiltrees.length}
+                        pageSize={PAGE_SIZE}
+                        onPageChange={setPage}
+                    />
                 </div>
             </div>
 

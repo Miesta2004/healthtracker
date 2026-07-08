@@ -360,10 +360,10 @@ export default function Employes() {
                         <div className="px-6 py-16 text-center">
                             <p className="text-4xl mb-3">🧑‍⚕️</p>
                             <p className="text-gray-400 text-sm">Aucun employé pour le moment</p>
-                            <button onClick={() => navigate('/employes/new')}
+                            <button onClick={() => navigate('/employes/newEmploye')}
                                     className="mt-4 text-sm font-medium px-4 py-2 rounded-lg text-white"
                                     style={{ backgroundColor: 'var(--ht-primary)' }}>
-                                Ajouter le premier employé
+                                Ajouter un employé
                             </button>
                         </div>
                     ) : employesFiltres.length === 0 ? (

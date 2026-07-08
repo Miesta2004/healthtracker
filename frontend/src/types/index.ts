@@ -4,6 +4,7 @@ export interface Patient {
     nom: string
     prenom: string
     date_naissance: string
+    age?: number
     sexe: 'M' | 'F'
     groupe_sanguin?: string
     telephone?: string
@@ -162,6 +163,7 @@ export type StatutHospitalisation = 'en_cours' | 'terminee' | 'transferee'
 export interface Hospitalisation {
     id: number
     patient: number
+    patient_prenom?: string
     patient_nom?: string
     patient_dossier?: string
     service: number | null
