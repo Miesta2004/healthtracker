@@ -34,11 +34,11 @@ function MiniBar({ label, value, max, color }: { label: string; value: number; m
     const pct = max > 0 ? (value / max) * 100 : 0
     return (
         <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-[var(--ht-text-muted)]">
                 <span>{label}</span>
-                <span className="font-medium text-gray-700">{value}</span>
+                <span className="font-medium text-[var(--ht-text-secondary)]">{value}</span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-[var(--ht-muted-bg)] rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-700"
                      style={{ width: `${pct}%`, backgroundColor: color }} />
             </div>
@@ -49,7 +49,7 @@ function MiniBar({ label, value, max, color }: { label: string; value: number; m
 // ─── Donut actif/inactif ──────────────────────────────────────────────────────
 function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
     const total = actif + inactif
-    if (total === 0) return <div className="flex items-center justify-center h-28 text-gray-300 text-sm">Aucune donnée</div>
+    if (total === 0) return <div className="flex items-center justify-center h-28 text-[var(--ht-text-muted)] text-sm">Aucune donnée</div>
     const pct = actif / total
     const r = 40
     const circ = 2 * Math.PI * r
@@ -57,7 +57,7 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
     return (
         <div className="flex flex-col items-center gap-3">
             <svg width="100" height="100" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r={r} fill="none" stroke="#e5e7eb" strokeWidth="14" />
+                <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ht-border-input)" strokeWidth="14" />
                 <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ht-primary)" strokeWidth="14"
                         strokeDasharray={`${dash} ${circ - dash}`}
                         strokeDashoffset={circ / 4} strokeLinecap="round"
@@ -67,13 +67,13 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
                     {Math.round(pct * 100)}%
                 </text>
             </svg>
-            <div className="flex gap-4 text-xs text-gray-500">
+            <div className="flex gap-4 text-xs text-[var(--ht-text-muted)]">
                 <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: 'var(--ht-primary)' }} />
                     Actifs ({actif})
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-gray-200 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--ht-border-input)] inline-block" />
                     Inactifs ({inactif})
                 </span>
             </div>
@@ -101,7 +101,7 @@ function KpiCard({ label, value, sub, icon, accent }: {
             </div>
             <div>
                 <p className="text-xs font-medium" style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{label}</p>
-                <p className="text-2xl font-bold mt-0.5" style={{ color: accent ? '#fff' : 'var(--ht-text)' }}>{value}</p>
+                <p className="text-2xl font-bold mt-0.5" style={{ color: accent ? 'var(--ht-primary-contrast)' : 'var(--ht-text)' }}>{value}</p>
                 {sub && <p className="text-xs mt-0.5" style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{sub}</p>}
             </div>
         </div>
@@ -234,8 +234,8 @@ export default function Employes() {
 
                 {/* ── Titre ── */}
                 <div>
-                    <h1 className="text-2xl font-bold text-gray-900">Gestion des employés</h1>
-                    <p className="text-gray-400 text-sm mt-1">Comptes et rôles du personnel médical et administratif</p>
+                    <h1 className="text-2xl font-bold text-[var(--ht-text)]">Gestion des employés</h1>
+                    <p className="text-[var(--ht-text-muted)] text-sm mt-1">Comptes et rôles du personnel médical et administratif</p>
                 </div>
 
                 {actionError && (
@@ -273,12 +273,12 @@ export default function Employes() {
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="ht-card p-6">
-                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des comptes</h3>
+                            <h3 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-4">Statut des comptes</h3>
                             <DonutChart actif={actif} inactif={inactif} />
                         </div>
 
                         <div className="md:col-span-2 ht-card p-6">
-                            <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par rôle</h3>
+                            <h3 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-4">Répartition par rôle</h3>
                             {(
                                 <div className="space-y-3">
                                     {roleCounts.map(({ role, count }) => (
@@ -295,11 +295,11 @@ export default function Employes() {
                 <div className="ht-card">
 
                     {/* Header + filtres */}
-                    <div className="px-6 py-4 border-b border-gray-100 space-y-3">
+                    <div className="px-6 py-4 border-b border-[var(--ht-border)] space-y-3">
                         <div className="flex items-center justify-between">
                             <div>
-                                <h2 className="font-semibold text-gray-900">Liste des employés</h2>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                                <h2 className="font-semibold text-[var(--ht-text)]">Liste des employés</h2>
+                                <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
                                     {hasActiveFilters
                                         ? `${employesFiltres.length} résultat${employesFiltres.length > 1 ? 's' : ''} sur ${total}`
                                         : `${total} employé${total > 1 ? 's' : ''} au total`
@@ -309,12 +309,12 @@ export default function Employes() {
                             <div className="flex items-center gap-2">
                                 {hasActiveFilters && (
                                     <button onClick={resetFilters}
-                                            className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                            className="text-xs text-[var(--ht-danger)] hover:text-[var(--ht-danger)] px-2 py-1 rounded hover:bg-[var(--ht-danger-bg)] transition-colors">
                                         Réinitialiser
                                     </button>
                                 )}
                                 <select value={sortBy} onChange={e => setSortBy(e.target.value as 'nom' | 'date')}
-                                        className="ht-input text-xs px-2 py-1.5 text-gray-600"
+                                        className="ht-input text-xs px-2 py-1.5 text-[var(--ht-text-secondary)]"
                                 >
                                     <option value="nom">Trier : A → Z</option>
                                     <option value="date">Trier : plus récents</option>
@@ -326,7 +326,7 @@ export default function Employes() {
                         <div className="flex flex-wrap gap-2">
                             {/* Recherche */}
                             <div className="relative flex-1 min-w-48">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] text-sm">🔍</span>
                                 <input
                                     type="text" value={search}
                                     onChange={e => setSearch(e.target.value)}
@@ -336,22 +336,17 @@ export default function Employes() {
                             </div>
 
                             {/* Statut */}
-                            <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                            <div className="flex rounded-lg border border-[var(--ht-border-input)] overflow-hidden text-xs">
                                 {(['tous', 'actif', 'inactif'] as const).map(s => (
-                                    <button key={s} onClick={() => setFilterStatut(s)}
-                                            className="px-3 py-1.5 transition-colors capitalize"
-                                            style={filterStatut === s
-                                                ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
-                                                : { backgroundColor: 'white', color: 'var(--ht-muted)' }
-                                            }>
+                                    <button key={s} onClick={() => setFilterStatut(s)} className="px-3 py-1.5 transition-colors capitalize"
+                                            style={filterStatut === s ? { backgroundColor: 'var(--ht-primary)', color: 'var(--ht-primary-contrast)' } : { backgroundColor: 'var(--ht-card-bg)', color: 'var(--ht-muted)' }}>
                                         {s === 'tous' ? 'Tous' : s === 'actif' ? '● Actifs' : '○ Inactifs'}
                                     </button>
                                 ))}
                             </div>
-
                             {/* Rôle */}
                             <select value={filterRole} onChange={e => setFilterRole(e.target.value as 'tous' | RoleEmploye)}
-                                    className="ht-input text-xs px-2 py-1.5 text-gray-600"
+                                    className="ht-input text-xs px-2 py-1.5 text-[var(--ht-text-secondary)]"
                             >
                                 <option value="tous">Tous les rôles</option>
                                 {ROLES.map(r => (
@@ -361,7 +356,7 @@ export default function Employes() {
 
                             {/* Service */}
                             <select value={filterService} onChange={e => setFilterService(e.target.value === 'tous' ? 'tous' : Number(e.target.value))}
-                                    className="ht-input text-xs px-2 py-1.5 text-gray-600"
+                                    className="ht-input text-xs px-2 py-1.5 text-[var(--ht-text-secondary)]"
                             >
                                 <option value="tous">Tous les services</option>
                                 {services.map(s => (
@@ -373,7 +368,7 @@ export default function Employes() {
 
                     {/* En-têtes colonnes */}
                     {!loading && employesFiltres.length > 0 && (
-                        <div className="px-6 py-2 bg-gray-50 border-b border-gray-100 grid grid-cols-12 gap-4 text-xs font-medium text-gray-400 uppercase tracking-wider">
+                        <div className="px-6 py-2 bg-[var(--ht-bg)] border-b border-[var(--ht-border)] grid grid-cols-12 gap-4 text-xs font-medium text-[var(--ht-text-muted)] uppercase tracking-wider">
                             <div className="col-span-3">Employé</div>
                             <div className="col-span-2">Rôle</div>
                             <div className="col-span-2">Spécialité</div>
@@ -389,7 +384,7 @@ export default function Employes() {
                     ) : employes.length === 0 ? (
                         <div className="px-6 py-16 text-center">
                             <p className="text-4xl mb-3">🧑‍⚕️</p>
-                            <p className="text-gray-400 text-sm">Aucun employé pour le moment</p>
+                            <p className="text-[var(--ht-text-muted)] text-sm">Aucun employé pour le moment</p>
                             <button onClick={() => navigate('/employes/newEmploye')}
                                     className="mt-4 text-sm font-medium px-4 py-2 rounded-lg text-white"
                                     style={{ backgroundColor: 'var(--ht-primary)' }}>
@@ -399,9 +394,9 @@ export default function Employes() {
                     ) : employesFiltres.length === 0 ? (
                         <div className="px-6 py-12 text-center">
                             <p className="text-3xl mb-3">🔍</p>
-                            <p className="text-gray-400 text-sm">Aucun employé ne correspond aux filtres</p>
+                            <p className="text-[var(--ht-text-muted)] text-sm">Aucun employé ne correspond aux filtres</p>
                             <button onClick={resetFilters}
-                                    className="mt-3 text-sm text-red-400 hover:text-red-600">
+                                    className="mt-3 text-sm text-[var(--ht-danger)] hover:text-[var(--ht-danger)]">
                                 Réinitialiser les filtres
                             </button>
                         </div>
@@ -411,7 +406,7 @@ export default function Employes() {
                                 const isSelf = currentUser?.username === employe.username
                                 return (
                                     <div key={employe.id}
-                                         className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-gray-50 transition-colors"
+                                         className="px-6 py-3.5 grid grid-cols-12 gap-4 items-center hover:bg-[var(--ht-bg)] transition-colors"
                                     >
                                         {/* Employé — cliquable vers le détail */}
                                         <div className="col-span-3 flex items-center gap-3 cursor-pointer group"
@@ -421,10 +416,10 @@ export default function Employes() {
                                                 {employe.prenom[0]}{employe.nom[0]}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                                                <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
                                                     {employe.prenom} {employe.nom}
                                                 </p>
-                                                <p className="text-xs text-gray-400">{employe.matricule}</p>
+                                                <p className="text-xs text-[var(--ht-text-muted)]">{employe.matricule}</p>
                                             </div>
                                         </div>
 
@@ -446,15 +441,15 @@ export default function Employes() {
 
                                         {/* Spécialité */}
                                         <div className="col-span-2">
-                                            <span className="text-xs text-gray-500">
-                                                {employe.specialite || <span className="text-gray-300">—</span>}
+                                            <span className="text-xs text-[var(--ht-text-muted)]">
+                                                {employe.specialite || <span className="text-[var(--ht-text-muted)]">—</span>}
                                             </span>
                                         </div>
 
                                         {/* Téléphone */}
                                         <div className="col-span-2">
-                                            <span className="text-xs text-gray-500">
-                                                {employe.telephone || <span className="text-gray-300">—</span>}
+                                            <span className="text-xs text-[var(--ht-text-muted)]">
+                                                {employe.telephone || <span className="text-[var(--ht-text-muted)]">—</span>}
                                             </span>
                                         </div>
 
@@ -479,7 +474,7 @@ export default function Employes() {
                                                 onClick={() => handleDelete(employe)}
                                                 disabled={isSelf}
                                                 title={isSelf ? 'Tu ne peux pas supprimer ton propre compte' : 'Supprimer'}
-                                                className="text-xs text-red-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                                                className="text-xs text-[var(--ht-danger)] hover:text-[var(--ht-danger)] disabled:opacity-30 disabled:cursor-not-allowed px-2 py-1 rounded hover:bg-[var(--ht-danger-bg)] transition-colors"
                                             >
                                                 Supprimer
                                             </button>
@@ -492,12 +487,12 @@ export default function Employes() {
 
                     {/* Footer tableau */}
                     {employesFiltres.length > 0 && (
-                        <div className="px-6 py-3 border-t border-gray-50">
+                        <div className="px-6 py-3 border-t border-[var(--ht-border)]">
                             <div className="flex justify-between items-center">
-                                <p className="text-xs text-gray-400">
+                                <p className="text-xs text-[var(--ht-text-muted)]">
                                     {employesFiltres.length} employé{employesFiltres.length > 1 ? 's' : ''} au total
                                 </p>
-                                <p className="text-xs text-gray-300">Le rôle et le statut sont modifiables directement dans le tableau</p>
+                                <p className="text-xs text-[var(--ht-text-muted)]">Le rôle et le statut sont modifiables directement dans le tableau</p>
                             </div>
                             <Pagination
                                 page={pageCourante}

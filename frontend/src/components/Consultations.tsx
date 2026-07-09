@@ -39,7 +39,7 @@ const STATUT_CONFIG: Record<ConsultationStatut, { label: string; color: string; 
 }
 
 const TYPE_CONFIG: Record<TypeEvenement, { label: string; icon: LucideIcon; color: string; bg: string }> = {
-    consultation: { label: 'Consultation', icon: Stethoscope, color: 'var(--ht-primary)', bg: 'var(--ht-primary-tint)' },
+    consultation: { label: 'Consultation', icon: Stethoscope, color: 'var(--ht-primary)', bg: 'var(--ht-primary-tint-bg)' },
     examen:       { label: 'Examen',        icon: FlaskConical, color: 'var(--role-secretaire)', bg: 'rgba(147, 51, 234, 0.1)' },
     operation:    { label: 'Opération',     icon: Activity, color: 'var(--ht-danger)', bg: 'var(--ht-danger-bg)' },
     autre:        { label: 'Autre',         icon: FileText, color: 'var(--ht-text)', bg: 'var(--ht-muted-bg)' },

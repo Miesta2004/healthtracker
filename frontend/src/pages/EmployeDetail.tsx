@@ -46,9 +46,9 @@ function statutContrat(fin: string | null | undefined, type: TypeContrat | undef
 function SectionCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
     return (
         <div className="ht-card overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-gray-50 flex items-center gap-2">
+            <div className="px-5 py-3.5 border-b border-[var(--ht-border)] flex items-center gap-2">
                 <span className="text-base">{icon}</span>
-                <h2 className="text-sm font-semibold text-gray-900">{title}</h2>
+                <h2 className="text-sm font-semibold text-[var(--ht-text)]">{title}</h2>
             </div>
             <div className="px-5 py-4">{children}</div>
         </div>
@@ -57,9 +57,9 @@ function SectionCard({ title, icon, children }: { title: string; icon: string; c
 
 function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <div className="flex items-start justify-between py-2.5 border-b border-gray-50 last:border-0">
-            <span className="text-xs text-gray-400 uppercase tracking-wide font-medium min-w-32">{label}</span>
-            <span className="text-sm text-gray-800 text-right">{value || <span className="text-gray-300">—</span>}</span>
+        <div className="flex items-start justify-between py-2.5 border-b border-[var(--ht-border)] last:border-0">
+            <span className="text-xs text-[var(--ht-text-muted)] uppercase tracking-wide font-medium min-w-32">{label}</span>
+            <span className="text-sm text-[var(--ht-text)] text-right">{value || <span className="text-[var(--ht-text-muted)]">—</span>}</span>
         </div>
     )
 }
@@ -67,7 +67,7 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
 function EditField({ label, children }: { label: string; children: React.ReactNode }) {
     return (
         <div className="space-y-1.5">
-            <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider">{label}</label>
+            <label className="block text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wider">{label}</label>
             {children}
         </div>
     )
@@ -178,7 +178,7 @@ export default function EmployeDetail() {
                     </div>
                     <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 flex-wrap">
-                            <h1 className="text-xl font-semibold text-gray-900">
+                            <h1 className="text-xl font-semibold text-[var(--ht-text)]">
                                 {employe.prenom} {employe.nom}
                             </h1>
                             <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
@@ -192,12 +192,12 @@ export default function EmployeDetail() {
                                 {employe.actif ? 'Actif' : 'Inactif'}
                             </span>
                         </div>
-                        <p className="text-sm text-gray-400 mt-1">
+                        <p className="text-sm text-[var(--ht-text-muted)] mt-1">
                             {employe.matricule}
                             {employe.service_nom && ` · ${employe.service_nom}`}
                             {employe.specialite && ` · ${employe.specialite}`}
                         </p>
-                        <p className="text-xs text-gray-300 mt-1">
+                        <p className="text-xs text-[var(--ht-text-muted)] mt-1">
                             Compte créé le {formatDate(employe.date_creation)} · @{employe.username}
                         </p>
                     </div>
@@ -249,7 +249,7 @@ export default function EmployeDetail() {
                                     {contratStatut.label}
                                 </span>
                                 {duree && (
-                                    <span className="text-xs text-gray-400">{duree}</span>
+                                    <span className="text-xs text-[var(--ht-text-muted)]">{duree}</span>
                                 )}
                             </div>
                             <InfoRow label="Début"       value={formatDate(employe.date_debut_contrat)} />
@@ -258,11 +258,11 @@ export default function EmployeDetail() {
 
                         <SectionCard title="Description du poste" icon="📋">
                             {employe.description_poste ? (
-                                <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                                <p className="text-sm text-[var(--ht-text-secondary)] whitespace-pre-line leading-relaxed">
                                     {employe.description_poste}
                                 </p>
                             ) : (
-                                <p className="text-sm text-gray-300 italic">Aucune description renseignée.</p>
+                                <p className="text-sm text-[var(--ht-text-muted)] italic">Aucune description renseignée.</p>
                             )}
                         </SectionCard>
 
@@ -276,7 +276,7 @@ export default function EmployeDetail() {
 
                             {/* Infos personnelles */}
                             <div className="ht-card p-5 space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
                                     👤 Informations personnelles
                                 </h3>
                                 <div className="grid grid-cols-2 gap-3">
@@ -306,7 +306,7 @@ export default function EmployeDetail() {
 
                             {/* Compte & rôle */}
                             <div className="ht-card p-5 space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
                                     🔐 Compte & accès
                                 </h3>
                                 <EditField label="Rôle">
@@ -318,7 +318,7 @@ export default function EmployeDetail() {
                                         <option value="secretaire">Secrétaire</option>
                                         <option value="laborantin">Laborantin</option>
                                     </select>
-                                    {isSelf && <p className="text-xs text-gray-400 mt-1">Tu ne peux pas modifier ton propre rôle.</p>}
+                                    {isSelf && <p className="text-xs text-[var(--ht-text-muted)] mt-1">Tu ne peux pas modifier ton propre rôle.</p>}
                                 </EditField>
                                 <EditField label="Service">
                                     <select className={inputCls} value={form.service ?? ''} onChange={e => set('service', e.target.value ? Number(e.target.value) : null)}>
@@ -340,7 +340,7 @@ export default function EmployeDetail() {
 
                             {/* Contrat */}
                             <div className="ht-card p-5 space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
                                     📄 Contrat de travail
                                 </h3>
                                 <EditField label="Type de contrat">
@@ -360,14 +360,14 @@ export default function EmployeDetail() {
                                     <input type="date" className={inputCls} value={form.date_fin_contrat ?? ''} onChange={e => set('date_fin_contrat', e.target.value || null)}
                                            disabled={form.type_contrat === 'cdi'} />
                                     {form.type_contrat === 'cdi' && (
-                                        <p className="text-xs text-gray-400 mt-1">CDI — pas de date de fin.</p>
+                                        <p className="text-xs text-[var(--ht-text-muted)] mt-1">CDI — pas de date de fin.</p>
                                     )}
                                 </EditField>
                             </div>
 
                             {/* Description poste */}
                             <div className="ht-card p-5 space-y-4">
-                                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
                                     📋 Description du poste
                                 </h3>
                                 <EditField label="Missions et responsabilités">
@@ -383,8 +383,8 @@ export default function EmployeDetail() {
                         </div>
 
                         {erreur && (
-                            <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                                <p className="text-sm text-red-600">{erreur}</p>
+                            <div className="rounded-xl border border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] px-4 py-3">
+                                <p className="text-sm text-[var(--ht-danger)]">{erreur}</p>
                             </div>
                         )}
 

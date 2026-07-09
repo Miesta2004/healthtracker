@@ -30,11 +30,11 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
 
 // Couleurs pastel cohérentes avec le reste de l'app (mêmes tons que PatientDetail)
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: 'border-blue-100 bg-blue-50 text-blue-700',
+    maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
     chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
-    allergie:          'border-red-100 bg-red-50 text-red-700',
+    allergie:          'border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] text-[var(--ht-danger)]',
     familial:          'border-purple-100 bg-purple-50 text-purple-700',
-    autre:             'border-gray-200 bg-gray-50 text-gray-600',
+    autre:             'border-[var(--ht-border-input)] bg-[var(--ht-bg)] text-[var(--ht-text-secondary)]',
 }
 
 // ─── Config types & statuts ──────────────────────────────────────────────────
@@ -118,7 +118,7 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
         <div className="ht-modal-overlay">
             <div className="ht-modal ht-modal-sm">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 border"
-                     style={{ backgroundColor: 'var(--ht-primary-tint)', borderColor: 'var(--ht-primary)' }}>
+                     style={{ backgroundColor: 'var(--ht-primary-tint-bg)', borderColor: 'var(--ht-primary-tint-text)' }}>
                     <Pin size={20} style={{ color: 'var(--ht-primary)' }} />
                 </div>
                 <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Ajouter aux antécédents ?</h3>

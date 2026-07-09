@@ -6,6 +6,7 @@ import Sidebar from '../components/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
+import { Users, AlertTriangle, ClipboardList, UserPlus, Building2, Search, SearchX, Droplet, UserX } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -56,13 +57,13 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
     )
 }
 
-function KpiCard({ label, value, sub, icon, accent }: {
-    label: string; value: string | number; sub?: string; icon: string; accent?: boolean
+function KpiCard({ label, value, sub, icon: Icon, accent }: {
+    label: string; value: string | number; sub?: string; icon: any; accent?: boolean
 }) {
     return (
         <div className={`ht-kpi ${accent ? 'accent' : ''}`}>
             <div className="ht-kpi-icon">
-                {icon}
+                <Icon size={20} style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-primary)' }} />
             </div>
             <div>
                 <p className="ht-kpi-label">{label}</p>
@@ -164,9 +165,9 @@ export default function Patients() {
     const patientsPage  = patientsFiltres.slice((pageCourante - 1) * PAGE_SIZE, pageCourante * PAGE_SIZE)
 
     return (
-        <div className="ht-page flex flex-col">
+        <div className="ht-page">
             <Sidebar />
-            <div className="ht-page-content w-full space-y-8">
+            <main className="ht-page-content max-w-7xl space-y-8">
 
                 {/* ── Titre ── */}
                 <div>
@@ -184,7 +185,7 @@ export default function Patients() {
                         {/* Bandeau service */}
                         <div className="ht-card p-5 flex items-center gap-4">
                             <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                                 style={{ backgroundColor: 'var(--ht-primary-light)' }}>🏥</div>
+                                 style={{ backgroundColor: 'var(--ht-primary-light)' }}><Building2 size={18} style={{ color: 'var(--ht-primary)' }} /></div>
                             <div>
                                 <p className="text-xs text-[var(--ht-text-muted)] mb-0.5">Votre service</p>
                                 <p className="text-sm font-semibold text-[var(--ht-text)]">
@@ -203,7 +204,7 @@ export default function Patients() {
                                 Tapez un nom, prénom ou numéro de dossier (au moins 2 caractères).
                             </p>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] text-sm">🔍</span>
+                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ht-text-muted)' }} />
                                 <input
                                     type="text" autoFocus
                                     value={nurseQuery}
@@ -218,14 +219,14 @@ export default function Patients() {
                         <div className="ht-card">
                             {nurseQuery.trim().length < 2 ? (
                                 <div className="px-6 py-16 text-center">
-                                    <p className="text-4xl mb-3">🔍</p>
+                                    <Search size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                                     <p className="text-[var(--ht-text-muted)] text-sm">Entrez au moins 2 caractères pour lancer la recherche</p>
                                 </div>
                             ) : loading ? (
                                 <SkeletonSimpleList rows={3} />
                             ) : patients.length === 0 && nurseSearched ? (
                                 <div className="px-6 py-16 text-center">
-                                    <p className="text-4xl mb-3">🙁</p>
+                                    <UserX size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                                     <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
                                 </div>
                             ) : (
@@ -246,8 +247,8 @@ export default function Patients() {
                                                 </p>
                                             </div>
                                             {p.groupe_sanguin && (
-                                                <span className="badge badge-tint font-semibold">
-                                                    🩸 {p.groupe_sanguin}
+                                                <span className="badge badge-tint font-semibold flex items-center gap-1">
+                                                    <Droplet size={11} /> {p.groupe_sanguin}
                                                 </span>
                                             )}
                                         </div>
@@ -272,7 +273,7 @@ export default function Patients() {
                                 </button>
                                 {hasActiveFilters && (
                                     <button onClick={resetFilters}
-                                            className="text-xs text-red-400 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">
+                                            className="text-xs text-[var(--ht-danger)] hover:text-[var(--ht-danger)] px-3 py-2 rounded-lg hover:bg-[var(--ht-danger-bg)] transition-colors">
                                         Réinitialiser les filtres
                                     </button>
                                 )}
@@ -282,13 +283,13 @@ export default function Patients() {
                         {/* KPIs */}
                         {loading ? <SkeletonKpiGrid /> : (
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <KpiCard label="Total patients"    value={total}           icon="👥" accent
+                                <KpiCard label="Total patients"    value={total}           icon={Users} accent
                                          sub={total > 0 ? `${actif} actif${actif > 1 ? 's' : ''}` : 'Aucun patient'} />
-                                <KpiCard label="Avec allergies"    value={avecAllergies}   icon="⚠️"
+                                <KpiCard label="Avec allergies"    value={avecAllergies}   icon={AlertTriangle}
                                          sub={total > 0 ? `${Math.round(avecAllergies / total * 100)}% des patients` : '—'} />
-                                <KpiCard label="Avec antécédents"  value={avecAntecedents} icon="📋"
+                                <KpiCard label="Avec antécédents"  value={avecAntecedents} icon={ClipboardList}
                                          sub={total > 0 ? `${Math.round(avecAntecedents / total * 100)}% des patients` : '—'} />
-                                <KpiCard label="Ajoutés ce mois"   value={nouveauCeMois}   icon="🆕"
+                                <KpiCard label="Ajoutés ce mois"   value={nouveauCeMois}   icon={UserPlus}
                                          sub={nouveauCeMois > 0 ? 'depuis le 1er du mois' : 'Aucun ce mois'} />
                             </div>
                         )}
@@ -343,7 +344,7 @@ export default function Patients() {
                                     <div className="flex items-center gap-2">
                                         {hasActiveFilters && (
                                             <button onClick={resetFilters}
-                                                    className="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50 transition-colors">
+                                                    className="text-xs text-[var(--ht-danger)] hover:text-[var(--ht-danger)] px-2 py-1 rounded hover:bg-[var(--ht-danger-bg)] transition-colors">
                                                 Réinitialiser
                                             </button>
                                         )}
@@ -356,7 +357,7 @@ export default function Patients() {
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     <div className="relative flex-1 min-w-48">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] text-sm">🔍</span>
+                                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ht-text-muted)' }} />
                                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                                                placeholder="Rechercher un patient..."
                                                className="ht-input w-full pl-8 pr-3 py-1.5 text-sm"/>
@@ -364,7 +365,7 @@ export default function Patients() {
                                     <div className="flex rounded-lg border border-[var(--ht-border-input)] overflow-hidden text-xs">
                                         {(['tous', 'M', 'F'] as const).map(s => (
                                             <button key={s} onClick={() => setFilterSexe(s)} className="px-3 py-1.5 transition-colors"
-                                                    style={filterSexe === s ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
+                                                    style={filterSexe === s ? { backgroundColor: 'var(--ht-primary)', color: 'var(--ht-primary-contrast)' } : { backgroundColor: 'var(--ht-card-bg)', color: 'var(--ht-muted)' }}>
                                                 {s === 'tous' ? 'Tous' : s === 'M' ? '♂ Hommes' : '♀ Femmes'}
                                             </button>
                                         ))}
@@ -372,7 +373,7 @@ export default function Patients() {
                                     <div className="flex rounded-lg border border-[var(--ht-border-input)] overflow-hidden text-xs">
                                         {(['tous', 'actif', 'inactif'] as const).map(s => (
                                             <button key={s} onClick={() => setFilterStatut(s)} className="px-3 py-1.5 transition-colors capitalize"
-                                                    style={filterStatut === s ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
+                                                    style={filterStatut === s ? { backgroundColor: 'var(--ht-primary)', color: 'var(--ht-primary-contrast)' } : { backgroundColor: 'var(--ht-card-bg)', color: 'var(--ht-muted)' }}>
                                                 {s === 'tous' ? 'Tous' : s === 'actif' ? '● Actifs' : '○ Inactifs'}
                                             </button>
                                         ))}
@@ -402,14 +403,14 @@ export default function Patients() {
                                 <SkeletonTable rows={6} />
                             ) : patients.length === 0 ? (
                                 <div className="px-6 py-16 text-center">
-                                    <p className="text-4xl mb-3">👥</p>
+                                    <Users size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                                     <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient pour le moment</p>
                                 </div>
                             ) : patientsFiltres.length === 0 ? (
                                 <div className="px-6 py-12 text-center">
-                                    <p className="text-3xl mb-3">🔍</p>
+                                    <SearchX size={30} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                                     <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient ne correspond aux filtres</p>
-                                    <button onClick={resetFilters} className="mt-3 text-sm text-red-400 hover:text-red-600">
+                                    <button onClick={resetFilters} className="mt-3 text-sm text-[var(--ht-danger)] hover:text-[var(--ht-danger)]">
                                         Réinitialiser les filtres
                                     </button>
                                 </div>
@@ -442,8 +443,8 @@ export default function Patients() {
                                                 </div>
                                                 <div className="col-span-2 flex justify-center">
                                                     {patient.groupe_sanguin
-                                                        ? <span className="badge badge-tint font-semibold">
-                                                            🩸 {patient.groupe_sanguin}
+                                                        ? <span className="badge badge-tint font-semibold flex items-center gap-1">
+                                                            <Droplet size={11} /> {patient.groupe_sanguin}
                                                           </span>
                                                         : <span className="text-xs text-[var(--ht-text-muted)]">—</span>}
                                                 </div>
@@ -455,8 +456,8 @@ export default function Patients() {
                                                 <div className="col-span-2">
                                                     {allergies.length === 0
                                                         ? <span className="text-xs text-[var(--ht-text-muted)]">Aucune</span>
-                                                        : <span className="badge badge-danger">
-                                                            ⚠ {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
+                                                        : <span className="badge badge-danger flex items-center gap-1">
+                                                            <AlertTriangle size={11} /> {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
                                                           </span>}
                                                 </div>
                                                 <div className="col-span-1 flex justify-center">
@@ -490,7 +491,7 @@ export default function Patients() {
                         </div>
                     </>
                 )}
-            </div>
+            </main>
         </div>
     )
 }

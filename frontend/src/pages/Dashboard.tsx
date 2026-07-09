@@ -78,7 +78,7 @@ function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty,
     return (
         <div className="ht-card ht-card-padded-sm flex flex-col h-full">
             <div className="flex items-center justify-between pb-4 border-b border-[var(--ht-border)] mb-4">
-                <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
                     {title}
                     {typeof count === "number" && !loading && (
                         <span className="badge badge-muted">{count}</span>
@@ -182,14 +182,14 @@ export default function Dashboard() {
 
                 {/* ── Entête ── */}
                 <div className="border-b border-[var(--ht-border)] pb-5">
-                    <h1 className="text-2xl font-bold tracking-tight text-gray-900">
+                    <h1 className="text-2xl font-bold tracking-tight text-[var(--ht-text)]">
                         {hasRole("admin")      && "Tableau de bord — Administration"}
                         {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋`}
                         {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
                         {hasRole("secretaire") && "Accueil & Secrétariat"}
                         {hasRole("laborantin") && "Espace Laboratoire"}
                     </h1>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <p className="text-sm text-[var(--ht-text-muted)] mt-1">
                         {hasRole("admin")      && "Vue globale et gestion de l'établissement"}
                         {hasRole("medecin")    && "Vos patients et consultations du jour"}
                         {hasRole("infirmier")  && "Suivi des patients et constantes vitales"}
@@ -281,7 +281,7 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <span className={`badge ${u.niveau_tri ? TRI_BADGE[u.niveau_tri] : "badge-muted"}`} style={{ width: "0.625rem", height: "0.625rem", padding: 0 }} />
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-gray-900 truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>                                                <p className="text-xs text-gray-400 truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
+                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
                                             </div>
                                         </div>
                                         <span className="badge badge-muted uppercase">
@@ -305,8 +305,8 @@ export default function Dashboard() {
                                 {(hospitalisations ?? []).slice(0, 5).map(h => (
                                     <div key={h.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
                                         <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{h.patient_prenom ? `${h.patient_prenom} ${h.patient_nom}` : (h.patient_nom || `Patient #${h.patient}`)}</p>
-                                            <p className="text-xs text-gray-400 truncate mt-0.5">
+                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{h.patient_prenom ? `${h.patient_prenom} ${h.patient_nom}` : (h.patient_nom || `Patient #${h.patient}`)}</p>
+                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">
                                                 {h.chambre ? `Chambre ${h.chambre}` : "Sans chambre"} {h.lit ? `· Lit ${h.lit}` : ""}
                                             </p>
                                         </div>
@@ -333,8 +333,8 @@ export default function Dashboard() {
                                             {p.prenom?.[0] || ""}{p.nom?.[0] || ""}
                                         </div>
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{p.prenom} {p.nom}</p>
-                                            <p className="text-xs text-gray-400 mt-0.5">{p.age ?? '—'} ans</p>
+                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{p.prenom} {p.nom}</p>
+                                            <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">{p.age ?? '—'} ans</p>
                                         </div>
                                     </div>
                                 ))}
@@ -356,8 +356,8 @@ export default function Dashboard() {
                                 {rdvAujourdhui.slice(0, 5).map(r => (
                                     <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
                                         <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-gray-900 truncate">{r.patient_prenom} {r.patient_nom}</p>
-                                            <p className="text-xs text-gray-400 truncate mt-0.5">{r.motif}</p>
+                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{r.patient_prenom} {r.patient_nom}</p>
+                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{r.motif}</p>
                                         </div>
                                         <span className="badge badge-tint">
                                             {new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
@@ -377,14 +377,14 @@ export default function Dashboard() {
                                 <FlaskConical size={22} style={{ color: "var(--ht-primary)" }} />
                             </div>
                             <div>
-                                <p className="text-sm font-bold text-gray-900">
+                                <p className="text-sm font-bold text-[var(--ht-text)]">
                                     {demandesEnAttente === null
                                         ? "Chargement des demandes…"
                                         : demandesEnAttente === 0
                                             ? "Aucune demande en attente"
                                             : `${demandesEnAttente} demande${demandesEnAttente > 1 ? "s" : ""} en attente de traitement`}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-0.5">Retrouvez toutes les demandes d'analyses biologiques assignées à votre labo</p>
+                                <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">Retrouvez toutes les demandes d'analyses biologiques assignées à votre labo</p>
                             </div>
                         </div>
                         <button onClick={() => navigate("/laboratoire")} className="btn btn-primary w-full sm:w-auto">

@@ -7,7 +7,7 @@ import type { Service, Employe } from '../types'
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
     return (
-        <label className="block text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+        <label className="block text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wider mb-2">
             {children}
         </label>
     )
@@ -81,11 +81,11 @@ export default function AddHospitalisation() {
         return (
             <div className="ht-page flex items-center justify-center">
                 <div className="text-center space-y-3">
-                    <div className="w-16 h-16 rounded-full bg-green-50 flex items-center justify-center text-3xl mx-auto">
+                    <div className="w-16 h-16 rounded-full bg-[var(--ht-success-bg)] flex items-center justify-center text-3xl mx-auto">
                         ✓
                     </div>
-                    <p className="text-sm font-medium text-gray-800">Hospitalisation enregistrée</p>
-                    <p className="text-xs text-gray-400">Redirection en cours…</p>
+                    <p className="text-sm font-medium text-[var(--ht-text)]">Hospitalisation enregistrée</p>
+                    <p className="text-xs text-[var(--ht-text-muted)]">Redirection en cours…</p>
                 </div>
             </div>
         )
@@ -93,15 +93,15 @@ export default function AddHospitalisation() {
 
     return (
         <div className="ht-page">
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
+            <nav className="bg-[var(--ht-card-bg)] border-b border-[var(--ht-border)] px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
                 <button
                     onClick={() => navigate(`/patients/${patientId}`)}
-                    className="text-sm text-gray-400 hover:text-gray-700 transition-colors"
+                    className="text-sm text-[var(--ht-text-muted)] hover:text-[var(--ht-text-secondary)] transition-colors"
                 >
                     ← Retour au dossier
                 </button>
-                <span className="text-gray-200">|</span>
-                <span className="text-sm font-medium text-gray-900">Nouvelle hospitalisation</span>
+                <span className="text-[var(--ht-text-muted)]">|</span>
+                <span className="text-sm font-medium text-[var(--ht-text)]">Nouvelle hospitalisation</span>
             </nav>
 
             <div className="max-w-2xl mx-auto px-6 py-8 space-y-6">
@@ -205,8 +205,8 @@ export default function AddHospitalisation() {
                 </div>
 
                 {erreur && (
-                    <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3">
-                        <p className="text-sm text-red-600">{erreur}</p>
+                    <div className="rounded-xl border border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] px-4 py-3">
+                        <p className="text-sm text-[var(--ht-danger)]">{erreur}</p>
                     </div>
                 )}
 

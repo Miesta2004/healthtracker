@@ -21,7 +21,7 @@ function Field({ label, name, value, onChange, type = 'text', required = false, 
 }) {
     return (
         <div>
-            <label className="block text-xs text-gray-500 mb-1">{label}</label>
+            <label className="block text-xs text-[var(--ht-text-muted)] mb-1">{label}</label>
             <input
                 type={type} name={name} value={value} onChange={onChange}
                 required={required} placeholder={placeholder}
@@ -121,22 +121,22 @@ export default function AddEmploye() {
         <div className="ht-page">
 
             {/* Sidebar */}
-            <nav className="bg-white border-b border-gray-100 px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
-                <button onClick={() => navigate('/employes')} className="text-sm text-gray-400 hover:text-gray-700 transition-colors">
+            <nav className="bg-[var(--ht-card-bg)] border-b border-[var(--ht-border)] px-6 py-4 flex items-center gap-4 sticky top-0 z-10">
+                <button onClick={() => navigate('/employes')} className="text-sm text-[var(--ht-text-muted)] hover:text-[var(--ht-text-secondary)] transition-colors">
                     ← Retour
                 </button>
-                <span className="text-gray-200">|</span>
-                <span className="text-sm font-medium text-gray-900">Nouvel employé</span>
+                <span className="text-[var(--ht-text-muted)]">|</span>
+                <span className="text-sm font-medium text-[var(--ht-text)]">Nouvel employé</span>
             </nav>
 
             <div className="max-w-2xl mx-auto px-6 py-8">
                 <div className="mb-6">
-                    <h1 className="text-2xl font-bold text-gray-900">Ajouter un employé</h1>
-                    <p className="text-gray-400 text-sm mt-1">Crée un compte et une fiche pour un membre du personnel</p>
+                    <h1 className="text-2xl font-bold text-[var(--ht-text)]">Ajouter un employé</h1>
+                    <p className="text-[var(--ht-text-muted)] text-sm mt-1">Crée un compte et une fiche pour un membre du personnel</p>
                 </div>
 
                 {error && (
-                    <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-6">
+                    <div className="bg-[var(--ht-danger-bg)] border border-[var(--ht-danger)] text-[var(--ht-danger)] text-sm px-4 py-3 rounded-lg mb-6">
                         {error}
                     </div>
                 )}
@@ -145,7 +145,7 @@ export default function AddEmploye() {
 
                     {/* Identité */}
                     <div className="ht-card p-6">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                        <h2 className="text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wider mb-4">
                             Identité
                         </h2>
                         <div className="grid grid-cols-2 gap-4">
@@ -153,7 +153,7 @@ export default function AddEmploye() {
                             <Field label="Nom *" name="nom" value={form.nom} onChange={handleChange} required placeholder="Sow" />
                             <Field label="Date de naissance *" name="date_naissance" type="date" value={form.date_naissance} onChange={handleChange} required />
                             <div>
-                                <label className="block text-xs text-gray-500 mb-1">Sexe *</label>
+                                <label className="block text-xs text-[var(--ht-text-muted)] mb-1">Sexe *</label>
                                 <select name="sexe" value={form.sexe} onChange={handleChange} required
                                         className="ht-input w-full px-3 py-2.5 text-sm"
                                 >
@@ -167,7 +167,7 @@ export default function AddEmploye() {
 
                     {/* Contact */}
                     <div className="ht-card p-6">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                        <h2 className="text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wider mb-4">
                             Contact
                         </h2>
                         <div className="grid grid-cols-2 gap-4">
@@ -178,7 +178,7 @@ export default function AddEmploye() {
 
                     {/* Rôle */}
                     <div className="ht-card p-6">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                        <h2 className="text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wider mb-4">
                             Rôle dans l'équipe *
                         </h2>
                         <div className="grid grid-cols-5 gap-3">
@@ -193,7 +193,7 @@ export default function AddEmploye() {
                         )}
                         {role && role !== 'admin' && (
                             <div className="mt-4">
-                                <label className="block text-xs text-gray-500 mb-1">Service *</label>
+                                <label className="block text-xs text-[var(--ht-text-muted)] mb-1">Service *</label>
                                 <select value={serviceId} onChange={e => setServiceId(e.target.value)}
                                         className="ht-input w-full px-3 py-2.5 text-sm"
                                 >
@@ -202,7 +202,7 @@ export default function AddEmploye() {
                                         <option key={s.id} value={s.id}>{s.nom}</option>
                                     ))}
                                 </select>
-                                <p className="text-xs text-gray-400 mt-1.5">
+                                <p className="text-xs text-[var(--ht-text-muted)] mt-1.5">
                                     Sans service assigné, cet employé ne verra aucun patient ni aucune donnée de l'établissement.
                                 </p>
                                 {services.length === 0 && (
@@ -216,7 +216,7 @@ export default function AddEmploye() {
 
                     {/* Compte */}
                     <div className="ht-card p-6">
-                        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                        <h2 className="text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wider mb-4">
                             Compte de connexion
                         </h2>
                         <div className="grid grid-cols-2 gap-4">
@@ -226,7 +226,7 @@ export default function AddEmploye() {
                                 <Field label="Mot de passe *" name="password" type="password" value={form.password} onChange={handleChange} required placeholder="••••••••" />
                             </div>
                         </div>
-                        <p className="text-xs text-gray-400 mt-3">
+                        <p className="text-xs text-[var(--ht-text-muted)] mt-3">
                             Le matricule de l'employé est généré automatiquement à la création.
                         </p>
                     </div>
@@ -234,12 +234,12 @@ export default function AddEmploye() {
                     {/* Actions */}
                     <div className="flex justify-end gap-3">
                         <button type="button" onClick={() => navigate('/employes')}
-                                className="px-4 py-2.5 rounded-lg text-sm font-medium text-gray-500 hover:bg-gray-100 transition-colors">
+                                className="px-4 py-2.5 rounded-lg text-sm font-medium text-[var(--ht-text-muted)] hover:bg-[var(--ht-muted-bg)] transition-colors">
                             Annuler
                         </button>
                         <button type="submit" disabled={!formValid || loading}
                                 className="px-5 py-2.5 rounded-lg text-sm font-medium text-white transition-colors"
-                                style={{ backgroundColor: (!formValid || loading) ? '#5a8aaa' : 'var(--ht-primary)' }}>
+                                style={{ backgroundColor: (!formValid || loading) ? 'var(--ht-muted)' : 'var(--ht-primary)' }}>
                             {loading ? 'Création en cours...' : "Créer l'employé"}
                         </button>
                     </div>

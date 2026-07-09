@@ -14,12 +14,13 @@
     --ht-primary-tint:     #7FB39C;
     --ht-primary-tint-bg:  rgba(47, 93, 78, 0.14);
     --ht-primary-contrast: #ffffff;
+    --ht-primary-tint-text: var(--ht-primary);
 
     /* Marque fixe (Sidebar, panneau de connexion) : même couleur en clair et en sombre,
        volontairement plus sourde qu'un accent pour ne pas fatiguer l'œil sur une grande surface */
-    --ht-brand-bg:      #A8683C;
-    --ht-brand-tint:     #F0C8A0;
-    --ht-brand-tint-bg:  rgba(240, 200, 160, 0.16);
+    --ht-brand-bg:      #123b35;
+    --ht-brand-tint:     #6fd7c4;
+    --ht-brand-tint-bg:  rgba(111, 215, 196, 0.16);
     --ht-brand-border:   rgba(255, 255, 255, 0.08);
 
     --ht-success:          #0f766e;
@@ -136,7 +137,7 @@ body {
 .badge-warning { background-color: var(--ht-warning-bg); color: var(--ht-warning); }
 .badge-danger { background-color: var(--ht-danger-bg); color: var(--ht-danger); }
 .badge-muted { background-color: var(--ht-muted-bg); color: var(--ht-muted); }
-.badge-tint { background-color: var(--ht-primary-tint); color: var(--ht-primary); }
+.badge-tint { background-color: var(--ht-primary-tint-bg); color: var(--ht-primary-tint-text); }
 
 .badge-role-admin { background-color: rgba(0,49,82,0.1); color: var(--role-admin); }
 .badge-role-medecin { background-color: rgba(14,116,144,0.12); color: var(--role-medecin); }
@@ -294,9 +295,10 @@ body {
     --ht-primary:          #1E3A35;
     --ht-primary-hover:    #28524a;
     --ht-primary-light:    rgba(30,58,53,0.14);
-    --ht-primary-tint:     #1c3a34;
-    --ht-primary-tint-bg:  rgba(30,58,53,0.2);
+    --ht-primary-tint:     #7fd6c0;
+    --ht-primary-tint-bg:  rgba(111,174,156,0.16);
     --ht-primary-contrast: #ffffff;
+    --ht-primary-tint-text: #d7f0e8;
 
     --ht-success:          #1E3A35;
     --ht-success-bg:       rgba(30,58,53,0.22);

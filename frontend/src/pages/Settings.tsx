@@ -28,7 +28,7 @@ const TYPE_EXCEPTION: Record<TypeException, string> = {
 }
 
 const TYPE_CRENEAU_COLORS: Record<TypeCreneau, { bg: string; color: string }> = {
-    presentiel:       { bg: '#dbeafe', color: '#1d4ed8' },
+    presentiel:       { bg: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' },
     garde:            { bg: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' },
     astreinte:        { bg: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' },
     teleconsultation: { bg: 'var(--ht-success-bg)', color: 'var(--ht-success)' },
@@ -121,7 +121,7 @@ function OngletProfil({ employe, photoUrl, onPhotoChange }: {
                     <button onClick={() => fileRef.current?.click()} className="btn btn-ghost">
                         Changer la photo
                     </button>
-                    <p className="text-xs text-gray-400 mt-1">JPG ou PNG, max 2 Mo</p>
+                    <p className="text-xs text-[var(--ht-text-muted)] mt-1">JPG ou PNG, max 2 Mo</p>
                     <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handlePhoto} />
                 </div>
             </div>
@@ -137,8 +137,8 @@ function OngletProfil({ employe, photoUrl, onPhotoChange }: {
                     ['Service', employe.service_nom || '—'],
                 ].map(([label, val]) => (
                     <div key={label as string}>
-                        <p className="text-xs text-gray-400">{label as string}</p>
-                        <p className="text-sm font-medium text-gray-800">{val as string}</p>
+                        <p className="text-xs text-[var(--ht-text-muted)]">{label as string}</p>
+                        <p className="text-sm font-medium text-[var(--ht-text)]">{val as string}</p>
                     </div>
                 ))}
             </div>
@@ -218,7 +218,7 @@ function OngletSecurite() {
                                onChange={e => set(e.target.value)}
                                className="ht-input pr-10" />
                         <button type="button" onClick={toggle}
-                                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-xs">
+                                className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] hover:text-[var(--ht-text-secondary)] text-xs">
                             {show ? 'Masquer' : 'Voir'}
                         </button>
                     </div>
@@ -287,7 +287,7 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
                     rows={3}
                     className="ht-input ht-textarea ht-mono"
                 />
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-xs text-[var(--ht-text-muted)] mt-1">
                     Ex : Dr Aminata Diop — Cardiologue — N° ordre 12345 — Tél : +221 77 000 00 00
                 </p>
             </div>
@@ -295,9 +295,9 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
             {/* Aperçu */}
             {signature && (
                 <div className="border rounded-xl p-4" style={{ borderColor: 'var(--ht-border-input)' }}>
-                    <p className="text-xs text-gray-400 mb-3 uppercase tracking-wider">Aperçu ordonnance</p>
+                    <p className="text-xs text-[var(--ht-text-muted)] mb-3 uppercase tracking-wider">Aperçu ordonnance</p>
                     <div className="border-t pt-3" style={{ borderColor: 'var(--ht-border)' }}>
-                        <p className="text-sm text-gray-600 whitespace-pre-line">{signature}</p>
+                        <p className="text-sm text-[var(--ht-text-secondary)] whitespace-pre-line">{signature}</p>
                     </div>
                 </div>
             )}
@@ -386,7 +386,7 @@ function OngletDisponibilites() {
         creneaux.filter(c => c.jour === idx && c.actif)
     )
 
-    if (loading) return <div className="text-sm text-gray-400">Chargement…</div>
+    if (loading) return <div className="text-sm text-[var(--ht-text-muted)]">Chargement…</div>
 
     return (
         <div className="space-y-8">
@@ -394,7 +394,7 @@ function OngletDisponibilites() {
             {/* ── Grille semaine ── */}
             <div>
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900">Planning hebdomadaire récurrent</h3>
+                    <h3 className="text-sm font-semibold text-[var(--ht-text)]">Planning hebdomadaire récurrent</h3>
                     <button onClick={() => setShowFormCreneau(p => !p)} className="btn btn-primary btn-sm">
                         + Ajouter un créneau
                     </button>
@@ -441,7 +441,7 @@ function OngletDisponibilites() {
                 <div className="grid grid-cols-7 gap-2">
                     {JOURS.map((jour, idx) => (
                         <div key={jour}>
-                            <p className="text-xs font-medium text-gray-400 text-center mb-2">
+                            <p className="text-xs font-medium text-[var(--ht-text-muted)] text-center mb-2">
                                 {jour.slice(0, 3)}
                             </p>
                             <div className="min-h-16 space-y-1.5">
@@ -479,7 +479,7 @@ function OngletDisponibilites() {
                     {Object.entries(TYPE_CRENEAU_COLORS).map(([type, cfg]) => (
                         <div key={type} className="flex items-center gap-1.5">
                             <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.color}` }} />
-                            <span className="text-xs text-gray-500">{TYPE_CRENEAU[type as TypeCreneau]}</span>
+                            <span className="text-xs text-[var(--ht-text-muted)]">{TYPE_CRENEAU[type as TypeCreneau]}</span>
                         </div>
                     ))}
                 </div>
@@ -488,7 +488,7 @@ function OngletDisponibilites() {
             {/* ── Exceptions ── */}
             <div>
                 <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-sm font-semibold text-gray-900">Congés & absences</h3>
+                    <h3 className="text-sm font-semibold text-[var(--ht-text)]">Congés & absences</h3>
                     <button onClick={() => setShowFormEx(p => !p)} className="btn btn-ghost btn-sm">
                         + Déclarer une absence
                     </button>
@@ -531,16 +531,16 @@ function OngletDisponibilites() {
                 )}
 
                 {exceptions.length === 0 ? (
-                    <p className="text-sm text-gray-400">Aucune absence déclarée.</p>
+                    <p className="text-sm text-[var(--ht-text-muted)]">Aucune absence déclarée.</p>
                 ) : (
                     <div className="space-y-2">
                         {exceptions.map(ex => (
                             <div key={ex.id}
-                                 className="flex items-center justify-between px-4 py-3 rounded-xl bg-white"
+                                 className="flex items-center justify-between px-4 py-3 rounded-xl bg-[var(--ht-card-bg)]"
                                  style={{ border: '1px solid var(--ht-border)' }}>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-medium text-gray-800">{ex.type_label}</span>
+                                        <span className="text-sm font-medium text-[var(--ht-text)]">{ex.type_label}</span>
                                         <span className="badge"
                                               style={ex.valide
                                                   ? { backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }
@@ -548,7 +548,7 @@ function OngletDisponibilites() {
                                             {ex.valide ? '✓ Validé' : '⏳ En attente'}
                                         </span>
                                     </div>
-                                    <p className="text-xs text-gray-400 mt-0.5">
+                                    <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
                                         {new Date(ex.date_debut).toLocaleDateString('fr-FR')} →{' '}
                                         {new Date(ex.date_fin).toLocaleDateString('fr-FR')}
                                         {ex.motif && ` · ${ex.motif}`}
@@ -601,8 +601,8 @@ function OngletContrat({ employe }: { employe: Record<string, unknown> }) {
                     ['Description du poste', employe.description_poste as string || '—'],
                 ].map(([label, val]) => (
                     <div key={label as string}>
-                        <p className="text-xs text-gray-400">{label as string}</p>
-                        <p className="text-sm font-semibold text-gray-900">{val as string}</p>
+                        <p className="text-xs text-[var(--ht-text-muted)]">{label as string}</p>
+                        <p className="text-sm font-semibold text-[var(--ht-text)]">{val as string}</p>
                     </div>
                 ))}
             </div>
@@ -654,15 +654,15 @@ function OngletNotifications({ employe }: { employe: Record<string, unknown> }) 
                 return (
                     <div key={key} className="flex items-center justify-between py-3 border-b last:border-0" style={{ borderColor: 'var(--ht-border)' }}>
                         <div>
-                            <p className="text-sm font-medium text-gray-800">{cfg.label}</p>
-                            <p className="text-xs text-gray-400 mt-0.5">{cfg.desc}</p>
+                            <p className="text-sm font-medium text-[var(--ht-text)]">{cfg.label}</p>
+                            <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">{cfg.desc}</p>
                         </div>
                         <button
                             onClick={() => setNotifs(prev => ({ ...prev, [key]: !val }))}
                             className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
-                            style={{ backgroundColor: val ? 'var(--ht-primary)' : '#d1d5db' }}
+                            style={{ backgroundColor: val ? 'var(--ht-primary)' : 'var(--ht-border-input)' }}
                         >
-                            <span className="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"
+                            <span className="absolute top-0.5 w-4 h-4 bg-[var(--ht-card-bg)] rounded-full shadow transition-transform"
                                   style={{ left: val ? '22px' : '2px' }} />
                         </button>
                     </div>
@@ -710,13 +710,13 @@ export default function Settings() {
             <Sidebar />
 
             <div className="ht-page-content">
-                <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-700 mb-4">
+                <button onClick={() => navigate(-1)} className="text-sm text-[var(--ht-text-muted)] hover:text-[var(--ht-text-secondary)] mb-4">
                     ← Retour
                 </button>
 
                 <div className="mb-6">
-                    <h1 className="text-xl font-bold text-gray-900">Paramètres</h1>
-                    <p className="text-sm text-gray-400 mt-1">
+                    <h1 className="text-xl font-bold text-[var(--ht-text)]">Paramètres</h1>
+                    <p className="text-sm text-[var(--ht-text-muted)] mt-1">
                         {employe.prenom as string} {employe.nom as string} · {employe.role_label as string}
                     </p>
                 </div>

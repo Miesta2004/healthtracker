@@ -50,7 +50,7 @@ export default function Login() {
                          style={{backgroundColor: 'var(--ht-brand-bg)', border: '1.5px solid var(--ht-brand-tint)'}}
                     >
                         <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
-                            <g fill="#ADDFF1">
+                            <g fill="#6fd7c4">
                                 <rect x="25" y="22" width="12" height="12" rx="2"/>
                                 <rect x="39" y="22" width="12" height="12" rx="2"/>
                                 <rect x="67" y="22" width="12" height="12" rx="2"/>
@@ -79,7 +79,7 @@ export default function Login() {
                                 <rect x="67" y="78" width="12" height="12" rx="2"/>
                                 <rect x="53" y="92" width="12" height="12" rx="2"/>
                             </g>
-                            <g fill="#e8f6fc" opacity="0.5">
+                            <g fill="#eafbf6" opacity="0.5">
                                 <rect x="25" y="36" width="12" height="12" rx="2"/>
                                 <rect x="11" y="50" width="12" height="12" rx="2"/>
                                 <rect x="25" y="50" width="12" height="12" rx="2"/>
@@ -102,7 +102,7 @@ export default function Login() {
                         Gérez vos patients<br/>
                         <span style={{color: 'var(--ht-brand-tint)'}}>en toute simplicité</span>
                     </h1>
-                    <p className="text-blue-200 text-base leading-relaxed max-w-md">
+                    <p className="text-[rgba(255,255,255,0.75)] text-base leading-relaxed max-w-md">
                         Suivez les dossiers médicaux, les consultations et les alertes de vos patients depuis une seule
                         interface intuitive.
                     </p>

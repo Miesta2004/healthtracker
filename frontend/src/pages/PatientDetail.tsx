@@ -89,11 +89,11 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
 
 // Couleurs douces en thème clair, cohérentes avec la palette ht-*
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: 'border-blue-100 bg-blue-50 text-blue-700',
+    maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
     chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
-    allergie:          'border-red-100 bg-red-50 text-red-700',
+    allergie:          'border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] text-[var(--ht-danger)]',
     familial:          'border-purple-100 bg-purple-50 text-purple-700',
-    autre:             'border-gray-200 bg-gray-50 text-gray-600',
+    autre:             'border-[var(--ht-border-input)] bg-[var(--ht-bg)] text-[var(--ht-text-secondary)]',
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -311,7 +311,7 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
                         return (
                             <div key={d.id}
                                  onClick={() => isTerminee && onVoirResultats(d)}
-                                 className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${isTerminee ? 'cursor-pointer hover:border-gray-300 transition-colors' : ''}`}
+                                 className={`flex items-center justify-between gap-3 p-2.5 rounded-xl border ${isTerminee ? 'cursor-pointer hover:border-[var(--ht-border-input)] transition-colors' : ''}`}
                                  style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
                                 <div className="min-w-0">
                                     <div className="flex items-center gap-2 flex-wrap">
@@ -546,7 +546,7 @@ function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
                     <div className="flex rounded-xl border overflow-hidden text-sm p-1 gap-1" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
                         <button type="button" onClick={() => setUrgence('normale')}
                                 className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${urgence === 'normale' ? 'badge-tint' : ''}`}
-                                style={urgence === 'normale' ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' } : { color: 'var(--ht-text-muted)' }}>
+                                style={urgence === 'normale' ? { backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' } : { color: 'var(--ht-text-muted)' }}>
                             Normale
                         </button>
                         <button type="button" onClick={() => setUrgence('urgente')}
@@ -920,8 +920,8 @@ export default function PatientDetail() {
 
                         {/* Zone Erreur d'enregistrement */}
                         {updateError && (
-                            <div className="rounded-xl border border-red-500/20 bg-red-500/10 px-4 py-3">
-                                <p className="text-sm text-red-400">{updateError}</p>
+                            <div className="rounded-xl border border-[var(--ht-danger)]/20 bg-[var(--ht-danger)]/10 px-4 py-3">
+                                <p className="text-sm text-[var(--ht-danger)]">{updateError}</p>
                             </div>
                         )}
 
@@ -951,7 +951,7 @@ export default function PatientDetail() {
                                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                                     />
                                 ) : (
-                                    <div className="ht-avatar ht-avatar-xl flex-shrink-0" style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)', width: '5rem', height: '5rem', fontSize: '1.5rem' }}>
+                                    <div className="ht-avatar ht-avatar-xl flex-shrink-0" style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)', width: '5rem', height: '5rem', fontSize: '1.5rem' }}>
                                         {patient.prenom?.[0] || ''}{patient.nom?.[0] || ''}
                                     </div>
                                 )}
@@ -975,7 +975,7 @@ export default function PatientDetail() {
                                             <span
                                                 className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
                                                 style={(patient as any).actif ?? true
-                                                    ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)', border: '1px solid var(--ht-primary)' }
+                                                    ? { backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)', border: '1px solid var(--ht-primary)' }
                                                     : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
                                                 }
                                             >
@@ -993,7 +993,7 @@ export default function PatientDetail() {
                                         {/* Groupe Sanguin */}
                                         <span className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5"
                                               style={(patient as any).groupe_sanguin
-                                                  ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }
+                                                  ? { backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }
                                                   : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
                                               }>
                                           <Activity size={12} />

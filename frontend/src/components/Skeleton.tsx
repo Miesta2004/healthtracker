@@ -6,26 +6,26 @@
 
 // ─── Bloc de base ───────────────────────────────────────────────────────────
 export function SkeletonBlock({ className = '' }: { className?: string }) {
-    return <div className={`bg-gray-200 rounded animate-pulse ${className}`} />
+    return <div className={`bg-[var(--ht-border-input)] rounded animate-pulse ${className}`} />
 }
 
 export function SkeletonCircle({ size = 36 }:{ size?: number }) {
     return (
         <div
-            className="bg-gray-200 rounded-full animate-pulse flex-shrink-0"
+            className="bg-[var(--ht-border-input)] rounded-full animate-pulse flex-shrink-0"
             style={{ width: size, height: size }}
         />
     )
 }
 
 export function SkeletonText({ width = '100%', height = 12 }: {width?: string |number; height?: number }) {
-    return <div className="bg-gray-200 rounded animate-pulse" style={{ width, height }} />
+    return <div className="bg-[var(--ht-border-input)] rounded animate-pulse" style={{ width, height }} />
 }
 
 // ─── Carte KPI (dashboard) ──────────────────────────────────────────────────
 export function SkeletonKpiCard() {
     return (
-        <div className="rounded-xl border border-gray-100 p-5 flex items-start gap-4 bg-white">
+        <div className="rounded-xl border border-[var(--ht-border)] p-5 flex items-start gap-4 bg-[var(--ht-card-bg)]">
             <SkeletonCircle size={40} />
             <div className="flex-1 space-y-2">
                 <SkeletonText width="60%" height={10} />
@@ -169,7 +169,7 @@ export function SkeletonCardGrid({ count = 6, cols = 'md:grid-cols-2 lg:grid-col
 export function SkeletonFullPage() {
     return (
         <div className="ht-page">
-            <div className="h-16 bg-white border-b border-gray-100 px-6 flex items-center gap-4">
+            <div className="h-16 bg-[var(--ht-card-bg)] border-b border-[var(--ht-border)] px-6 flex items-center gap-4">
                 <SkeletonCircle size={32} />
                 <SkeletonText width={140} height={14} />
             </div>

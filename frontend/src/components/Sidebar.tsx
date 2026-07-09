@@ -29,10 +29,10 @@ const HTLogo = () => (
     <div className="relative z-10 flex items-center gap-3">
         <div
             className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{backgroundColor: 'var(--ht-primary)', border: '1.5px solid var(--ht-primary-tint)'}}
+            style={{backgroundColor: 'var(--ht-brand-bg)', border: '1.5px solid var(--ht-brand-tint)'}}
         >
             <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
-                <g fill="#ADDFF1">
+                <g fill="#6fd7c4">
                     <rect x="25" y="22" width="12" height="12" rx="2"/>
                     <rect x="39" y="22" width="12" height="12" rx="2"/>
                     <rect x="67" y="22" width="12" height="12" rx="2"/>
@@ -61,7 +61,7 @@ const HTLogo = () => (
                     <rect x="67" y="78" width="12" height="12" rx="2"/>
                     <rect x="53" y="92" width="12" height="12" rx="2"/>
                 </g>
-                <g fill="#e8f6fc" opacity="0.5">
+                <g fill="#eafbf6" opacity="0.5">
                     <rect x="25" y="36" width="12" height="12" rx="2"/>
                     <rect x="11" y="50" width="12" height="12" rx="2"/>
                     <rect x="25" y="50" width="12" height="12" rx="2"/>
@@ -119,7 +119,7 @@ function SidebarItem({
                 active
                     ? danger
                         ? "bg-[rgba(185,28,28,0.15)] text-[var(--ht-danger)]"
-                        : "bg-[rgba(255,255,255,0.08)] text-[var(--ht-primary-tint)]"
+                        : "bg-[rgba(255,255,255,0.08)] text-[var(--ht-brand-tint)]"
                     : "text-[rgba(255,255,255,0.55)] hover:bg-[rgba(255,255,255,0.06)] hover:text-white"
             }
             `}
@@ -134,13 +134,13 @@ function SidebarItem({
                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold min-w-[18px] text-center ${
                             danger
                                 ? "bg-[var(--ht-danger)] text-white"
-                                : "bg-[var(--ht-primary-tint)] text-[var(--ht-primary)]"
+                                : "bg-[var(--ht-brand-tint-bg)] text-[var(--ht-brand-tint)]"
                         }`}>
                             {badge > 9 ? "9+" : badge}
                         </span>
                     ) : (
                         <span className={`absolute top-2 right-2 w-2 h-2 rounded-full ${
-                            danger ? "bg-[var(--ht-danger)]" : "bg-[var(--ht-primary-tint)]"
+                            danger ? "bg-[var(--ht-danger)]" : "bg-[var(--ht-brand-tint-bg)]"
                         }`} />
                     )}
                 </>
@@ -259,12 +259,12 @@ export default function Sidebar() {
     const isActive = (path: string) => location.pathname.startsWith(path);
 
     const SidebarContent = () => (
-        <div className="flex flex-col h-full bg-[var(--ht-primary)] text-white select-none">
+        <div className="flex flex-col h-full bg-[var(--ht-brand-bg)] text-white select-none">
             <div className="flex items-center justify-between p-4 border-b border-[rgba(255,255,255,0.08)] min-h-[65px]">
                 <button onClick={() => navigate("/dashboard")} className="flex items-center gap-3 active:scale-95 transition-transform">
                     <div
                         className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: 'var(--ht-primary)' }}
+                        style={{ backgroundColor: 'var(--ht-brand-bg)' }}
                     >
                         <HTLogo />
                     </div>
@@ -282,7 +282,7 @@ export default function Sidebar() {
 
             {!collapsed && (
                 <div className="px-4 pt-2.5 pb-1 border-b border-[rgba(255,255,255,0.08)]">
-                    <EKGTrace color="rgba(173,223,241,0.8)" height={16} />
+                    <EKGTrace color="rgba(111,215,196,0.75)" height={16} />
                 </div>
             )}
 
@@ -379,7 +379,7 @@ export default function Sidebar() {
 
                 {user && (
                     <div className={`flex items-center gap-3 p-2 rounded-xl bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.08)] ${collapsed ? "justify-center" : ""}`}>
-                        <div className="w-8 h-8 rounded-full bg-[rgba(173,223,241,0.15)] text-[var(--ht-primary-tint)] border border-[rgba(173,223,241,0.25)] flex items-center justify-center font-bold text-xs flex-shrink-0">
+                        <div className="w-8 h-8 rounded-full bg-[var(--ht-brand-tint-bg)] text-[var(--ht-brand-tint)] border border-[rgba(111,215,196,0.25)] flex items-center justify-center font-bold text-xs flex-shrink-0">
                             {user.prenom?.[0]}{user.nom?.[0]}
                         </div>
                         {!collapsed && (
@@ -406,7 +406,7 @@ export default function Sidebar() {
         <>
             <button
                 onClick={() => setMobileOpen(true)}
-                className="md:hidden fixed top-3 left-3 z-40 p-2.5 rounded-xl bg-[var(--ht-primary)] border border-[rgba(255,255,255,0.1)] text-white shadow-xl active:scale-95 transition-transform"
+                className="md:hidden fixed top-3 left-3 z-40 p-2.5 rounded-xl bg-[var(--ht-brand-bg)] border border-[rgba(255,255,255,0.1)] text-white shadow-xl active:scale-95 transition-transform"
             >
                 <Menu size={18} />
             </button>
@@ -417,7 +417,7 @@ export default function Sidebar() {
                         className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 md:hidden"
                         onClick={() => setMobileOpen(false)}
                     />
-                    <aside className="fixed left-0 top-0 bottom-0 w-72 bg-[var(--ht-primary)] z-50 md:hidden flex flex-col border-r border-[rgba(255,255,255,0.08)]">
+                    <aside className="fixed left-0 top-0 bottom-0 w-72 bg-[var(--ht-brand-bg)] z-50 md:hidden flex flex-col border-r border-[rgba(255,255,255,0.08)]">
                         <div className="flex justify-end p-3 absolute right-2 top-2 z-10">
                             <button
                                 onClick={() => setMobileOpen(false)}
@@ -433,7 +433,7 @@ export default function Sidebar() {
 
             <aside
                 className={`
-                    hidden md:flex fixed left-0 top-0 bottom-0 bg-[var(--ht-primary)] text-white flex-col
+                    hidden md:flex fixed left-0 top-0 bottom-0 bg-[var(--ht-brand-bg)] text-white flex-col
                     transition-all duration-300 ease-in-out z-30 border-r border-[rgba(255,255,255,0.08)]
                     ${collapsed ? "w-16" : "w-64"}
                 `}
