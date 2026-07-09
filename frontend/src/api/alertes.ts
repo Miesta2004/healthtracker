@@ -10,3 +10,9 @@ export const marquerAlerteLue = async (id: number): Promise<Alerte> => {
     const response = await api.patch(`/alertes/${id}/`, { statut: 'lue' })
     return response.data
 }
+
+// Fait avancer une alerte dans son cycle de vie : non_lue → lue → traitée
+export const updateAlerteStatut = async (id: number, statut: 'lue' | 'traitee'): Promise<Alerte> => {
+    const response = await api.patch(`/alertes/${id}/`, { statut })
+    return response.data
+}

@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
 import { getAntecedents, createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
-import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent } from '../types'
+import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Alerte, StatutAlerte } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
 import { getConsultations } from '../api/consultations'
+import { getAlertes, updateAlerteStatut } from '../api/alertes'
 import { getDemandesPatient, createDemande } from '../api/analyses'
 import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
 import { getRendezVousPatient } from '../api/rendezvous'
@@ -14,10 +15,15 @@ import { getHospitalisations } from '../api/hospitalisations'
 import type { RendezVous, PassageUrgence, Hospitalisation } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonDetailPage } from '../components/Skeleton'
-import Sidebar from '../components/layout/Sidebar'
+import Sidebar from '../components/Sidebar.tsx'
+import GraviteBadge from '../components/GraviteBadge'
+import PulseDot from '../components/PulseDot'
+import EKGTrace from '../components/EKGTrace'
+import { computeGravite, GRAVITE_COLOR_VAR } from '../utils/gravite'
 import {
     Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight, MapPin,
-    Phone, User, Stethoscope, AlertTriangle
+    Phone, User, Stethoscope, AlertTriangle, Bell, Calendar, Check,
+    Droplet, Thermometer, Heart, FileText
 } from 'lucide-react'
 
 // ─── Config analyses ────────────────────────────────────────────────────────
@@ -330,33 +336,123 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
     )
 }
 
-// ─── Panel historique des rendez-vous ────────────────────────────────────────
-function RendezVousPanel({ rendezVous, onVoirTous }: { rendezVous: RendezVous[]; onVoirTous: () => void }) {
-    const tries = [...rendezVous].sort((a, b) => new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime())
+// ─── Icônes par type d'alerte ─────────────────────────────────────────────────
+const ALERTE_TYPE_ICON: Record<string, any> = {
+    tension: Activity, glycemie: Droplet, temperature: Thermometer,
+    frequence: Heart, rdv: Calendar, resultat_analyse: FileText, autre: Bell,
+}
+
+// ─── Onglet Alertes ───────────────────────────────────────────────────────────
+function AlertesTab({ alertes, onUpdateStatut }: { alertes: Alerte[]; onUpdateStatut: (a: Alerte) => void }) {
+    if (alertes.length === 0) return <div className="ht-empty">Aucune alerte pour ce patient.</div>
+    const tries = [...alertes].sort((a, b) => new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime())
+    return (
+        <div className="space-y-2.5">
+            {tries.map(a => {
+                const Icon = ALERTE_TYPE_ICON[a.type] || Bell
+                const color = a.statut === 'non_lue' ? 'var(--ht-coral)' : a.statut === 'lue' ? 'var(--ht-amber)' : 'var(--ht-teal)'
+                return (
+                    <div key={a.id} className="flex items-start gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+                        <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ backgroundColor: `${color}1f`, color }}>
+                            <Icon size={15} />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm" style={{ color: 'var(--ht-text)' }}>{a.message}</p>
+                            <p className="text-[11px] mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                                {a.type_label || a.type} · {formatDateHeure(a.date_creation)}
+                            </p>
+                        </div>
+                        <button
+                            onClick={() => onUpdateStatut(a)}
+                            disabled={a.statut === 'traitee'}
+                            className="btn btn-ghost btn-sm flex-shrink-0"
+                        >
+                            {a.statut === 'non_lue' && 'Marquer lue'}
+                            {a.statut === 'lue' && 'Marquer traitée'}
+                            {a.statut === 'traitee' && <span className="flex items-center gap-1"><Check size={12} /> Traitée</span>}
+                        </button>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+// ─── Carte unifiée Alertes / Consultations / Rendez-vous ────────────────────
+type SuiviTab = 'alertes' | 'consultations' | 'rdv'
+
+function SuiviPatientTabs({
+                              alertes, onUpdateAlerteStatut, patientId, consultations, onConsultationsUpdate, rendezVous, onVoirAgenda,
+                          }: {
+    alertes: Alerte[]
+    onUpdateAlerteStatut: (a: Alerte) => void
+    patientId: number
+    consultations: Consultation[]
+    onConsultationsUpdate: (c: Consultation[]) => void
+    rendezVous: RendezVous[]
+    onVoirAgenda: () => void
+}) {
+    const [tab, setTab] = useState<SuiviTab>('alertes')
+    const nonLues = alertes.filter(a => a.statut === 'non_lue').length
+    const rdvTries = [...rendezVous].sort((a, b) => new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime())
+
+    const TabButton = ({ value, icon: Icon, label, count, danger }: { value: SuiviTab; icon: any; label: string; count: number; danger?: boolean }) => (
+        <button
+            onClick={() => setTab(value)}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors"
+            style={{
+                color: tab === value ? 'var(--ht-text)' : 'var(--ht-text-muted)',
+                borderBottom: tab === value ? '2px solid var(--ht-primary)' : '2px solid transparent',
+            }}
+        >
+            <Icon size={13} /> {label}
+            {count > 0 && (
+                <span className={`badge ${danger ? 'badge-danger' : 'badge-muted'}`} style={{ fontSize: '9px', padding: '1px 6px' }}>
+                    {count}
+                </span>
+            )}
+        </button>
+    )
+
     return (
         <div className="ht-card ht-card-padded-sm">
-            <div className="ht-card-header !px-0 !pt-0 mb-4">
-                <h2 className="flex-1">Rendez-vous</h2>
-                {tries.length > 0 && (
-                    <button onClick={onVoirTous} className="text-xs font-medium transition-colors flex items-center gap-0.5" style={{ color: 'var(--ht-primary)' }}>
-                        Agenda <ChevronRight size={14} />
-                    </button>
-                )}
+            <div className="flex items-center gap-1 mb-4 overflow-x-auto" style={{ borderBottom: '1px solid var(--ht-border)' }}>
+                <TabButton value="alertes" icon={Bell} label="Alertes" count={nonLues} danger />
+                <TabButton value="consultations" icon={Stethoscope} label="Consultations" count={consultations.length} />
+                <TabButton value="rdv" icon={Calendar} label="Rendez-vous" count={rendezVous.length} />
             </div>
-            {tries.length === 0 ? (
-                <div className="ht-empty">Aucun rendez-vous enregistré</div>
-            ) : (
-                <div className="space-y-2.5">
-                    {tries.map(r => (
-                        <div key={r.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
-                            <div className="min-w-0">
-                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{r.motif}</p>
-                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>{formatDateHeure(r.date_heure)}</p>
-                            </div>
-                            <StatutMini statut={r.statut} config={STATUT_RDV_CONFIG} />
+
+            {tab === 'alertes' && <AlertesTab alertes={alertes} onUpdateStatut={onUpdateAlerteStatut} />}
+
+            {tab === 'consultations' && (
+                <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
+            )}
+
+            {tab === 'rdv' && (
+                <>
+                    {rdvTries.length === 0 ? (
+                        <div className="ht-empty">Aucun rendez-vous enregistré</div>
+                    ) : (
+                        <div className="space-y-2.5">
+                            {rdvTries.map(r => (
+                                <div key={r.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+                                    <div className="min-w-0">
+                                        <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{r.motif}</p>
+                                        <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>{formatDateHeure(r.date_heure)}</p>
+                                    </div>
+                                    <StatutMini statut={r.statut} config={STATUT_RDV_CONFIG} />
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
+                    )}
+                    {rdvTries.length > 0 && (
+                        <div className="text-right mt-3">
+                            <button onClick={onVoirAgenda} className="text-xs font-medium inline-flex items-center gap-0.5" style={{ color: 'var(--ht-primary)' }}>
+                                Voir l'agenda complet <ChevronRight size={13} />
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
         </div>
     )
@@ -537,6 +633,7 @@ export default function PatientDetail() {
     const [rdvs, setRdvs] = useState<RendezVous[]>([])
     const [urgences, setUrgences] = useState<PassageUrgence[]>([])
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[]>([])
+    const [alertes, setAlertes] = useState<Alerte[]>([])
 
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -571,9 +668,10 @@ export default function PatientDetail() {
             getDemandesPatient(patientId).catch(() => []),
             getRendezVousPatient(patientId).catch(() => []),
             getUrgencesPatient(patientId).catch(() => []),
-            getHospitalisations(patientId).catch(() => [])
+            getHospitalisations(patientId).catch(() => []),
+            getAlertes().catch(() => [])
         ])
-            .then(([p, s, a, c, d, r, u, h]) => {
+            .then(([p, s, a, c, d, r, u, h, al]) => {
                 setPatient(p)
                 setEditForm(p)
                 setSignes(s)
@@ -583,6 +681,7 @@ export default function PatientDetail() {
                 setRdvs(r)
                 setUrgences(u)
                 setHospitalisations(h)
+                setAlertes(al.filter((x: Alerte) => x.patient === patientId))
                 setError('')
             })
             .catch(() => {
@@ -654,6 +753,16 @@ export default function PatientDetail() {
         }
     }
 
+    const handleUpdateAlerteStatut = async (a: Alerte) => {
+        const nextStatut: StatutAlerte = a.statut === 'non_lue' ? 'lue' : 'traitee'
+        try {
+            const updated = await updateAlerteStatut(a.id, nextStatut as 'lue' | 'traitee')
+            setAlertes(prev => prev.map(item => item.id === a.id ? updated : item))
+        } catch {
+            alert("Erreur lors de la mise à jour de l'alerte.")
+        }
+    }
+
     const handleCreateLabDemande = async (data: any) => {
         if (!id) return
         setLabLoading(true)
@@ -684,6 +793,9 @@ export default function PatientDetail() {
             </div>
         )
     }
+
+    const gravite = computeGravite(alertes)
+    const derniereFC = signes[0]?.frequence_cardiaque ?? null
 
     return (
         <div className="ht-page">
@@ -848,24 +960,32 @@ export default function PatientDetail() {
                                 <div className="flex-1 min-w-0 w-full">
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                         <div>
-                                            <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
+                                            <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: 'var(--ht-text)' }}>
                                                 {patient.prenom} {patient.nom}
+                                                <PulseDot freq={derniereFC} color={GRAVITE_COLOR_VAR[gravite]} size={9} />
                                             </h1>
                                             <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
                                                 {calcAge(patient.date_naissance)} ans · {patient.sexe === 'M' ? 'Masculin' : 'Féminin'} · Né(e) le {formatDate(patient.date_naissance)}
                                             </p>
                                         </div>
 
-                                        {/* Badge de statut */}
-                                        <span
-                                            className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
-                                            style={(patient as any).actif ?? true
-                                                ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)', border: '1px solid var(--ht-primary)' }
-                                                : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
-                                            }
-                                        >
-                                        {((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
-                                    </span>
+                                        {/* Badges de statut */}
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            <GraviteBadge gravite={gravite} />
+                                            <span
+                                                className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
+                                                style={(patient as any).actif ?? true
+                                                    ? { backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)', border: '1px solid var(--ht-primary)' }
+                                                    : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
+                                                }
+                                            >
+                                            {((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-3 opacity-70">
+                                        <EKGTrace color={GRAVITE_COLOR_VAR[gravite]} height={18} />
                                     </div>
 
                                     {/* Badges de métadonnées sans émojis */}
@@ -952,14 +1072,16 @@ export default function PatientDetail() {
                             <SignesVitauxCharts data={signes}/>
                         </div>
 
-                        {/* ─── BLOC 3 : Consultations ─── */}  {/* ← monté ici */}
-                        <div className="ht-card ht-card-padded-sm">
-                            <Consultations
-                                patientId={patient.id}
-                                consultations={consultations}
-                                onUpdate={setConsultations}
-                            />
-                        </div>
+                        {/* ─── BLOC 3 : Alertes / Consultations / Rendez-vous ─── */}
+                        <SuiviPatientTabs
+                            alertes={alertes}
+                            onUpdateAlerteStatut={handleUpdateAlerteStatut}
+                            patientId={patient.id}
+                            consultations={consultations}
+                            onConsultationsUpdate={setConsultations}
+                            rendezVous={rdvs}
+                            onVoirAgenda={() => navigate('/rendez_vous')}
+                        />
 
                         {/* ─── BLOC 4 : Antécédents & Analyses ─── */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -981,14 +1103,6 @@ export default function PatientDetail() {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <UrgencesPanel passages={urgences}/>
                             <HospitalisationsPanel hospitalisations={hospitalisations}/>
-                        </div>
-
-                        {/* ─── BLOC 6 : Rendez-vous ─── */}
-                        <div className="ht-card ht-card-padded-sm">
-                            <RendezVousPanel
-                                rendezVous={rdvs}
-                                onVoirTous={() => navigate('/rendez_vous')}
-                            />
                         </div>
                     </div>
                 )}

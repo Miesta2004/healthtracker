@@ -11,6 +11,7 @@ import ConsultationDetail from './pages/ConsultationDetail'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
 import Services from './pages/Services'
+import ServiceDetail from './pages/ServiceDetail'
 import AddSignesVitaux from './pages/AddSignesVitaux'
 import AddHospitalisation from './pages/AddHospitalisation'
 import Urgences from './pages/Urgences'
@@ -107,6 +108,11 @@ function App() {
                 <Route path="/services" element={
                     <ProtectedRoute roles={['admin']}>
                         <Services />
+                    </ProtectedRoute>
+                } />
+                <Route path="/services/:id" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <ServiceDetail />
                     </ProtectedRoute>
                 } />
 

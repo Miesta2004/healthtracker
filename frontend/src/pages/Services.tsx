@@ -2,9 +2,9 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { getServices, createService, deleteService, updateService } from "../api/services.ts"
 import type { Service } from "../types"
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonCardGrid } from '../components/Skeleton'
-import { Building2, Users, UserCheck, ShieldCheck, ShieldAlert, Edit2, ToggleLeft, ToggleRight, Trash2, Plus } from 'lucide-react'
+import { Building2, Users, UserCheck, ShieldCheck, ShieldAlert, Edit2, ToggleLeft, ToggleRight, Trash2, Plus, Activity } from 'lucide-react'
 
 
 // ─── Modal création/édition ───────────────────────────────────────────────────
@@ -81,28 +81,29 @@ function ServiceModal({ service, onClose, onSave} : {
 }
 
 // ─── Card service ─────────────────────────────────────────────────────────────
-function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes }: {
+function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes, onViewDetail }: {
     service: Service
     onEdit: () => void
     onDelete: () => void
     onToggle: () => void
     onViewEmployes: () => void
+    onViewDetail: () => void
 }) {
     return (
         <div className={`ht-card ht-card-padded-sm ${service.actif ? '' : 'opacity-50'}`}>
             <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
+                <button onClick={onViewDetail} className="flex items-center gap-3 min-w-0 text-left group" title="Voir le tableau de bord du service">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                          style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }}>
                         <Building2 size={20} />
                     </div>
                     <div className="min-w-0">
-                        <h3 className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{service.nom}</h3>
+                        <h3 className="text-sm font-semibold truncate group-hover:underline" style={{ color: 'var(--ht-text)' }}>{service.nom}</h3>
                         {service.chef_nom && (
                             <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>Dr. {service.chef_nom}</p>
                         )}
                     </div>
-                </div>
+                </button>
                 <span className={`badge ${service.actif ? 'badge-tint' : 'badge-muted'} flex items-center gap-1`}>
                     {service.actif ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
                     {service.actif ? 'Actif' : 'Inactif'}
@@ -136,14 +137,16 @@ function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes }: {
 
             {/* Actions */}
             <div className="flex gap-2">
-                <button onClick={onEdit} className="btn btn-secondary btn-sm flex-1 gap-1">
-                    <Edit2 size={12} /> Modifier
+                <button onClick={onViewDetail} className="btn btn-primary btn-sm flex-1 gap-1">
+                    <Activity size={12} /> Tableau de bord
                 </button>
-                <button onClick={onToggle} className="btn btn-secondary btn-sm flex-1 gap-1">
+                <button onClick={onEdit} className="btn btn-secondary btn-sm px-2.5" title="Modifier">
+                    <Edit2 size={12} />
+                </button>
+                <button onClick={onToggle} className="btn btn-secondary btn-sm px-2.5" title={service.actif ? 'Désactiver' : 'Activer'}>
                     {service.actif ? <ToggleLeft size={14} /> : <ToggleRight size={14} />}
-                    {service.actif ? 'Désactiver' : 'Activer'}
                 </button>
-                <button onClick={onDelete} className="btn btn-danger btn-sm px-2.5">
+                <button onClick={onDelete} className="btn btn-danger btn-sm px-2.5" title="Supprimer">
                     <Trash2 size={14} />
                 </button>
             </div>
@@ -273,6 +276,7 @@ export default function Services(){
                                 onDelete={() => handleDelete(service)}
                                 onToggle={() => handleToggle(service)}
                                 onViewEmployes={() => navigate(`/employes?service=${service.id}`)}
+                                onViewDetail={() => navigate(`/services/${service.id}`)}
                             />
                         ))}
                     </div>

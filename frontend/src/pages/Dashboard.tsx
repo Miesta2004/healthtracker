@@ -9,7 +9,7 @@ import { getEmployes } from "../api/comptes";
 import { getServices } from "../api/services";
 import { getDemandesEnAttente } from "../api/analyses";
 import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
-import Sidebar from "../components/layout/Sidebar";
+import Sidebar from "../components/Sidebar.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
 import {

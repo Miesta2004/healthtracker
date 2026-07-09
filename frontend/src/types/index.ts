@@ -108,6 +108,31 @@ export interface Service {
     date_creation: string
 }
 
+export interface MedecinPerf {
+    id: number
+    nom: string
+    specialite?: string
+    nb_patients: number
+    nb_consultations: number
+    nb_operations: number
+}
+
+export interface ServiceStats {
+    service: Service
+    patients: {
+        total: number
+        actifs: number
+        nouveaux_jour: number
+        nouveaux_mois: number
+        nouveaux_annee: number
+    }
+    employes: {
+        total: number
+        par_role: Record<RoleEmploye, number>
+    }
+    medecins: MedecinPerf[]
+}
+
 // Réponse de /employes/me/ : soit un Employe complet, soit un fallback minimal
 // pour un superuser Django sans fiche Employe associée.
 export interface CurrentUser {

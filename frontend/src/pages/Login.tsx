@@ -34,27 +34,20 @@ export default function Login() {
             {/* ── Côté gauche : image + branding ── */}
             <div
                 className="hidden lg:flex lg:w-1/2 xl:w-3/5 flex-col justify-between p-12 relative overflow-hidden"
-                style={{backgroundColor: 'var(--ht-primary)'}}
+                style={{backgroundColor: 'var(--ht-brand-bg)'}}
             >
                 {/* Cercles décoratifs en arrière-plan */}
-                <div
-                    className="absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-10"
-                    style={{backgroundColor: 'var(--ht-primary-tint)'}}
-                />
-                <div
-                    className="absolute -bottom-32 -right-16 w-[500px] h-[500px] rounded-full opacity-10"
-                    style={{backgroundColor: 'var(--ht-primary-tint)'}}
-                />
-                <div
-                    className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full opacity-5"
-                    style={{backgroundColor: 'var(--ht-primary-tint)'}}
-                />
+                <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full opacity-10"
+                     style={{backgroundColor: 'var(--ht-brand-tint)'}} />
+                <div className="absolute -bottom-32 -right-16 w-[500px] h-[500px] rounded-full opacity-10"
+                     style={{backgroundColor: 'var(--ht-brand-tint)'}} />
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 rounded-full opacity-5"
+                     style={{backgroundColor: 'var(--ht-brand-tint)'}} />
 
                 {/* Logo */}
                 <div className="relative z-10 flex items-center gap-3">
-                    <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center"
-                        style={{backgroundColor: 'var(--ht-primary)', border: '1.5px solid var(--ht-primary-tint)'}}
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                         style={{backgroundColor: 'var(--ht-brand-bg)', border: '1.5px solid var(--ht-brand-tint)'}}
                     >
                         <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
                             <g fill="#ADDFF1">
@@ -100,14 +93,14 @@ export default function Login() {
                 <div className="relative z-10 space-y-6">
                     <div
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium"
-                        style={{backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint)'}}
+                        style={{backgroundColor: 'var(--ht-brand-tint-bg)', color: 'var(--ht-brand-tint)'}}
                     >
                         <span className="w-1.5 h-1.5 rounded-full bg-current"/>
                         Plateforme médicale sécurisée
                     </div>
                     <h1 className="text-4xl xl:text-5xl font-bold text-white leading-tight">
                         Gérez vos patients<br/>
-                        <span style={{color: 'var(--ht-primary-tint)'}}>en toute simplicité</span>
+                        <span style={{color: 'var(--ht-brand-tint)'}}>en toute simplicité</span>
                     </h1>
                     <p className="text-blue-200 text-base leading-relaxed max-w-md">
                         Suivez les dossiers médicaux, les consultations et les alertes de vos patients depuis une seule
@@ -127,14 +120,13 @@ export default function Login() {
                                 style={{backgroundColor: 'rgba(173, 223, 241, 0.08)'}}
                             >
                                 <p className="text-2xl font-bold text-white">{stat.value}</p>
-                                <p className="text-xs mt-1" style={{color: 'var(--ht-primary-tint)'}}>{stat.label}</p>
-                            </div>
+                                <p className="text-xs mt-1" style={{color: 'var(--ht-brand-tint)'}}>{stat.label}</p>                            </div>
                         ))}
                     </div>
                 </div>
 
                 {/* Footer gauche */}
-                <p className="relative z-10 text-blue-300 text-xs">
+                <p className="text-stone-200 text-base leading-relaxed max-w-md">
                     © 2026 HealthTracker · Tous droits réservés
                 </p>
             </div>
@@ -201,7 +193,7 @@ export default function Login() {
                         </button>
                     </form>
 
-                    <p className="text-center text-xs mt-8" style={{color: 'var(--ht-text-muted)'}}>
+                    <p className="relative z-10 text-stone-300 text-xs">
                         Plateforme réservée au personnel médical autorisé
                     </p>
                 </div>

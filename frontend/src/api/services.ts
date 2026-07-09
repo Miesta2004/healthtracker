@@ -1,8 +1,28 @@
 import api from './client'
-import type {Service} from '../types'
+import type {Service, ServiceStats, Patient, Employe} from '../types'
 
 export const getServices = async (): Promise<Service[]> => {
     const response = await api.get('/services/')
+    return response.data
+}
+
+export const getService = async (id: number): Promise<Service> => {
+    const response = await api.get(`/services/${id}/`)
+    return response.data
+}
+
+export const getServiceStats = async (id: number): Promise<ServiceStats> => {
+    const response = await api.get(`/services/${id}/stats/`)
+    return response.data
+}
+
+export const getServicePatients = async (id: number): Promise<Patient[]> => {
+    const response = await api.get(`/services/${id}/patients/`)
+    return response.data
+}
+
+export const getServiceEmployes = async (id: number): Promise<Employe[]> => {
+    const response = await api.get(`/services/${id}/employes/`)
     return response.data
 }
 

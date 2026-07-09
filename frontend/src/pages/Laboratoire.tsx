@@ -8,7 +8,7 @@ import {
     soumettreResultats,
 } from '../api/analyses'
 import type { Patient, DemandeAnalyse, StatutAnalyse, UrgenceAnalyse, TypeAnalyse } from '../types'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'

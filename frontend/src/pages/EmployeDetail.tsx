@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { getEmploye, updateEmploye } from '../api/comptes'
 import { getServices } from '../api/services'
 import { useAuth } from '../contexts/AuthContext'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import type { Employe, RoleEmploye, TypeContrat, Service } from '../types'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────

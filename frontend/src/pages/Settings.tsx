@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import {
     updateMonProfil, changePassword, uploadMaPhoto, getMaPhotoUrl,
     getMesCreneaux, createCreneau, deleteCreneau,

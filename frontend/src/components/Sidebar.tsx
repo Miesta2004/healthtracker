@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
-import { getAlertes, marquerAlerteLue } from "../../api/alertes";
-import type { Alerte } from "../../types";
+import { useAuth } from "../contexts/AuthContext.tsx";
+import { useTheme } from "../contexts/ThemeContext.tsx";
+import { getAlertes, marquerAlerteLue } from "../api/alertes.ts";
+import type { Alerte } from "../types";
+import EKGTrace from "./EKGTrace.tsx";
 import {
     Home,
     Users,
@@ -18,6 +20,8 @@ import {
     Bell,
     ChevronLeft,
     ChevronRight,
+    Sun,
+    Moon,
 } from "lucide-react";
 
 // ─── Logo SVG ─────────────────────────────────────────────────────────────────
@@ -237,6 +241,7 @@ export default function Sidebar() {
     const navigate = useNavigate();
     const location = useLocation();
     const { user, hasRole, logout } = useAuth();
+    const { theme, toggleTheme } = useTheme();
     const { collapsed, toggle } = useSidebarState();
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -274,6 +279,12 @@ export default function Sidebar() {
                     {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
                 </button>
             </div>
+
+            {!collapsed && (
+                <div className="px-4 pt-2.5 pb-1 border-b border-[rgba(255,255,255,0.08)]">
+                    <EKGTrace color="rgba(173,223,241,0.8)" height={16} />
+                </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-none">
                 <SidebarItem
@@ -350,6 +361,13 @@ export default function Sidebar() {
 
             <div className="border-t border-[rgba(255,255,255,0.08)] p-3 space-y-1.5">
                 <NotificationBell collapsed={collapsed} />
+
+                <SidebarItem
+                    icon={theme === "dark" ? Sun : Moon}
+                    label={theme === "dark" ? "Mode clair" : "Mode sombre"}
+                    onClick={toggleTheme}
+                    collapsed={collapsed}
+                />
 
                 <SidebarItem
                     icon={Settings}

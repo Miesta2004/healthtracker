@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { getEmployes, updateEmploye, deleteEmploye } from '../api/comptes'
 import { getServices } from '../api/services'
 import type { Employe, RoleEmploye, Service } from '../types'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonChartCard, SkeletonTable } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
 
@@ -112,6 +112,7 @@ function KpiCard({ label, value, sub, icon, accent }: {
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function Employes() {
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [employes, setEmployes] = useState<Employe[]>([])
     const [services, setServices] = useState<Service[]>([])
     const [loading, setLoading] = useState(true)
@@ -122,7 +123,10 @@ export default function Employes() {
     const [search, setSearch] = useState('')
     const [filterRole, setFilterRole] = useState<'tous' | RoleEmploye>('tous')
     const [filterStatut, setFilterStatut] = useState<'tous' | 'actif' | 'inactif'>('tous')
-    const [filterService, setFilterService] = useState<'tous' | number>('tous')
+    const [filterService, setFilterService] = useState<'tous' | number>(() => {
+        const fromUrl = searchParams.get('service')
+        return fromUrl ? Number(fromUrl) : 'tous'
+    })
     const [sortBy, setSortBy] = useState<'nom' | 'date'>('nom')
     const [page, setPage] = useState(1)
 

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { createPatient } from '../api/patients'
 import { createAntecedent } from '../api/antecedents'
 import type { TypeAntecedent } from '../types'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import {
     Search,
     Check,

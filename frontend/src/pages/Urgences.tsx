@@ -12,7 +12,7 @@ import {
     admettreUrgence,
 } from '../api/urgences'
 import type { Patient, Service, PassageUrgence, Antecedent, NiveauTri, ModeArrivee, RoleEmploye } from '../types'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
 import { useAuth } from '../contexts/AuthContext'

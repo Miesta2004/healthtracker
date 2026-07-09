@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import type { Patient } from '../types'
-import Sidebar from '../components/layout/Sidebar.tsx'
+import Sidebar from '../components/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
@@ -13,11 +13,11 @@ function MiniBar({ label, value, max, color }: { label: string; value: number; m
     const pct = max > 0 ? (value / max) * 100 : 0
     return (
         <div className="space-y-1">
-            <div className="flex justify-between text-xs text-gray-500">
+            <div className="flex justify-between text-xs text-[var(--ht-text-muted)]">
                 <span>{label}</span>
-                <span className="font-medium text-gray-700">{value}</span>
+                <span className="font-medium text-[var(--ht-text-secondary)]">{value}</span>
             </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div className="h-2 bg-[var(--ht-muted-bg)] rounded-full overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-700"
                      style={{ width: `${pct}%`, backgroundColor: color }} />
             </div>
@@ -27,13 +27,13 @@ function MiniBar({ label, value, max, color }: { label: string; value: number; m
 
 function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
     const total = actif + inactif
-    if (total === 0) return <div className="flex items-center justify-center h-28 text-gray-300 text-sm">Aucune donnée</div>
+    if (total === 0) return <div className="flex items-center justify-center h-28 text-[var(--ht-text-muted)] text-sm">Aucune donnée</div>
     const pct = actif / total
     const r = 40, circ = 2 * Math.PI * r, dash = pct * circ
     return (
         <div className="flex flex-col items-center gap-3">
             <svg width="100" height="100" viewBox="0 0 100 100">
-                <circle cx="50" cy="50" r={r} fill="none" stroke="#e5e7eb" strokeWidth="14" />
+                <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ht-border-input)" strokeWidth="14" />
                 <circle cx="50" cy="50" r={r} fill="none" stroke="var(--ht-primary)" strokeWidth="14"
                         strokeDasharray={`${dash} ${circ - dash}`}
                         strokeDashoffset={circ / 4} strokeLinecap="round"
@@ -42,13 +42,13 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
                     {Math.round(pct * 100)}%
                 </text>
             </svg>
-            <div className="flex gap-4 text-xs text-gray-500">
+            <div className="flex gap-4 text-xs text-[var(--ht-text-muted)]">
                 <span className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: 'var(--ht-primary)' }} />
                     Actifs ({actif})
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-gray-200 inline-block" />
+                    <span className="w-2.5 h-2.5 rounded-full bg-[var(--ht-border-input)] inline-block" />
                     Inactifs ({inactif})
                 </span>
             </div>
@@ -170,8 +170,8 @@ export default function Patients() {
 
                 {/* ── Titre ── */}
                 <div>
-                    <h1 className="text-2xl font-semibold text-gray-900">Patients</h1>
-                    <p className="text-gray-400 text-sm mt-1">
+                    <h1 className="text-2xl font-semibold text-[var(--ht-text)]">Patients</h1>
+                    <p className="text-[var(--ht-text-muted)] text-sm mt-1">
                         {isNurse
                             ? 'Recherchez un patient de votre service pour accéder à son dossier'
                             : "Gérez les dossiers des patients de l'établissement"}
@@ -186,11 +186,11 @@ export default function Patients() {
                             <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
                                  style={{ backgroundColor: 'var(--ht-primary-light)' }}>🏥</div>
                             <div>
-                                <p className="text-xs text-gray-400 mb-0.5">Votre service</p>
-                                <p className="text-sm font-semibold text-gray-800">
-                                    {user?.service_nom ?? <span className="text-gray-400 italic">Non assigné(e) à un service</span>}
+                                <p className="text-xs text-[var(--ht-text-muted)] mb-0.5">Votre service</p>
+                                <p className="text-sm font-semibold text-[var(--ht-text)]">
+                                    {user?.service_nom ?? <span className="text-[var(--ht-text-muted)] italic">Non assigné(e) à un service</span>}
                                 </p>
-                                <p className="text-xs text-gray-400 mt-0.5">
+                                <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
                                     La recherche porte uniquement sur les patients de ce service.
                                 </p>
                             </div>
@@ -198,12 +198,12 @@ export default function Patients() {
 
                         {/* Champ de recherche */}
                         <div className="ht-card p-6">
-                            <h2 className="text-sm font-semibold text-gray-700 mb-1">Rechercher un patient</h2>
-                            <p className="text-xs text-gray-400 mb-4">
+                            <h2 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-1">Rechercher un patient</h2>
+                            <p className="text-xs text-[var(--ht-text-muted)] mb-4">
                                 Tapez un nom, prénom ou numéro de dossier (au moins 2 caractères).
                             </p>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] text-sm">🔍</span>
                                 <input
                                     type="text" autoFocus
                                     value={nurseQuery}
@@ -219,14 +219,14 @@ export default function Patients() {
                             {nurseQuery.trim().length < 2 ? (
                                 <div className="px-6 py-16 text-center">
                                     <p className="text-4xl mb-3">🔍</p>
-                                    <p className="text-gray-400 text-sm">Entrez au moins 2 caractères pour lancer la recherche</p>
+                                    <p className="text-[var(--ht-text-muted)] text-sm">Entrez au moins 2 caractères pour lancer la recherche</p>
                                 </div>
                             ) : loading ? (
                                 <SkeletonSimpleList rows={3} />
                             ) : patients.length === 0 && nurseSearched ? (
                                 <div className="px-6 py-16 text-center">
                                     <p className="text-4xl mb-3">🙁</p>
-                                    <p className="text-gray-400 text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
+                                    <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
                                 </div>
                             ) : (
                                 <div>
@@ -238,10 +238,10 @@ export default function Patients() {
                                                 {p.prenom[0]}{p.nom[0]}
                                             </div>
                                             <div className="min-w-0 flex-1">
-                                                <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                                                <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
                                                     {p.prenom} {p.nom}
                                                 </p>
-                                                <p className="text-xs text-gray-400">
+                                                <p className="text-xs text-[var(--ht-text-muted)]">
                                                     {(p as any).numero_dossier} · {p.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
                                                 </p>
                                             </div>
@@ -301,24 +301,24 @@ export default function Patients() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="ht-card p-6">
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-4">Statut des patients</h3>
+                                    <h3 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-4">Statut des patients</h3>
                                     <DonutChart actif={actif} inactif={inactif} />
                                 </div>
                                 <div className="ht-card p-6">
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-4">Répartition par sexe</h3>
+                                    <h3 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-4">Répartition par sexe</h3>
                                     <div className="space-y-4 pt-2">
                                         <MiniBar label="Masculin" value={hommes} max={total} color="var(--ht-primary)" />
                                         <MiniBar label="Féminin"  value={femmes} max={total} color="var(--ht-primary-tint)" />
-                                        <div className="pt-2 border-t border-gray-50 flex justify-between text-xs text-gray-400">
+                                        <div className="pt-2 border-t border-[var(--ht-border)] flex justify-between text-xs text-[var(--ht-text-muted)]">
                                             <span>Total : {total} patient{total > 1 ? 's' : ''}</span>
                                             {total > 0 && <span>{Math.round(hommes / total * 100)}% H · {Math.round(femmes / total * 100)}% F</span>}
                                         </div>
                                     </div>
                                 </div>
                                 <div className="ht-card p-6">
-                                    <h3 className="text-sm font-semibold text-gray-700 mb-4">Groupes sanguins</h3>
+                                    <h3 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-4">Groupes sanguins</h3>
                                     {groupCounts.length === 0
-                                        ? <div className="text-center text-gray-300 text-sm py-8">Aucune donnée</div>
+                                        ? <div className="text-center text-[var(--ht-text-muted)] text-sm py-8">Aucune donnée</div>
                                         : <div className="space-y-3">
                                             {groupCounts.map(({ g, count }) => (
                                                 <MiniBar key={g} label={g} value={count} max={maxGroup} color="var(--ht-primary-tint)" />
@@ -330,11 +330,11 @@ export default function Patients() {
 
                         {/* Tableau */}
                         <div className="ht-card">
-                            <div className="px-6 py-4 border-b border-gray-100 space-y-3">
+                            <div className="px-6 py-4 border-b border-[var(--ht-border)] space-y-3">
                                 <div className="flex items-center justify-between">
                                     <div>
-                                        <h2 className="font-semibold text-gray-900">Liste des patients</h2>
-                                        <p className="text-xs text-gray-400 mt-0.5">
+                                        <h2 className="font-semibold text-[var(--ht-text)]">Liste des patients</h2>
+                                        <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
                                             {hasActiveFilters
                                                 ? `${patientsFiltres.length} résultat${patientsFiltres.length > 1 ? 's' : ''} sur ${total}`
                                                 : `${total} patient${total > 1 ? 's' : ''} au total`}
@@ -348,7 +348,7 @@ export default function Patients() {
                                             </button>
                                         )}
                                         <select value={sortBy} onChange={e => setSortBy(e.target.value as 'nom' | 'date')}
-                                                className="ht-input text-xs px-2 py-1.5 text-gray-600">
+                                                className="ht-input text-xs px-2 py-1.5 text-[var(--ht-text-secondary)]">
                                             <option value="nom">Trier : A → Z</option>
                                             <option value="date">Trier : plus récents</option>
                                         </select>
@@ -356,12 +356,12 @@ export default function Patients() {
                                 </div>
                                 <div className="flex flex-wrap gap-2">
                                     <div className="relative flex-1 min-w-48">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-300 text-sm">🔍</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] text-sm">🔍</span>
                                         <input type="text" value={search} onChange={e => setSearch(e.target.value)}
                                                placeholder="Rechercher un patient..."
                                                className="ht-input w-full pl-8 pr-3 py-1.5 text-sm"/>
                                     </div>
-                                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                                    <div className="flex rounded-lg border border-[var(--ht-border-input)] overflow-hidden text-xs">
                                         {(['tous', 'M', 'F'] as const).map(s => (
                                             <button key={s} onClick={() => setFilterSexe(s)} className="px-3 py-1.5 transition-colors"
                                                     style={filterSexe === s ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
@@ -369,7 +369,7 @@ export default function Patients() {
                                             </button>
                                         ))}
                                     </div>
-                                    <div className="flex rounded-lg border border-gray-200 overflow-hidden text-xs">
+                                    <div className="flex rounded-lg border border-[var(--ht-border-input)] overflow-hidden text-xs">
                                         {(['tous', 'actif', 'inactif'] as const).map(s => (
                                             <button key={s} onClick={() => setFilterStatut(s)} className="px-3 py-1.5 transition-colors capitalize"
                                                     style={filterStatut === s ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { backgroundColor: 'white', color: 'var(--ht-muted)' }}>
@@ -378,7 +378,7 @@ export default function Patients() {
                                         ))}
                                     </div>
                                     <select value={filterGroupe} onChange={e => setFilterGroupe(e.target.value)}
-                                            className="ht-input text-xs px-2 py-1.5 text-gray-600">
+                                            className="ht-input text-xs px-2 py-1.5 text-[var(--ht-text-secondary)]">
                                         <option value="">Groupe sanguin</option>
                                         {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(g => (
                                             <option key={g} value={g}>{g}</option>
@@ -403,12 +403,12 @@ export default function Patients() {
                             ) : patients.length === 0 ? (
                                 <div className="px-6 py-16 text-center">
                                     <p className="text-4xl mb-3">👥</p>
-                                    <p className="text-gray-400 text-sm">Aucun patient pour le moment</p>
+                                    <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient pour le moment</p>
                                 </div>
                             ) : patientsFiltres.length === 0 ? (
                                 <div className="px-6 py-12 text-center">
                                     <p className="text-3xl mb-3">🔍</p>
-                                    <p className="text-gray-400 text-sm">Aucun patient ne correspond aux filtres</p>
+                                    <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient ne correspond aux filtres</p>
                                     <button onClick={resetFilters} className="mt-3 text-sm text-red-400 hover:text-red-600">
                                         Réinitialiser les filtres
                                     </button>
@@ -428,33 +428,33 @@ export default function Patients() {
                                                         {patient.prenom[0]}{patient.nom[0]}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-gray-900 truncate group-hover:text-blue-700 transition-colors">
+                                                        <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
                                                             {patient.prenom} {patient.nom}
                                                         </p>
-                                                        <p className="text-xs text-gray-400">
+                                                        <p className="text-xs text-[var(--ht-text-muted)]">
                                                             {patient.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
                                                         </p>
                                                     </div>
                                                 </div>
                                                 <div className="col-span-1 text-center">
-                                                    <span className="text-sm font-medium text-gray-700">{patient.age ?? '—'}</span>
-                                                    <span className="text-xs text-gray-400"> ans</span>
+                                                    <span className="text-sm font-medium text-[var(--ht-text-secondary)]">{patient.age ?? '—'}</span>
+                                                    <span className="text-xs text-[var(--ht-text-muted)]"> ans</span>
                                                 </div>
                                                 <div className="col-span-2 flex justify-center">
                                                     {patient.groupe_sanguin
                                                         ? <span className="badge badge-tint font-semibold">
                                                             🩸 {patient.groupe_sanguin}
                                                           </span>
-                                                        : <span className="text-xs text-gray-300">—</span>}
+                                                        : <span className="text-xs text-[var(--ht-text-muted)]">—</span>}
                                                 </div>
                                                 <div className="col-span-2">
-                                                    <span className="text-xs text-gray-500">
-                                                        {patient.telephone || <span className="text-gray-300">—</span>}
+                                                    <span className="text-xs text-[var(--ht-text-muted)]">
+                                                        {patient.telephone || <span className="text-[var(--ht-text-muted)]">—</span>}
                                                     </span>
                                                 </div>
                                                 <div className="col-span-2">
                                                     {allergies.length === 0
-                                                        ? <span className="text-xs text-gray-300">Aucune</span>
+                                                        ? <span className="text-xs text-[var(--ht-text-muted)]">Aucune</span>
                                                         : <span className="badge badge-danger">
                                                             ⚠ {allergies.length} allergie{allergies.length > 1 ? 's' : ''}
                                                           </span>}
@@ -471,12 +471,12 @@ export default function Patients() {
                             )}
 
                             {patientsFiltres.length > 0 && (
-                                <div className="px-6 py-3 border-t border-gray-50">
+                                <div className="px-6 py-3 border-t border-[var(--ht-border)]">
                                     <div className="flex justify-between items-center">
-                                        <p className="text-xs text-gray-400">
+                                        <p className="text-xs text-[var(--ht-text-muted)]">
                                             {patientsFiltres.length} patient{patientsFiltres.length > 1 ? 's' : ''} au total
                                         </p>
-                                        <p className="text-xs text-gray-300">Cliquer sur une ligne pour voir le dossier</p>
+                                        <p className="text-xs text-[var(--ht-text-muted)]">Cliquer sur une ligne pour voir le dossier</p>
                                     </div>
                                     <Pagination
                                         page={pageCourante}
