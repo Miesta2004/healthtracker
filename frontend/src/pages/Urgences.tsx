@@ -413,14 +413,14 @@ function DetailUrgenceModal({ passage, patient, onClose }: {
                 <div className="mt-4 space-y-5">
                     {/* Lien dossier */}
                     <div className="flex items-center justify-between px-3 py-2 rounded-xl border"
-                         style={{ backgroundColor: 'var(--ht-primary-tint-bg)', borderColor: 'var(--ht-primary)' }}>
-                        <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--ht-primary)' }}>
+                         style={{ backgroundColor: 'var(--ht-primary-tint-bg)', borderColor: 'var(--ht-primary-tint)' }}>
+                        <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--ht-primary-tint-text)' }}>
                             <Folder size={14} /> Dossier {passage.patient_dossier ? `#${passage.patient_dossier}` : 'existant'}
                         </span>
                         <button
                             onClick={() => navigate(`/patients/${passage.patient}`)}
                             className="text-xs font-semibold flex items-center gap-0.5 hover:underline"
-                            style={{ color: 'var(--ht-primary)' }}
+                            style={{ color: 'var(--ht-primary-tint-text)' }}
                         >
                             Dossier complet <ArrowRight size={12} />
                         </button>
@@ -621,7 +621,7 @@ export default function Urgences() {
                         <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>En attente</p>
                     </div>
                     <div className="ht-card ht-card-padded-sm flex flex-col items-center justify-center text-center">
-                        <p className="text-2xl font-bold" style={{ color: 'var(--ht-primary)' }}>{enConsultation.length}</p>
+                        <p className="text-2xl font-bold" style={{ color: 'var(--ht-primary-tint-text)' }}>{enConsultation.length}</p>
                         <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>En consultation</p>
                     </div>
                 </div>

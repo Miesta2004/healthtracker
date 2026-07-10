@@ -7,6 +7,7 @@ import type { Employe, RoleEmploye, Service } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonChartCard, SkeletonTable } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
+import { Users, Stethoscope, Syringe, UserPlus, Search, SearchX, UserCog } from 'lucide-react'
 
 const PAGE_SIZE = 20
 
@@ -82,27 +83,18 @@ function DonutChart({ actif, inactif }: { actif: number; inactif: number }) {
 }
 
 // ─── KPI card ─────────────────────────────────────────────────────────────────
-function KpiCard({ label, value, sub, icon, accent }: {
-    label: string; value: string | number; sub?: string; icon: string; accent?: boolean
+function KpiCard({ label, value, sub, icon: Icon, accent }: {
+    label: string; value: string | number; sub?: string; icon: any; accent?: boolean
 }) {
     return (
-        <div className="rounded-xl border p-5 flex items-start gap-4"
-             style={accent
-                 ? { backgroundColor: 'var(--ht-primary)', borderColor: 'var(--ht-primary)' }
-                 : { backgroundColor: 'white', borderColor: 'var(--ht-muted-bg)' }
-             }
-        >
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg flex-shrink-0"
-                 style={accent
-                     ? { backgroundColor: 'var(--ht-primary-tint-bg)' }
-                     : { backgroundColor: 'var(--ht-bg)' }
-                 }>
-                {icon}
+        <div className={`ht-kpi ${accent ? 'accent' : ''}`}>
+            <div className="ht-kpi-icon">
+                <Icon size={20} style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-primary)' }} />
             </div>
             <div>
-                <p className="text-xs font-medium" style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{label}</p>
-                <p className="text-2xl font-bold mt-0.5" style={{ color: accent ? 'var(--ht-primary-contrast)' : 'var(--ht-text)' }}>{value}</p>
-                {sub && <p className="text-xs mt-0.5" style={{ color: accent ? 'var(--ht-primary-tint)' : 'var(--ht-text-muted)' }}>{sub}</p>}
+                <p className="ht-kpi-label">{label}</p>
+                <p className="ht-kpi-value">{value}</p>
+                {sub && <p className="ht-kpi-sub">{sub}</p>}
             </div>
         </div>
     )
@@ -247,20 +239,20 @@ export default function Employes() {
                 {/* ── 4 KPIs ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                     <KpiCard
-                        label="Total employés" value={total} icon="👥"
+                        label="Total employés" value={total} icon={Users}
                         sub={total > 0 ? `${actif} actif${actif > 1 ? 's' : ''}` : 'Aucun employé'}
                         accent
                     />
                     <KpiCard
-                        label="Médecins" value={roleCounts.find(r => r.role === 'medecin')?.count ?? 0} icon="🩺"
+                        label="Médecins" value={roleCounts.find(r => r.role === 'medecin')?.count ?? 0} icon={Stethoscope}
                         sub={total > 0 ? `${Math.round((roleCounts.find(r => r.role === 'medecin')?.count ?? 0) / total * 100)}% de l'équipe` : '—'}
                     />
                     <KpiCard
-                        label="Infirmiers(ères)" value={roleCounts.find(r => r.role === 'infirmier')?.count ?? 0} icon="💉"
+                        label="Infirmiers(ères)" value={roleCounts.find(r => r.role === 'infirmier')?.count ?? 0} icon={Syringe}
                         sub={total > 0 ? `${Math.round((roleCounts.find(r => r.role === 'infirmier')?.count ?? 0) / total * 100)}% de l'équipe` : '—'}
                     />
                     <KpiCard
-                        label="Ajoutés ce mois" value={nouveauCeMois} icon="🆕"
+                        label="Ajoutés ce mois" value={nouveauCeMois} icon={UserPlus}
                         sub={nouveauCeMois > 0 ? 'depuis le 1er du mois' : 'Aucun ce mois'}
                     />
                 </div>
@@ -326,7 +318,7 @@ export default function Employes() {
                         <div className="flex flex-wrap gap-2">
                             {/* Recherche */}
                             <div className="relative flex-1 min-w-48">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] text-sm">🔍</span>
+                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ht-text-muted)' }} />
                                 <input
                                     type="text" value={search}
                                     onChange={e => setSearch(e.target.value)}
@@ -383,7 +375,7 @@ export default function Employes() {
                         <SkeletonTable rows={6} />
                     ) : employes.length === 0 ? (
                         <div className="px-6 py-16 text-center">
-                            <p className="text-4xl mb-3">🧑‍⚕️</p>
+                            <UserCog size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                             <p className="text-[var(--ht-text-muted)] text-sm">Aucun employé pour le moment</p>
                             <button onClick={() => navigate('/employes/newEmploye')}
                                     className="mt-4 text-sm font-medium px-4 py-2 rounded-lg text-white"
@@ -393,7 +385,7 @@ export default function Employes() {
                         </div>
                     ) : employesFiltres.length === 0 ? (
                         <div className="px-6 py-12 text-center">
-                            <p className="text-3xl mb-3">🔍</p>
+                            <SearchX size={30} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                             <p className="text-[var(--ht-text-muted)] text-sm">Aucun employé ne correspond aux filtres</p>
                             <button onClick={resetFilters}
                                     className="mt-3 text-sm text-[var(--ht-danger)] hover:text-[var(--ht-danger)]">

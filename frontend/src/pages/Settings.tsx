@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.tsx'
+import { SkeletonSettingsPage, SkeletonText, SkeletonBlock } from '../components/Skeleton'
 import {
     updateMonProfil, changePassword, uploadMaPhoto, getMaPhotoUrl,
     getMesCreneaux, createCreneau, deleteCreneau,
@@ -8,6 +9,7 @@ import {
 } from '../api/disponibilites'
 import type { CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, TypeException } from '../types'
 import { getMe } from '../api/comptes'
+import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock } from 'lucide-react'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
@@ -37,13 +39,13 @@ const TYPE_CRENEAU_COLORS: Record<TypeCreneau, { bg: string; color: string }> = 
 // ─── Onglets ──────────────────────────────────────────────────────────────────
 type Onglet = 'profil' | 'securite' | 'signature' | 'disponibilites' | 'contrat' | 'notifications'
 
-const ONGLETS: { id: Onglet; label: string; icon: string }[] = [
-    { id: 'profil',          label: 'Profil',          icon: '👤' },
-    { id: 'securite',        label: 'Sécurité',        icon: '🔒' },
-    { id: 'signature',       label: 'Signature',       icon: '✍️' },
-    { id: 'disponibilites',  label: 'Disponibilités',  icon: '📅' },
-    { id: 'contrat',         label: 'Contrat & poste', icon: '📋' },
-    { id: 'notifications',   label: 'Notifications',   icon: '🔔' },
+const ONGLETS: { id: Onglet; label: string; icon: any }[] = [
+    { id: 'profil',          label: 'Profil',          icon: User },
+    { id: 'securite',        label: 'Sécurité',        icon: Lock },
+    { id: 'signature',       label: 'Signature',       icon: Signature },
+    { id: 'disponibilites',  label: 'Disponibilités',  icon: Calendar },
+    { id: 'contrat',         label: 'Contrat & poste', icon: Briefcase },
+    { id: 'notifications',   label: 'Notifications',   icon: Bell },
 ]
 
 // ─── Composant : feedback inline ─────────────────────────────────────────────
@@ -53,7 +55,7 @@ function Feedback({ type, message }: { type: 'success' | 'error'; message: strin
              style={type === 'success'
                  ? { backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }
                  : { backgroundColor: 'var(--ht-danger-bg-light)', color: 'var(--ht-danger)' }}>
-            <span>{type === 'success' ? '✓' : '✕'}</span>
+            {type === 'success' ? <Check size={14} /> : <X size={14} />}
             {message}
         </div>
     )
@@ -386,7 +388,16 @@ function OngletDisponibilites() {
         creneaux.filter(c => c.jour === idx && c.actif)
     )
 
-    if (loading) return <div className="text-sm text-[var(--ht-text-muted)]">Chargement…</div>
+    if (loading) return (
+        <div className="grid grid-cols-7 gap-2">
+            {Array.from({ length: 7 }).map((_, i) => (
+                <div key={i} className="space-y-2">
+                    <SkeletonText width="60%" height={10} />
+                    <SkeletonBlock className="h-16 w-full" />
+                </div>
+            ))}
+        </div>
+    )
 
     return (
         <div className="space-y-8">
@@ -464,7 +475,7 @@ function OngletDisponibilites() {
                                                     onClick={() => handleDeleteCreneau(c.id)}
                                                     className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-xs items-center justify-center hidden group-hover:flex"
                                                     style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}
-                                                >✕</button>
+                                                ><X size={10} /></button>
                                             </div>
                                         )
                                     })
@@ -541,11 +552,12 @@ function OngletDisponibilites() {
                                 <div>
                                     <div className="flex items-center gap-2">
                                         <span className="text-sm font-medium text-[var(--ht-text)]">{ex.type_label}</span>
-                                        <span className="badge"
+                                        <span className="badge flex items-center gap-1"
                                               style={ex.valide
                                                   ? { backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }
                                                   : { backgroundColor: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' }}>
-                                            {ex.valide ? '✓ Validé' : '⏳ En attente'}
+                                            {ex.valide ? <CheckCircle2 size={11} /> : <Clock size={11} />}
+                                            {ex.valide ? 'Validé' : 'En attente'}
                                         </span>
                                     </div>
                                     <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
@@ -584,9 +596,10 @@ function OngletContrat({ employe }: { employe: Record<string, unknown> }) {
     // @ts-ignore
     return (
         <div className="space-y-6">
-            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-warning-bg)' }}>
+            <div className="p-4 rounded-xl flex items-start gap-2" style={{ backgroundColor: 'var(--ht-warning-bg)' }}>
+                <Lock size={13} className="mt-0.5 flex-shrink-0" style={{ color: 'var(--ht-warning)' }} />
                 <p className="text-xs" style={{ color: 'var(--ht-warning)' }}>
-                    🔒 Ces informations sont gérées par l'administration. Contactez votre responsable pour toute modification.
+                    Ces informations sont gérées par l'administration. Contactez votre responsable pour toute modification.
                 </p>
             </div>
 
@@ -659,11 +672,19 @@ function OngletNotifications({ employe }: { employe: Record<string, unknown> }) 
                         </div>
                         <button
                             onClick={() => setNotifs(prev => ({ ...prev, [key]: !val }))}
-                            className="relative w-10 h-5 rounded-full transition-colors flex-shrink-0"
-                            style={{ backgroundColor: val ? 'var(--ht-primary)' : 'var(--ht-border-input)' }}
+                            className="relative w-11 h-6 rounded-full transition-colors flex-shrink-0"
+                            style={{
+                                backgroundColor: val ? 'var(--ht-primary-tint)' : 'var(--ht-muted-bg)',
+                                border: `1px solid ${val ? 'var(--ht-primary-tint)' : 'var(--ht-border-input)'}`,
+                            }}
                         >
-                            <span className="absolute top-0.5 w-4 h-4 bg-[var(--ht-card-bg)] rounded-full shadow transition-transform"
-                                  style={{ left: val ? '22px' : '2px' }} />
+                            <span
+                                className="absolute top-0.5 w-4 h-4 rounded-full shadow transition-all"
+                                style={{
+                                    left: val ? '22px' : '2px',
+                                    backgroundColor: 'var(--ht-primary-contrast)',
+                                }}
+                            />
                         </button>
                     </div>
                 )
@@ -695,11 +716,9 @@ export default function Settings() {
 
     if (loading || !employe) {
         return (
-            <div className="ht-page">
-                <Sidebar />
-                <div className="ht-page-content flex items-center justify-center h-64">
-                    <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin"
-                         style={{ borderColor: 'var(--ht-primary)', borderTopColor: 'transparent' }} />
+            <div style={{ minHeight: '100vh', backgroundColor: 'var(--ht-bg)' }}>
+                <div className="ht-page-content">
+                    <SkeletonSettingsPage />
                 </div>
             </div>
         )
@@ -735,7 +754,7 @@ export default function Settings() {
                                         : { color: 'var(--ht-text-secondary)' }
                                     }
                                 >
-                                    <span>{o.icon}</span>
+                                    <o.icon size={15} />
                                     {o.label}
                                 </button>
                             ))}

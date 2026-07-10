@@ -165,6 +165,42 @@ export function SkeletonCardGrid({ count = 6, cols = 'md:grid-cols-2 lg:grid-col
 }
 
 
+// ─── Page paramètres (onglets latéraux + carte de contenu) ─────────────────
+export function SkeletonSettingsPage() {
+    return (
+        <div className="max-w-5xl mx-auto w-full">
+            <SkeletonText width={80} height={12} />
+            <div className="mt-4 mb-6 space-y-2">
+                <SkeletonText width={180} height={22} />
+                <SkeletonText width={240} height={12} />
+            </div>
+            <div className="flex gap-6">
+                <aside className="w-48 flex-shrink-0 space-y-2">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-2.5 px-3 py-2.5">
+                            <SkeletonCircle size={16} />
+                            <SkeletonText width="70%" height={12} />
+                        </div>
+                    ))}
+                </aside>
+                <div className="ht-card ht-card-padded flex-1 min-h-96 space-y-4">
+                    <div className="flex items-center gap-4">
+                        <SkeletonCircle size={64} />
+                        <div className="space-y-2">
+                            <SkeletonText width={160} height={16} />
+                            <SkeletonText width={120} height={12} />
+                        </div>
+                    </div>
+                    <SkeletonText width="90%" height={12} />
+                    <SkeletonText width="75%" height={12} />
+                    <SkeletonText width="85%" height={12} />
+                    <SkeletonText width="60%" height={12} />
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ─── Page entière (chargement du profil / auth) ─────────────────────────────
 export function SkeletonFullPage() {
     return (

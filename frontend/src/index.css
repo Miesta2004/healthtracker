@@ -300,8 +300,8 @@ body {
     --ht-primary-contrast: #ffffff;
     --ht-primary-tint-text: #d7f0e8;
 
-    --ht-success:          #1E3A35;
-    --ht-success-bg:       rgba(30,58,53,0.22);
+    --ht-success:          #6fd7c4;
+    --ht-success-bg:       rgba(111,215,196,0.16);
     --ht-warning:          #ffb74d;
     --ht-warning-bg:       rgba(255,183,77,0.15);
     --ht-danger:           #ff6b5b;

@@ -295,11 +295,7 @@ export default function ConsultationDetail() {
         }
     }
 
-    if (loading) return (
-        <div className="ht-page">
-            <SkeletonDetailPage />
-        </div>
-    )
+    if (loading) return <SkeletonDetailPage />
 
     return (
         <div className="ht-page">

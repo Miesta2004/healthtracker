@@ -4,7 +4,9 @@ import { getEmploye, updateEmploye } from '../api/comptes'
 import { getServices } from '../api/services'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar.tsx'
+import { SkeletonDetailPage } from '../components/Skeleton'
 import type { Employe, RoleEmploye, TypeContrat, Service } from '../types'
+import { Edit3, User, Lock, FileText, ClipboardList } from 'lucide-react'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const ROLE_LABELS: Record<RoleEmploye, string> = {
@@ -43,11 +45,11 @@ function statutContrat(fin: string | null | undefined, type: TypeContrat | undef
 }
 
 // ─── Composants UI ────────────────────────────────────────────────────────────
-function SectionCard({ title, icon, children }: { title: string; icon: string; children: React.ReactNode }) {
+function SectionCard({ title, icon: Icon, children }: { title: string; icon: any; children: React.ReactNode }) {
     return (
         <div className="ht-card overflow-hidden">
             <div className="px-5 py-3.5 border-b border-[var(--ht-border)] flex items-center gap-2">
-                <span className="text-base">{icon}</span>
+                <Icon size={16} style={{ color: 'var(--ht-text-muted)' }} />
                 <h2 className="text-sm font-semibold text-[var(--ht-text)]">{title}</h2>
             </div>
             <div className="px-5 py-4">{children}</div>
@@ -147,16 +149,7 @@ export default function EmployeDetail() {
         setForm(f => ({ ...f, [key]: value }))
 
     if (loading) {
-        return (
-            <div className="ht-page">
-                <Sidebar />
-                <div className="max-w-4xl mx-auto px-6 py-12 space-y-4">
-                    {[...Array(4)].map((_, i) => (
-                        <div key={i} className="h-32 ht-card animate-pulse" />
-                    ))}
-                </div>
-            </div>
-        )
+        return <SkeletonDetailPage />
     }
 
     if (!employe) return null
@@ -206,7 +199,7 @@ export default function EmployeDetail() {
                             onClick={startEdit}
                             className="btn btn-primary flex-shrink-0"
                         >
-                            ✏️ Modifier
+                            <Edit3 size={14} /> Modifier
                         </button>
                     )}
                 </div>
@@ -215,7 +208,7 @@ export default function EmployeDetail() {
                 {!editing && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                        <SectionCard title="Informations personnelles" icon="👤">
+                        <SectionCard title="Informations personnelles" icon={User}>
                             <InfoRow label="Nom complet"    value={`${employe.prenom} ${employe.nom}`} />
                             <InfoRow label="Date naissance" value={formatDate(employe.date_naissance)} />
                             <InfoRow label="Âge"            value={employe.age ? `${employe.age} ans` : null} />
@@ -224,7 +217,7 @@ export default function EmployeDetail() {
                             <InfoRow label="Adresse"        value={employe.adresse} />
                         </SectionCard>
 
-                        <SectionCard title="Compte & accès" icon="🔐">
+                        <SectionCard title="Compte & accès" icon={Lock}>
                             <InfoRow label="Identifiant"  value={`@${employe.username}`} />
                             <InfoRow label="Email"        value={employe.email} />
                             <InfoRow label="Rôle"         value={
@@ -237,7 +230,7 @@ export default function EmployeDetail() {
                             <InfoRow label="Matricule"    value={<span className="font-mono">{employe.matricule}</span>} />
                         </SectionCard>
 
-                        <SectionCard title="Contrat de travail" icon="📄">
+                        <SectionCard title="Contrat de travail" icon={FileText}>
                             <div className="mb-3 flex items-center gap-2">
                                 {employe.type_contrat && (
                                     <span className="badge" style={{ backgroundColor: 'var(--ht-primary-light)', color: 'var(--ht-primary)' }}>
@@ -256,7 +249,7 @@ export default function EmployeDetail() {
                             <InfoRow label="Fin"         value={employe.type_contrat === 'cdi' ? 'Sans limite (CDI)' : formatDate(employe.date_fin_contrat)} />
                         </SectionCard>
 
-                        <SectionCard title="Description du poste" icon="📋">
+                        <SectionCard title="Description du poste" icon={ClipboardList}>
                             {employe.description_poste ? (
                                 <p className="text-sm text-[var(--ht-text-secondary)] whitespace-pre-line leading-relaxed">
                                     {employe.description_poste}
@@ -277,7 +270,7 @@ export default function EmployeDetail() {
                             {/* Infos personnelles */}
                             <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
-                                    👤 Informations personnelles
+                                    <User size={16} style={{ color: 'var(--ht-text-muted)' }} /> Informations personnelles
                                 </h3>
                                 <div className="grid grid-cols-2 gap-3">
                                     <EditField label="Prénom">
@@ -307,7 +300,7 @@ export default function EmployeDetail() {
                             {/* Compte & rôle */}
                             <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
-                                    🔐 Compte & accès
+                                    <Lock size={16} style={{ color: 'var(--ht-text-muted)' }} /> Compte & accès
                                 </h3>
                                 <EditField label="Rôle">
                                     <select className={inputCls} value={form.role ?? ''} onChange={e => set('role', e.target.value)}
@@ -341,7 +334,7 @@ export default function EmployeDetail() {
                             {/* Contrat */}
                             <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
-                                    📄 Contrat de travail
+                                    <FileText size={16} style={{ color: 'var(--ht-text-muted)' }} /> Contrat de travail
                                 </h3>
                                 <EditField label="Type de contrat">
                                     <select className={inputCls} value={form.type_contrat ?? ''} onChange={e => set('type_contrat', e.target.value)}>
@@ -368,7 +361,7 @@ export default function EmployeDetail() {
                             {/* Description poste */}
                             <div className="ht-card p-5 space-y-4">
                                 <h3 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
-                                    📋 Description du poste
+                                    <ClipboardList size={16} style={{ color: 'var(--ht-text-muted)' }} /> Description du poste
                                 </h3>
                                 <EditField label="Missions et responsabilités">
                                     <textarea

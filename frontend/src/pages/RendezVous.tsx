@@ -205,7 +205,7 @@ function RdvCard({ rdv, isAdmin, onEdit, onStatutChange, onDelete }: {
         <div className="ht-card ht-card-padded-sm flex items-start gap-4">
             <div className="flex flex-col items-center justify-center w-14 h-14 rounded-xl flex-shrink-0"
                  style={{ backgroundColor: 'var(--ht-primary-tint-bg)' }}>
-                <span className="text-sm font-bold" style={{ color: 'var(--ht-primary)' }}>{heure}</span>
+                <span className="text-sm font-bold" style={{ color: 'var(--ht-primary-tint-text)' }}>{heure}</span>
             </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">

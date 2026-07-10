@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getServiceStats } from '../api/services'
-import type { RoleEmploye, ServiceStats, MedecinPerf } from '../types'
+import { getServiceStats, getServicePatients, getServiceEmployes } from '../api/services'
+import type { RoleEmploye, ServiceStats, MedecinPerf, Patient, Employe } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import {
     ArrowLeft, Users, UserCheck, CalendarDays, CalendarRange,
-    Calendar, Stethoscope, Activity, ShieldCheck, ShieldAlert,
+    Calendar, Stethoscope, Activity, ShieldCheck, ShieldAlert, Droplet,
 } from 'lucide-react'
 
 // ─── Constantes rôles (mêmes libellés/couleurs que la page Employés) ──────────
@@ -92,19 +92,140 @@ function MedecinRow({ medecin }: { medecin: MedecinPerf }) {
     )
 }
 
+// ─── Onglets Patients / Employés (même principe que la fiche patient) ─────────
+type MembresTab = 'patients' | 'employes'
+
+function PatientRow({ patient, onClick }: { patient: Patient; onClick: () => void }) {
+    return (
+        <div onClick={onClick}
+             className="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer group hover:opacity-80 transition-opacity"
+             style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+            <div className="ht-avatar ht-avatar-md flex-shrink-0">
+                {patient.prenom[0]}{patient.nom[0]}
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary)] transition-colors" style={{ color: 'var(--ht-text)' }}>
+                    {patient.prenom} {patient.nom}
+                </p>
+                <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                    {patient.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}{patient.age != null ? ` · ${patient.age} ans` : ''}
+                </p>
+            </div>
+            {patient.groupe_sanguin && (
+                <span className="badge badge-tint font-semibold flex items-center gap-1 flex-shrink-0">
+                    <Droplet size={11} /> {patient.groupe_sanguin}
+                </span>
+            )}
+            <span className={`badge ${patient.actif ? 'badge-primary' : 'badge-muted'} flex-shrink-0`}>
+                {patient.actif ? 'Actif' : 'Inactif'}
+            </span>
+        </div>
+    )
+}
+
+function EmployeRow({ employe, onClick }: { employe: Employe; onClick: () => void }) {
+    return (
+        <div onClick={onClick}
+             className="flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer group hover:opacity-80 transition-opacity"
+             style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-semibold text-white flex-shrink-0"
+                 style={{ backgroundColor: ROLE_COLORS[employe.role] }}>
+                {employe.prenom[0]}{employe.nom[0]}
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary)] transition-colors" style={{ color: 'var(--ht-text)' }}>
+                    {employe.prenom} {employe.nom}
+                </p>
+                <p className="text-xs truncate" style={{ color: 'var(--ht-text-muted)' }}>
+                    {employe.matricule}{employe.specialite ? ` · ${employe.specialite}` : ''}
+                </p>
+            </div>
+            <span className="text-xs font-semibold px-2 py-1 rounded-full flex-shrink-0"
+                  style={{ backgroundColor: `${ROLE_COLORS[employe.role]}1A`, color: ROLE_COLORS[employe.role] }}>
+                {ROLE_LABELS[employe.role]}
+            </span>
+            <span className={`badge ${employe.actif ? 'badge-primary' : 'badge-muted'} flex-shrink-0`}>
+                {employe.actif ? 'Actif' : 'Inactif'}
+            </span>
+        </div>
+    )
+}
+
+function MembresTabs({ patients, employes }: { patients: Patient[]; employes: Employe[] }) {
+    const navigate = useNavigate()
+    const [tab, setTab] = useState<MembresTab>('patients')
+
+    const TabButton = ({ value, icon: Icon, label, count }: { value: MembresTab; icon: any; label: string; count: number }) => (
+        <button
+            onClick={() => setTab(value)}
+            className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors"
+            style={{
+                color: tab === value ? 'var(--ht-text)' : 'var(--ht-text-muted)',
+                borderBottom: tab === value ? '2px solid var(--ht-primary)' : '2px solid transparent',
+            }}
+        >
+            <Icon size={13} /> {label}
+            <span className="badge badge-muted" style={{ fontSize: '9px', padding: '1px 6px' }}>{count}</span>
+        </button>
+    )
+
+    return (
+        <div className="ht-card ht-card-padded-sm">
+            <div className="flex items-center gap-1 mb-4 overflow-x-auto" style={{ borderBottom: '1px solid var(--ht-border)' }}>
+                <TabButton value="patients" icon={UserCheck} label="Patients" count={patients.length} />
+                <TabButton value="employes" icon={Users} label="Employés" count={employes.length} />
+            </div>
+
+            {tab === 'patients' && (
+                patients.length === 0 ? (
+                    <div className="ht-empty">Aucun patient actif dans ce service</div>
+                ) : (
+                    <div className="space-y-2.5 max-h-96 overflow-y-auto">
+                        {patients.map(p => (
+                            <PatientRow key={p.id} patient={p} onClick={() => navigate(`/patients/${p.id}`)} />
+                        ))}
+                    </div>
+                )
+            )}
+
+            {tab === 'employes' && (
+                employes.length === 0 ? (
+                    <div className="ht-empty">Aucun employé actif dans ce service</div>
+                ) : (
+                    <div className="space-y-2.5 max-h-96 overflow-y-auto">
+                        {employes.map(e => (
+                            <EmployeRow key={e.id} employe={e} onClick={() => navigate(`/employes/${e.id}`)} />
+                        ))}
+                    </div>
+                )
+            )}
+        </div>
+    )
+}
+
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function ServiceDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
     const [stats, setStats] = useState<ServiceStats | null>(null)
+    const [patientsListe, setPatientsListe] = useState<Patient[]>([])
+    const [employesListe, setEmployesListe] = useState<Employe[]>([])
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
 
     useEffect(() => {
         if (!id) return
         setLoading(true)
-        getServiceStats(Number(id))
-            .then(setStats)
+        Promise.all([
+            getServiceStats(Number(id)),
+            getServicePatients(Number(id)),
+            getServiceEmployes(Number(id)),
+        ])
+            .then(([s, p, e]) => {
+                setStats(s)
+                setPatientsListe(p)
+                setEmployesListe(e)
+            })
             .catch(() => setError("Impossible de charger le tableau de bord de ce service."))
             .finally(() => setLoading(false))
     }, [id])
@@ -225,6 +346,14 @@ export default function ServiceDetail() {
                             </div>
                         )}
                     </div>
+                </div>
+
+                {/* Patients & employés du service, en onglets */}
+                <div>
+                    <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
+                        Membres du service
+                    </h2>
+                    <MembresTabs patients={patientsListe} employes={employesListe} />
                 </div>
 
                 {/* Placeholder décès — à connecter une fois le module morgue en place */}
