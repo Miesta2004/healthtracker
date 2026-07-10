@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { login } from '../api/auth'
 import { useAuth } from '../contexts/AuthContext'
+import Logo from '../components/Logo'
 
 export default function Login() {
     const navigate = useNavigate()
@@ -45,49 +46,12 @@ export default function Login() {
                      style={{backgroundColor: 'var(--ht-brand-tint)'}} />
 
                 {/* Logo */}
-                <div className="relative z-10 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                         style={{backgroundColor: 'var(--ht-brand-bg)', border: '1.5px solid var(--ht-brand-tint)'}}
-                    >
-                        <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
-                            <g fill="#6fd7c4">
-                                <rect x="25" y="22" width="12" height="12" rx="2"/>
-                                <rect x="39" y="22" width="12" height="12" rx="2"/>
-                                <rect x="67" y="22" width="12" height="12" rx="2"/>
-                                <rect x="81" y="22" width="12" height="12" rx="2"/>
-                                <rect x="11" y="36" width="12" height="12" rx="2"/>
-                                <rect x="25" y="36" width="12" height="12" rx="2"/>
-                                <rect x="39" y="36" width="12" height="12" rx="2"/>
-                                <rect x="53" y="36" width="12" height="12" rx="2"/>
-                                <rect x="67" y="36" width="12" height="12" rx="2"/>
-                                <rect x="81" y="36" width="12" height="12" rx="2"/>
-                                <rect x="95" y="36" width="12" height="12" rx="2"/>
-                                <rect x="11" y="50" width="12" height="12" rx="2"/>
-                                <rect x="25" y="50" width="12" height="12" rx="2"/>
-                                <rect x="39" y="50" width="12" height="12" rx="2"/>
-                                <rect x="53" y="50" width="12" height="12" rx="2"/>
-                                <rect x="67" y="50" width="12" height="12" rx="2"/>
-                                <rect x="81" y="50" width="12" height="12" rx="2"/>
-                                <rect x="95" y="50" width="12" height="12" rx="2"/>
-                                <rect x="25" y="64" width="12" height="12" rx="2"/>
-                                <rect x="39" y="64" width="12" height="12" rx="2"/>
-                                <rect x="53" y="64" width="12" height="12" rx="2"/>
-                                <rect x="67" y="64" width="12" height="12" rx="2"/>
-                                <rect x="81" y="64" width="12" height="12" rx="2"/>
-                                <rect x="39" y="78" width="12" height="12" rx="2"/>
-                                <rect x="53" y="78" width="12" height="12" rx="2"/>
-                                <rect x="67" y="78" width="12" height="12" rx="2"/>
-                                <rect x="53" y="92" width="12" height="12" rx="2"/>
-                            </g>
-                            <g fill="#eafbf6" opacity="0.5">
-                                <rect x="25" y="36" width="12" height="12" rx="2"/>
-                                <rect x="11" y="50" width="12" height="12" rx="2"/>
-                                <rect x="25" y="50" width="12" height="12" rx="2"/>
-                            </g>
-                        </svg>
-                    </div>
-                    <span className="text-white font-semibold text-lg">HealthTracker</span>
-                </div>
+                <Logo
+                    size={66}
+                    iconSize={56}
+                    textClassName="font-bold text-4xl"
+                    textStyle={{ color: '#ffffff' }}
+                />
 
                 {/* Contenu central */}
                 <div className="relative z-10 space-y-6">
@@ -136,14 +100,12 @@ export default function Login() {
                 <div className="w-full max-w-sm">
 
                     {/* Logo mobile (visible seulement < lg) */}
-                    <div className="lg:hidden flex items-center gap-3 mb-8">
-                        <div
-                            className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
-                            style={{backgroundColor: 'var(--ht-primary)'}}
-                        >
-                            🏥
-                        </div>
-                        <span className="font-semibold text-lg" style={{color: 'var(--ht-text)'}}>HealthTracker</span>
+                    <div className="lg:hidden mb-8">
+                        <Logo
+                            size={52}
+                            iconSize={34}
+                            textClassName="font-bold text-xl"
+                        />
                     </div>
 
                     <div className="mb-8">
@@ -193,7 +155,7 @@ export default function Login() {
                         </button>
                     </form>
 
-                    <p className="relative z-10 text-stone-300 text-xs">
+                    <p className="relative z-10 text-center text-xs mt-6" style={{ color: 'var(--ht-text-secondary)' }}>
                         Plateforme réservée au personnel médical autorisé
                     </p>
                 </div>

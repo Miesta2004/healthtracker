@@ -4,6 +4,7 @@ import { getPatients } from '../api/patients'
 import { getRendezVous, createRendezVous, updateRendezVous, deleteRendezVous } from '../api/rendezvous'
 import type { Patient, RendezVous, StatutRendezVous } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
+import PageHeader from '../components/PageHeader.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
@@ -11,7 +12,6 @@ import {
     Calendar,
     Clock,
     Search,
-    Plus,
     X,
     Pencil,
     Trash2,
@@ -354,18 +354,13 @@ export default function RendezVousPage() {
             <main className="ht-page-content max-w-4xl mx-auto space-y-6">
 
                 {/* Section En-tête */}
-                <div className="flex items-center justify-between flex-wrap gap-4 pb-4" style={{ borderBottom: '1px solid var(--ht-border)' }}>
-                    <div>
-                        <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>Rendez-vous</h1>
-                        <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>Planification et suivi des rendez-vous patients</p>
-                    </div>
-                    <button
-                        onClick={() => { setEditTarget(null); setShowModal(true) }}
-                        className="btn btn-primary gap-1.5"
-                    >
-                        <Plus size={16} /> Nouveau rendez-vous
-                    </button>
-                </div>
+                <PageHeader
+                    title="Rendez-vous"
+                    subtitle="Planification et suivi des rendez-vous patients"
+                    icon={Calendar}
+                    ctaLabel="Nouveau rendez-vous"
+                    onCtaClick={() => { setEditTarget(null); setShowModal(true) }}
+                />
 
                 {/* Filtres et barre de recherche */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">

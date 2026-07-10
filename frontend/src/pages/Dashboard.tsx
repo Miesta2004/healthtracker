@@ -10,6 +10,7 @@ import { getServices } from "../api/services";
 import { getDemandesEnAttente } from "../api/analyses";
 import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
+import PageBanner from "../components/PageBanner.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
 import {
@@ -19,10 +20,10 @@ import {
     Calendar,
     ShieldAlert,
     FlaskConical,
-    Settings,
     Plus,
     Search,
     ChevronRight,
+    LayoutDashboard,
 } from "lucide-react";
 
 // ─── CONFIGURATION DES BADGES DE TRIAGE (déjà définis dans index.css) ─────────
@@ -181,54 +182,56 @@ export default function Dashboard() {
             <main className="ht-page-content space-y-8">
 
                 {/* ── Entête ── */}
-                <div className="border-b border-[var(--ht-border)] pb-5">
-                    <h1 className="text-2xl font-bold tracking-tight text-[var(--ht-text)]">
-                        {hasRole("admin")      && "Tableau de bord — Administration"}
-                        {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋`}
-                        {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
-                        {hasRole("secretaire") && "Accueil & Secrétariat"}
-                        {hasRole("laborantin") && "Espace Laboratoire"}
-                    </h1>
-                    <p className="text-sm text-[var(--ht-text-muted)] mt-1">
-                        {hasRole("admin")      && "Vue globale et gestion de l'établissement"}
-                        {hasRole("medecin")    && "Vos patients et consultations du jour"}
-                        {hasRole("infirmier")  && "Suivi des patients et constantes vitales"}
-                        {hasRole("secretaire") && "Gestion des rendez-vous et admissions"}
-                        {hasRole("laborantin") && "Analyses et résultats biologiques"}
-                    </p>
-                </div>
-
-                {/* ── Actions rapides ── */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                    {hasRole("admin", "medecin", "secretaire") && (
-                        <button onClick={() => navigate("/patients/newPatient")} className="btn btn-primary">
-                            <Plus size={16} /> Nouveau patient
-                        </button>
-                    )}
-                    {isSecretaire && (
-                        <button onClick={() => navigate("/rendez_vous")} className="btn btn-ghost">
-                            <Calendar size={16} /> Gérer les rendez-vous
-                        </button>
-                    )}
-                    {isNurse && (
-                        <button onClick={() => navigate("/patients")} className="btn btn-primary">
-                            <Search size={16} /> Rechercher un patient
-                        </button>
-                    )}
-                    {canSeeUrgences && (
-                        <button onClick={() => navigate("/urgences")} className="btn btn-danger">
-                            <ShieldAlert size={16} /> Voir les urgences
-                        </button>
-                    )}
-                    {canSeePatients && (
-                        <button onClick={() => navigate("/patients")} className="btn btn-ghost">
-                            Voir tous les patients
-                        </button>
-                    )}
-                    <button onClick={() => navigate("/settings")} className="btn btn-ghost">
-                        <Settings size={16} /> Paramètres
-                    </button>
-                </div>
+                <PageBanner
+                    size="large"
+                    icon={LayoutDashboard}
+                    title={
+                        <>
+                            {hasRole("admin")      && "Tableau de bord — Administration"}
+                            {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋`}
+                            {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
+                            {hasRole("secretaire") && "Accueil & Secrétariat"}
+                            {hasRole("laborantin") && "Espace Laboratoire"}
+                        </>
+                    }
+                    subtitle={
+                        (hasRole("admin")      && "Vue globale et gestion de l'établissement") ||
+                        (hasRole("medecin")    && "Vos patients et consultations du jour") ||
+                        (hasRole("infirmier")  && "Suivi des patients et constantes vitales") ||
+                        (hasRole("secretaire") && "Gestion des rendez-vous et admissions") ||
+                        (hasRole("laborantin") && "Analyses et résultats biologiques") || ""
+                    }
+                    decorIcons={[Stethoscope, BedDouble]}
+                    actions={
+                        <>
+                            {hasRole("admin", "medecin", "secretaire") && (
+                                <button onClick={() => navigate("/patients/newPatient")} className="btn btn-primary">
+                                    <Plus size={16} /> Nouveau patient
+                                </button>
+                            )}
+                            {isSecretaire && (
+                                <button onClick={() => navigate("/rendez_vous")} className="btn btn-ghost">
+                                    <Calendar size={16} /> Gérer les rendez-vous
+                                </button>
+                            )}
+                            {isNurse && (
+                                <button onClick={() => navigate("/patients")} className="btn btn-primary">
+                                    <Search size={16} /> Rechercher un patient
+                                </button>
+                            )}
+                            {canSeeUrgences && (
+                                <button onClick={() => navigate("/urgences")} className="btn btn-danger">
+                                    <ShieldAlert size={16} /> Voir les urgences
+                                </button>
+                            )}
+                            {canSeePatients && (
+                                <button onClick={() => navigate("/patients")} className="btn btn-success">
+                                    Voir tous les patients
+                                </button>
+                            )}
+                        </>
+                    }
+                />
 
                 {/* ── Section KPIs ── */}
                 {(canSeePatients || canSeeUrgences || canSeeHospit || isAdmin) && (
@@ -281,7 +284,8 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <span className={`badge ${u.niveau_tri ? TRI_BADGE[u.niveau_tri] : "badge-muted"}`} style={{ width: "0.625rem", height: "0.625rem", padding: 0 }} />
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
+                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>
+                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
                                             </div>
                                         </div>
                                         <span className="badge badge-muted uppercase">

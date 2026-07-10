@@ -10,6 +10,7 @@ import {
 import type { CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, TypeException } from '../types'
 import { getMe } from '../api/comptes'
 import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock } from 'lucide-react'
+import PageBanner from '../components/PageBanner.tsx'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
@@ -734,10 +735,12 @@ export default function Settings() {
                 </button>
 
                 <div className="mb-6">
-                    <h1 className="text-xl font-bold text-[var(--ht-text)]">Paramètres</h1>
-                    <p className="text-sm text-[var(--ht-text-muted)] mt-1">
-                        {employe.prenom as string} {employe.nom as string} · {employe.role_label as string}
-                    </p>
+                    <PageBanner
+                        icon={User}
+                        title="Paramètres"
+                        subtitle={`${employe.prenom as string} ${employe.nom as string} · ${employe.role_label as string}`}
+                        decorIcons={[Bell, Lock]}
+                    />
                 </div>
 
                 <div className="flex gap-6">

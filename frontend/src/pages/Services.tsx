@@ -4,7 +4,8 @@ import { getServices, createService, deleteService, updateService } from "../api
 import type { Service } from "../types"
 import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonCardGrid } from '../components/Skeleton'
-import { Building2, Users, UserCheck, ShieldCheck, ShieldAlert, Edit2, ToggleLeft, ToggleRight, Trash2, Plus, Activity } from 'lucide-react'
+import { Building2, Users, UserCheck, ShieldCheck, ShieldAlert, Edit2, ToggleLeft, ToggleRight, Trash2, Plus } from 'lucide-react'
+import PageBanner from '../components/PageBanner.tsx'
 
 
 // ─── Modal création/édition ───────────────────────────────────────────────────
@@ -81,7 +82,7 @@ function ServiceModal({ service, onClose, onSave} : {
 }
 
 // ─── Card service ─────────────────────────────────────────────────────────────
-function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes, onViewDetail }: {
+function ServiceCard({ service, onEdit, onDelete, onToggle, onViewDetail }: {
     service: Service
     onEdit: () => void
     onDelete: () => void
@@ -91,7 +92,7 @@ function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes, onVi
 }) {
     return (
         <div className={`ht-card ht-card-padded-sm ${service.actif ? '' : 'opacity-50'}`}>
-            <div className="flex items-start justify-between mb-4">
+            <div onClick={onViewDetail} className="flex items-start justify-between mb-4">
                 <button onClick={onViewDetail} className="flex items-center gap-3 min-w-0 text-left group" title="Voir le tableau de bord du service">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                          style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }}>
@@ -117,15 +118,14 @@ function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes, onVi
             {/* Stats */}
             <div className="grid grid-cols-2 gap-2 mb-4">
                 <button
-                    onClick={onViewEmployes}
                     title="Voir les employés de ce service"
-                    className="rounded-xl p-2.5 text-center transition-opacity hover:opacity-75"
+                    className="rounded-xl p-2.5 text-center"
                     style={{ backgroundColor: 'var(--ht-muted-bg)' }}
                 >
                     <p className="text-lg font-bold" style={{ color: 'var(--ht-primary)' }}>
                         {service.nb_employes}
                     </p>
-                    <p className="text-xs underline" style={{ color: 'var(--ht-text-muted)' }}>Employés</p>
+                    <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Employés</p>
                 </button>
                 <div className="rounded-xl p-2.5 text-center" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
                     <p className="text-lg font-bold" style={{ color: 'var(--ht-text)' }}>
@@ -137,9 +137,6 @@ function ServiceCard({ service, onEdit, onDelete, onToggle, onViewEmployes, onVi
 
             {/* Actions */}
             <div className="flex gap-2">
-                <button onClick={onViewDetail} className="btn btn-primary btn-sm flex-1 gap-1">
-                    <Activity size={12} /> Tableau de bord
-                </button>
                 <button onClick={onEdit} className="btn btn-secondary btn-sm px-2.5" title="Modifier">
                     <Edit2 size={12} />
                 </button>
@@ -216,15 +213,14 @@ export default function Services(){
             <main className="ht-page-content max-w-7xl space-y-6">
 
                 {/* Header Section */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--ht-border)' }}>
-                    <div>
-                        <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>Gestion des services</h1>
-                        <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>Services médicaux de l'établissement</p>
-                    </div>
-                    <button onClick={() => setModalOpen(true)} className="btn btn-primary gap-1.5 self-start sm:self-auto">
-                        <Plus size={16} /> Nouveau service
-                    </button>
-                </div>
+                <PageBanner
+                    title="Gestion des services"
+                    subtitle="Découvrez et gérez les services médicaux disponibles dans votre établissement."
+                    icon={Building2}
+                    ctaLabel="Nouveau service"
+                    onCtaClick={() => setModalOpen(true)}
+                    decorIcons={[UserCheck, ShieldCheck]}
+                />
 
                 {error && (
                     <div className="ht-alert ht-alert-danger">

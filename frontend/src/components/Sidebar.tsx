@@ -5,6 +5,7 @@ import { useTheme } from "../contexts/ThemeContext.tsx";
 import { getAlertes, marquerAlerteLue } from "../api/alertes.ts";
 import type { Alerte } from "../types";
 import EKGTrace from "./EKGTrace.tsx";
+import Logo from "./Logo.tsx";
 import {
     Home,
     Users,
@@ -23,53 +24,6 @@ import {
     Sun,
     Moon,
 } from "lucide-react";
-
-// ─── Logo SVG ─────────────────────────────────────────────────────────────────
-const HTLogo = () => (
-    <div className="relative z-10 flex items-center gap-3">
-        <div
-            className="w-10 h-10 rounded-xl flex items-center justify-center"
-            style={{backgroundColor: 'var(--ht-brand-bg)', border: '1.5px solid var(--ht-brand-tint)'}}
-        >
-            <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
-                <g fill="#6fd7c4">
-                    <rect x="25" y="22" width="12" height="12" rx="2"/>
-                    <rect x="39" y="22" width="12" height="12" rx="2"/>
-                    <rect x="67" y="22" width="12" height="12" rx="2"/>
-                    <rect x="81" y="22" width="12" height="12" rx="2"/>
-                    <rect x="11" y="36" width="12" height="12" rx="2"/>
-                    <rect x="25" y="36" width="12" height="12" rx="2"/>
-                    <rect x="39" y="36" width="12" height="12" rx="2"/>
-                    <rect x="53" y="36" width="12" height="12" rx="2"/>
-                    <rect x="67" y="36" width="12" height="12" rx="2"/>
-                    <rect x="81" y="36" width="12" height="12" rx="2"/>
-                    <rect x="95" y="36" width="12" height="12" rx="2"/>
-                    <rect x="11" y="50" width="12" height="12" rx="2"/>
-                    <rect x="25" y="50" width="12" height="12" rx="2"/>
-                    <rect x="39" y="50" width="12" height="12" rx="2"/>
-                    <rect x="53" y="50" width="12" height="12" rx="2"/>
-                    <rect x="67" y="50" width="12" height="12" rx="2"/>
-                    <rect x="81" y="50" width="12" height="12" rx="2"/>
-                    <rect x="95" y="50" width="12" height="12" rx="2"/>
-                    <rect x="25" y="64" width="12" height="12" rx="2"/>
-                    <rect x="39" y="64" width="12" height="12" rx="2"/>
-                    <rect x="53" y="64" width="12" height="12" rx="2"/>
-                    <rect x="67" y="64" width="12" height="12" rx="2"/>
-                    <rect x="81" y="64" width="12" height="12" rx="2"/>
-                    <rect x="39" y="78" width="12" height="12" rx="2"/>
-                    <rect x="53" y="78" width="12" height="12" rx="2"/>
-                    <rect x="67" y="78" width="12" height="12" rx="2"/>
-                    <rect x="53" y="92" width="12" height="12" rx="2"/>
-                </g>
-                <g fill="#eafbf6" opacity="0.5">
-                    <rect x="25" y="36" width="12" height="12" rx="2"/>
-                    <rect x="11" y="50" width="12" height="12" rx="2"/>
-                    <rect x="25" y="50" width="12" height="12" rx="2"/>
-                </g>
-            </svg>
-        </div>
-    </div>
-)
 
 const STORAGE_KEY = "ht_sidebar_compact";
 
@@ -262,12 +216,7 @@ export default function Sidebar() {
         <div className="flex flex-col h-full bg-[var(--ht-brand-bg)] text-white select-none">
             <div className="flex items-center justify-between p-4 border-b border-[rgba(255,255,255,0.08)] min-h-[65px]">
                 <button onClick={() => navigate("/dashboard")} className="flex items-center gap-3 active:scale-95 transition-transform">
-                    <div
-                        className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                        style={{ backgroundColor: 'var(--ht-brand-bg)' }}
-                    >
-                        <HTLogo />
-                    </div>
+                    <Logo size={40} showText={false} />
                     {!collapsed && (
                         <span className="font-bold text-base tracking-tight text-white">
                             HealthTracker

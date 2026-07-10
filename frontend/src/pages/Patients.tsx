@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
 import { Users, AlertTriangle, ClipboardList, UserPlus, Building2, Search, SearchX, Droplet, UserX } from 'lucide-react'
+import PageHeader from '../components/PageHeader.tsx'
 
 const PAGE_SIZE = 20
 
@@ -170,14 +171,15 @@ export default function Patients() {
             <main className="ht-page-content max-w-7xl space-y-8">
 
                 {/* ── Titre ── */}
-                <div>
-                    <h1 className="text-2xl font-semibold text-[var(--ht-text)]">Patients</h1>
-                    <p className="text-[var(--ht-text-muted)] text-sm mt-1">
-                        {isNurse
-                            ? 'Recherchez un patient de votre service pour accéder à son dossier'
-                            : "Gérez les dossiers des patients de l'établissement"}
-                    </p>
-                </div>
+                <PageHeader
+                    title="Patients"
+                    subtitle={isNurse
+                        ? 'Recherchez un patient de votre service pour accéder à son dossier'
+                        : "Gérez les dossiers des patients de l'établissement"}
+                    icon={Users}
+                    ctaLabel={hasRole('admin', 'medecin', 'secretaire') ? 'Nouveau patient' : undefined}
+                    onCtaClick={() => navigate('/patients/newPatient')}
+                />
 
                 {/* ══════════════ VUE INFIRMIER ══════════════ */}
                 {isNurse && (
@@ -263,20 +265,12 @@ export default function Patients() {
                 {!isNurse && (
                     <>
                         {/* Actions */}
-                        {hasRole('admin', 'medecin', 'secretaire') && (
+                        {hasRole('admin', 'medecin', 'secretaire') && hasActiveFilters && (
                             <div className="flex items-center gap-2">
-                                <button
-                                    onClick={() => navigate('/patients/newPatient')}
-                                    className="btn btn-primary"
-                                >
-                                    + Nouveau patient
+                                <button onClick={resetFilters}
+                                        className="text-xs text-[var(--ht-danger)] hover:text-[var(--ht-danger)] px-3 py-2 rounded-lg hover:bg-[var(--ht-danger-bg)] transition-colors">
+                                    Réinitialiser les filtres
                                 </button>
-                                {hasActiveFilters && (
-                                    <button onClick={resetFilters}
-                                            className="text-xs text-[var(--ht-danger)] hover:text-[var(--ht-danger)] px-3 py-2 rounded-lg hover:bg-[var(--ht-danger-bg)] transition-colors">
-                                        Réinitialiser les filtres
-                                    </button>
-                                )}
                             </div>
                         )}
 

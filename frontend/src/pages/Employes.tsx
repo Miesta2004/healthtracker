@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonChartCard, SkeletonTable } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
 import { Users, Stethoscope, Syringe, UserPlus, Search, SearchX, UserCog } from 'lucide-react'
+import PageHeader from '../components/PageHeader.tsx'
 
 const PAGE_SIZE = 20
 
@@ -225,10 +226,13 @@ export default function Employes() {
             <div className="ht-page-content w-full space-y-8">
 
                 {/* ── Titre ── */}
-                <div>
-                    <h1 className="text-2xl font-bold text-[var(--ht-text)]">Gestion des employés</h1>
-                    <p className="text-[var(--ht-text-muted)] text-sm mt-1">Comptes et rôles du personnel médical et administratif</p>
-                </div>
+                <PageHeader
+                    title="Gestion des employés"
+                    subtitle="Comptes et rôles du personnel médical et administratif"
+                    icon={Users}
+                    ctaLabel="Ajouter un employé"
+                    onCtaClick={() => navigate('/employes/newEmploye')}
+                />
 
                 {actionError && (
                     <div className="ht-alert ht-alert-danger">

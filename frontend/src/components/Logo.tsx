@@ -1,15 +1,40 @@
-export default function Logo() {
+interface LogoProps {
+    /** Taille de la pastille (px) */
+    size?: number
+    /** Taille du SVG à l'intérieur de la pastille (px). Par défaut ~65% de `size`. */
+    iconSize?: number
+    /** Affiche ou non le texte "HealthTracker" à côté du logo */
+    showText?: boolean
+    /** Classes tailwind appliquées au texte (taille, graisse, etc.) */
+    textClassName?: string
+    /** Style additionnel appliqué au texte (ex: couleur sur fond sombre) */
+    textStyle?: React.CSSProperties
+    className?: string
+}
+
+export default function Logo({
+                                 size = 40,
+                                 iconSize,
+                                 showText = true,
+                                 textClassName = 'font-bold tracking-wide text-sm',
+                                 textStyle,
+                                 className = '',
+                             }: LogoProps) {
+    const icon = iconSize ?? Math.round(size * 0.65)
+
     return (
-        <div className="relative z-10 flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                 style={{
-                     backgroundColor: 'var(--ht-brand-bg)',
-                     border: '1.5px solid var(--ht-primary-tint)'
-                 }}
+        <div className={`relative z-10 flex items-center gap-3 ${className}`}>
+            <div
+                className="rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{
+                    width: size,
+                    height: size,
+                    backgroundColor: 'var(--ht-brand-bg)',
+                    border: '1.5px solid var(--ht-brand-tint)',
+                }}
             >
-                <svg viewBox="0 0 120 120" width="26" height="26" xmlns="http://www.w3.org/2000/svg">
-                    {/* Utilisation de var(--ht-primary) ou d'une couleur adaptative pour les mailles du logo */}
-                    <g fill="var(--ht-primary, #3B82F6)">
+                <svg viewBox="0 0 120 120" width={icon} height={icon} xmlns="http://www.w3.org/2000/svg">
+                    <g fill="var(--ht-brand-tint)">
                         <rect x="25" y="22" width="12" height="12" rx="2"/>
                         <rect x="39" y="22" width="12" height="12" rx="2"/>
                         <rect x="67" y="22" width="12" height="12" rx="2"/>
@@ -38,16 +63,18 @@ export default function Logo() {
                         <rect x="67" y="78" width="12" height="12" rx="2"/>
                         <rect x="53" y="92" width="12" height="12" rx="2"/>
                     </g>
-                    <g fill="var(--ht-body-bg, #ffffff)" opacity="0.6">
+                    <g fill="#eafbf6" opacity="0.5">
                         <rect x="25" y="36" width="12" height="12" rx="2"/>
                         <rect x="11" y="50" width="12" height="12" rx="2"/>
                         <rect x="25" y="50" width="12" height="12" rx="2"/>
                     </g>
                 </svg>
             </div>
-            <span className="text-sm font-bold tracking-wide" style={{ color: 'var(--ht-text)' }}>
-                HealthTracker
-            </span>
+            {showText && (
+                <span className={textClassName} style={{ color: 'var(--ht-text)', ...textStyle }}>
+                    HealthTracker
+                </span>
+            )}
         </div>
     )
 }
