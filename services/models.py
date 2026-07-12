@@ -3,12 +3,16 @@ from django.db import models
 class Service(models.Model):
     nom = models.CharField(max_length=100)
     description = models.TextField(blank=True)
+    # Le chef de service est en principe un médecin. Exception : le service
+    # Laboratoire n'a pas de médecin (seulement des laborantins) — on autorise
+    # donc aussi le rôle 'laborantin', qui joue dans ce cas le rôle de
+    # responsable technique (équivalent d'un biologiste médical senior).
     chef_de_service = models.ForeignKey(
         'comptes.Employe',
         on_delete=models.SET_NULL,
         null=True,blank=True,
         related_name='services_diriges',
-        limit_choices_to={'role':'medecin'}
+        limit_choices_to={'role__in': ['medecin', 'laborantin']}
     )
     actif = models.BooleanField(default=True)
     date_creation = models.DateTimeField(auto_now_add=True)

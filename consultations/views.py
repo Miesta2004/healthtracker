@@ -21,7 +21,7 @@ class ConsultViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.usercx
+        user = self.request.user
         if user.is_superuser:
             qs = Consultation.objects.select_related('patient').all()
         else:

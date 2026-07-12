@@ -218,12 +218,12 @@ export default function Employes() {
     }
 
     return (
-        <div className="ht-page flex flex-col">
+        <div className="ht-page">
 
             {/* ── Sidebar ── */}
             <Sidebar />
 
-            <div className="ht-page-content w-full space-y-8">
+            <main className="ht-page-content max-w-7xl space-y-8">
 
                 {/* ── Titre ── */}
                 <PageHeader
@@ -457,7 +457,7 @@ export default function Employes() {
                                                 title={isSelf ? 'Tu ne peux pas désactiver ton propre compte' : 'Cliquer pour changer le statut'}
                                                 className="text-xs px-2.5 py-1 rounded-full font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                                                 style={employe.actif
-                                                    ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                                    ? { backgroundColor: 'var(--ht-primary)', color: 'var(--ht-primary-contrast)' }
                                                     : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
                                                 }>
                                                 {employe.actif ? 'Actif' : 'Inactif'}
@@ -500,7 +500,7 @@ export default function Employes() {
                         </div>
                     )}
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

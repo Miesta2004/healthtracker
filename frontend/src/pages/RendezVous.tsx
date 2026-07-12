@@ -561,7 +561,7 @@ function RdvCard({ rdv, isAdmin, onEdit, onStatutChange, onDelete }: {
 type Filtre = 'aujourdhui' | 'venir' | 'passes' | 'tous'
 
 export default function RendezVousPage() {
-    const { hasRole } = useAuth()
+    const { hasRole, user } = useAuth()
     const isAdmin = hasRole('admin')
 
     const [rdvs, setRdvs] = useState<RendezVous[]>([])
@@ -576,9 +576,18 @@ export default function RendezVousPage() {
 
     useEffect(() => {
         Promise.all([getRendezVous(), getPatients(), getEmployes()])
-            .then(([r, p, e]) => { setRdvs(r); setPatients(p); setMedecins(e.filter(m => m.role === 'medecin')) })
+            .then(([r, p, e]) => {
+                setRdvs(r); setPatients(p)
+                const medecinsRole = e.filter(m => m.role === 'medecin')
+                // Une secrétaire (ou tout employé non-admin) ne doit voir que les médecins de son propre service.
+                // Si l'employé n'a pas de service renseigné, on ne filtre pas (mieux vaut tout montrer que rien).
+                const medecinsVisibles = (isAdmin || !user?.service_id)
+                    ? medecinsRole
+                    : medecinsRole.filter(m => m.service === user.service_id)
+                setMedecins(medecinsVisibles)
+            })
             .finally(() => setLoading(false))
-    }, [])
+    }, [isAdmin, user?.service_id])
 
     const now = new Date()
 

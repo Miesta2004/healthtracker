@@ -25,6 +25,10 @@ from hospitalisations.models import Hospitalisation, StatutHospitalisation
 from urgences.models import PassageUrgence, NiveauTri, ModeArrivee, StatutUrgence, DecisionSortie
 from comptes.models import Employe
 from analyses.models import DemandeAnalyse
+from disponibilites.models import (
+    CreneauDisponibilite, ExceptionDisponibilite, JourSemaine, TypeCreneau,
+    TypeException, StatutException,
+)
 
 random.seed(42)
 
@@ -48,6 +52,8 @@ for Model, label in [
     (Consultation,    "consultation(s)"),
     (SignesVitaux,    "signes vitaux"),
     (Patient,         "patient(s)"),
+    (ExceptionDisponibilite, "exception(s) de disponibilité"),
+    (CreneauDisponibilite,   "créneau(x) de disponibilité"),
     (Employe,         "employé(s)"),
     (Service,         "service(s)"),
 ]:
@@ -155,6 +161,8 @@ EMPLOYES_DATA = [
      "cdi", date(2016, 3, 1), "Pédiatre néonatologiste. Prise en charge des nouveau-nés à terme et prématurés, détresses respiratoires néonatales, ictère du nouveau-né, infections néonatales."),
     ("Awa",       "Ndour",    "F", "infirmier",  "",                           "inf.andour",     "infirmier123",  29, "Pédiatrie",
      "cdi", date(2020, 1, 6), "Infirmière pédiatrique. Administration des vaccins, surveillance nutritionnelle, éducation des parents, soins aux nourrissons et aux jeunes enfants."),
+    ("Sokhna",    "Diouf",    "F", "secretaire", "",                           "sec.sdiouf",     "secretaire123", 25, "Pédiatrie",
+     "cdd", date(2023, 9, 1), "Secrétaire médicale en pédiatrie. Accueil des familles, prise de rendez-vous de suivi vaccinal et de croissance, gestion des carnets de santé des enfants."),
 
     # Diabétologie
     ("Moussa",    "Fall",     "M", "medecin",    "Diabétologie",               "dr.mfall",       "medecin123",    52, "Diabétologie-Endocrinologie",
@@ -163,6 +171,8 @@ EMPLOYES_DATA = [
      "cdi", date(2013, 9, 1), "Endocrinologue spécialisée dans les maladies de la thyroïde et les troubles hormonaux. Prise en charge des grossesses diabétiques, éducation thérapeutique en diabétologie."),
     ("Astou",     "Sarr",     "F", "infirmier",  "",                           "inf.asarr",      "infirmier123",  33, "Diabétologie-Endocrinologie",
      "cdd", date(2022, 4, 1), "Infirmière diabétologue. Éducation thérapeutique des patients diabétiques, apprentissage de l'auto-surveillance glycémique, gestion des pompes à insuline, suivi des plaies diabétiques."),
+    ("Ousmane",   "Ndiaye",   "M", "secretaire", "",                           "sec.ondiaye",    "secretaire123", 31, "Diabétologie-Endocrinologie",
+     "cdi", date(2021, 2, 1), "Secrétaire médical en diabétologie-endocrinologie. Prise de rendez-vous de suivi glycémique, gestion des dossiers d'éducation thérapeutique, coordination avec le laboratoire pour les bilans HbA1c."),
 
     # Urgences
     ("Pape",      "Diouf",    "M", "medecin",    "Médecine d'urgence",         "dr.pdiouf",      "medecin123",    42, "Urgences",
@@ -183,6 +193,8 @@ EMPLOYES_DATA = [
      "cdi", date(2014, 2, 1), "Chirurgienne orthopédiste. Réduction des fractures ouvertes et fermées, pose de fixateurs externes, prothèses de hanche et de genou, traumatologie sportive."),
     ("Malick",    "Dème",     "M", "infirmier",  "",                           "inf.mdeme",      "infirmier123",  34, "Chirurgie générale",
      "cdi", date(2019, 1, 2), "Infirmier de bloc opératoire diplômé d'État. Instrumentation chirurgicale, préparation du champ opératoire, gestion de la stérilisation et du matériel chirurgical."),
+    ("Yacine",    "Diop",     "F", "secretaire", "",                           "sec.ydiop",      "secretaire123", 29, "Chirurgie générale",
+     "cdd", date(2023, 3, 1), "Secrétaire médicale en chirurgie. Planification du bloc opératoire, gestion des dossiers pré et post-opératoires, prise de rendez-vous de consultation chirurgicale."),
 
     # Gynécologie
     ("Kiné",      "Ndiaye",   "F", "medecin",    "Gynécologie-Obstétrique",    "dr.kndiaye",     "medecin123",    48, "Gynécologie-Obstétrique",
@@ -197,24 +209,32 @@ EMPLOYES_DATA = [
      "cdi", date(2010, 4, 1), "Neurologue vasculaire. Expert en accidents vasculaires cérébraux (AVC ischémique et hémorragique), épilepsie, maladie de Parkinson, sclérose en plaques. Coordonnateur de l'unité neurovasculaire."),
     ("Penda",     "Fall",     "F", "infirmier",  "",                           "inf.pfall",      "infirmier123",  31, "Neurologie",
      "cdi", date(2019, 9, 1), "Infirmière en neurologie. Surveillance neurologique des patients post-AVC, rééducation des fonctions cognitives, prévention des escarres, gestion des sondes gastriques."),
+    ("Ndèye Awa", "Thiam",    "F", "secretaire", "",                           "sec.athiam",     "secretaire123", 27, "Neurologie",
+     "cdd", date(2023, 5, 1), "Secrétaire médicale en neurologie. Prise de rendez-vous de consultation et d'EEG, gestion des dossiers de suivi post-AVC, coordination avec l'unité neurovasculaire."),
 
     # Pneumologie
     ("Boubacar",  "Diallo",   "M", "medecin",    "Pneumologie-Infectiologie",  "dr.bdiallo",     "medecin123",    47, "Pneumologie",
      "cdi", date(2013, 3, 1), "Pneumologue infectiologue. Prise en charge de la tuberculose pulmonaire et extrapulmonaire, BPCO, asthme sévère, pneumonies communautaires. Référent tuberculose de la région de Dakar."),
     ("Aïssatou",  "Sarr",     "F", "infirmier",  "",                           "inf.asrr",       "infirmier123",  29, "Pneumologie",
      "cdd", date(2023, 4, 1), "Infirmière en pneumologie. Aérosolthérapie, spirométrie, éducation à l'utilisation des inhalateurs, surveillance des patients sous oxygénothérapie."),
+    ("Cheikhouna", "Ba",      "M", "secretaire", "",                           "sec.cba",        "secretaire123", 32, "Pneumologie",
+     "cdi", date(2020, 11, 1), "Secrétaire médical en pneumologie. Prise de rendez-vous de consultation et de spirométrie, gestion des dossiers de suivi tuberculose et BPCO."),
 
     # Néphro-dialyse
     ("Lamine",    "Gueye",    "M", "medecin",    "Néphro-dialyse",             "dr.lgueye",      "medecin123",    44, "Néphro-dialyse",
      "cdi", date(2016, 1, 4), "Néphrologue. Prise en charge de l'insuffisance rénale chronique et aiguë, dialyse hémodialyse et dialyse péritonéale, bilan pré-transplantation rénale."),
     ("Seynabou",  "Mbaye",    "F", "infirmier",  "",                           "inf.smbaye",     "infirmier123",  30, "Néphro-dialyse",
      "cdi", date(2020, 7, 1), "Infirmière néphrologue dialyse. Pose et surveillance des fistules artério-veineuses, gestion des séances de dialyse, éducation des patients sur le régime alimentaire et hydrique."),
+    ("Bineta",    "Sow",      "F", "secretaire", "",                           "sec.bsow",       "secretaire123", 28, "Néphro-dialyse",
+     "cdd", date(2023, 8, 1), "Secrétaire médicale en néphro-dialyse. Planification des séances de dialyse, gestion des dossiers de suivi de la fonction rénale, prise de rendez-vous pré-transplantation."),
 
     # ORL-Ophtalmo
     ("Fatoumata", "Sow",      "F", "medecin",    "ORL-Chirurgie cervico-faciale", "dr.fsow",     "medecin123",    38, "ORL-Ophtalmologie",
      "cdi", date(2018, 8, 1), "ORL chirurgienne. Amygdalectomies, adénoïdectomies, rhinoplasties, chirurgie des sinus, otites chroniques. Suivi des cancers ORL en coopération avec l'oncologie."),
     ("Dieynaba",  "Ndour",    "F", "infirmier",  "",                           "inf.dndour",     "infirmier123",  27, "ORL-Ophtalmologie",
      "cdd", date(2024, 1, 8), "Infirmière ORL et ophtalmologie. Préparation des consultations spécialisées, instillations oculaires, soins post-opératoires ORL, audiométrie de dépistage."),
+    ("Alioune",   "Diagne",   "M", "secretaire", "",                           "sec.adiagne",    "secretaire123", 30, "ORL-Ophtalmologie",
+     "cdi", date(2021, 6, 1), "Secrétaire médical en ORL-ophtalmologie. Prise de rendez-vous de consultation, gestion des dossiers d'audiométrie et d'examens de la vue, coordination des interventions programmées."),
 
     # Laboratoire
     ("Oumar",     "Thiam",    "M", "laborantin", "Biologie médicale",          "lab.othiam",     "labo123",       38, "Laboratoire",
@@ -223,6 +243,8 @@ EMPLOYES_DATA = [
      "cdi", date(2018, 3, 1), "Laborantin spécialisé en biochimie. Dosages enzymatiques, bilan lipidique, marqueurs cardiaques (troponine, BNP), bilan rénal et hépatique, HbA1c."),
     ("Oumou",     "Badji",    "F", "laborantin", "Hématologie biologique",     "lab.obadji",     "labo123",       34, "Laboratoire",
      "cdi", date(2019, 5, 1), "Laborantine hématologue. Numération formule sanguine, bilan de coagulation, électrophorèse de l'hémoglobine (drépanocytose), tests de paludisme par goutte épaisse et TDR."),
+    ("Fatimata",  "Kane",     "F", "secretaire", "",                           "sec.fkane",      "secretaire123", 26, "Laboratoire",
+     "cdd", date(2023, 7, 1), "Secrétaire de laboratoire. Enregistrement des demandes d'analyses, remise des résultats, gestion administrative des dossiers de prélèvement."),
 ]
 
 employes = []
@@ -263,9 +285,162 @@ for svc_obj in services.values():
         svc_obj.chef_de_service = chef
         svc_obj.save()
         print(f"   {svc_obj.nom} → Dr {chef.prenom} {chef.nom}")
+    else:
+        # Pas de médecin dans ce service (cas du Laboratoire) : le responsable
+        # technique senior (laborantin) fait office de chef de service.
+        laborantins_svc = [e for e in employes if e.role == 'laborantin' and e.service_id == svc_obj.id]
+        if laborantins_svc:
+            chef = laborantins_svc[0]
+            svc_obj.chef_de_service = chef
+            svc_obj.save()
+            print(f"   {svc_obj.nom} → {chef.prenom} {chef.nom} (responsable technique)")
 print()
 
-# ── Tableau de connexion ──────────────────────────────────────────────────────
+# ─── DISPONIBILITÉS ────────────────────────────────────────────────────────────
+# Sans ces créneaux récurrents, l'agenda de prise de rendez-vous est vide pour
+# tout le monde (aucune date/heure disponible ne peut être proposée à la
+# secrétaire), donc c'est indispensable au bon fonctionnement de la démo.
+print("🗓️  Créneaux de disponibilité...")
+
+medecins_tous = [e for e in employes if e.role == 'medecin']
+
+JOURS_OUVRES = [JourSemaine.LUNDI, JourSemaine.MARDI, JourSemaine.MERCREDI, JourSemaine.JEUDI, JourSemaine.VENDREDI]
+
+nb_creneaux = 0
+for medecin in medecins_tous:
+    # Variante d'emploi du temps selon le service pour éviter que tout le
+    # monde ait exactement le même agenda (peu réaliste et un peu ennuyeux
+    # en démo).
+    est_urgentiste = medecin.service and medecin.service.nom == "Urgences"
+
+    if est_urgentiste:
+        # Les urgentistes tournent en gardes de 24h, réparties sur la semaine
+        # plutôt qu'en créneaux de consultation classiques.
+        jours_garde = random.sample(JOURS_OUVRES + [JourSemaine.SAMEDI, JourSemaine.DIMANCHE], k=3)
+        for jour in jours_garde:
+            CreneauDisponibilite.objects.create(
+                employe=medecin, jour=jour,
+                heure_debut="08:00", heure_fin="20:00",
+                type=TypeCreneau.GARDE, actif=True,
+            )
+            nb_creneaux += 1
+        continue
+
+    # Matin, tous les jours ouvrés
+    for jour in JOURS_OUVRES:
+        CreneauDisponibilite.objects.create(
+            employe=medecin, jour=jour,
+            heure_debut="08:00", heure_fin="12:30",
+            type=TypeCreneau.PRESENTIEL, actif=True,
+        )
+        nb_creneaux += 1
+
+    # Après-midi : la plupart travaillent aussi l'après-midi, sauf le mercredi
+    # (fréquent au Sénégal comme ailleurs, jour allégé), et environ 1 médecin
+    # sur 5 fait de la téléconsultation le vendredi après-midi plutôt qu'en
+    # présentiel.
+    for jour in JOURS_OUVRES:
+        if jour == JourSemaine.MERCREDI:
+            continue
+        type_creneau = TypeCreneau.PRESENTIEL
+        if jour == JourSemaine.VENDREDI and random.random() < 0.2:
+            type_creneau = TypeCreneau.TELECONSULTATION
+        CreneauDisponibilite.objects.create(
+            employe=medecin, jour=jour,
+            heure_debut="14:30", heure_fin="17:30",
+            type=type_creneau, actif=True,
+        )
+        nb_creneaux += 1
+
+    # Un samedi matin sur trois environ (permanence réduite)
+    if random.random() < 0.35:
+        CreneauDisponibilite.objects.create(
+            employe=medecin, jour=JourSemaine.SAMEDI,
+            heure_debut="09:00", heure_fin="12:00",
+            type=TypeCreneau.PRESENTIEL, actif=True,
+        )
+        nb_creneaux += 1
+
+print(f"✅ {nb_creneaux} créneaux pour {len(medecins_tous)} médecins\n")
+
+# ─── CONGÉS / ABSENCES (demandes) ──────────────────────────────────────────────
+# Un mélange de statuts (validé / en attente / rejeté) pour pouvoir tester
+# l'écran de gestion des demandes dans les trois états.
+print("🌴 Congés et absences...")
+
+MOTIFS_CONGE     = ["Congés annuels", "Repos après garde prolongée", "Événement familial"]
+MOTIFS_ABSENCE   = ["Rendez-vous médical personnel", "Absence justifiée"]
+MOTIFS_FORMATION = ["Congrès médical à Dakar", "Formation continue DPC", "Séminaire de spécialité"]
+MOTIFS_MISSION   = ["Mission de vaccination itinérante", "Consultation dans un centre de santé partenaire"]
+
+nb_exceptions = 0
+
+def creer_exception(employe, type_, jour_debut, duree_jours, motif, statut):
+    global nb_exceptions
+    ExceptionDisponibilite.objects.create(
+        employe=employe, type=type_,
+        date_debut=jour_debut,
+        date_fin=jour_debut + timedelta(days=duree_jours - 1),
+        motif=motif,
+        valide=(statut == StatutException.VALIDE),
+        statut=statut,
+    )
+    nb_exceptions += 1
+
+aujourdhui = timezone.localdate()
+
+# Personnel non-médecin : quelques congés/absences classiques, déjà validés,
+# répartis dans le passé récent et le futur proche.
+personnel_non_medecin = [e for e in employes if e.role != 'medecin' and e.role != 'admin']
+for employe in random.sample(personnel_non_medecin, k=min(10, len(personnel_non_medecin))):
+    type_ = random.choice([TypeException.CONGE, TypeException.ABSENCE])
+    offset = random.randint(-25, 40)
+    duree = random.randint(1, 7) if type_ == TypeException.CONGE else 1
+    motif = random.choice(MOTIFS_CONGE if type_ == TypeException.CONGE else MOTIFS_ABSENCE)
+    creer_exception(employe, type_, aujourdhui + timedelta(days=offset), duree, motif, StatutException.VALIDE)
+
+# Médecins : un panel plus complet pour couvrir les trois statuts et le cas
+# "garde exceptionnelle" (qui ne bloque pas l'agenda, voir _exception_bloquante).
+for i, medecin in enumerate(medecins_tous):
+    if i % 3 == 0:
+        # Congé validé, dans le futur proche : bloque bien l'agenda de
+        # prise de rendez-vous (bon cas de test pour l'écran secrétaire).
+        creer_exception(
+            medecin, TypeException.CONGE,
+            aujourdhui + timedelta(days=random.randint(5, 30)),
+            random.randint(3, 10),
+            random.choice(MOTIFS_CONGE), StatutException.VALIDE,
+            )
+    elif i % 3 == 1:
+        # Demande de formation encore en attente de validation par
+        # l'administration : ne bloque pas encore l'agenda tant qu'elle
+        # n'est pas validée.
+        creer_exception(
+            medecin, TypeException.FORMATION,
+            aujourdhui + timedelta(days=random.randint(10, 45)),
+            random.randint(1, 3),
+            random.choice(MOTIFS_FORMATION), StatutException.EN_ATTENTE,
+            )
+    else:
+        # Demande de mission rejetée (ex. dates non compatibles avec le
+        # service) : reste visible dans l'historique mais sans effet.
+        creer_exception(
+            medecin, TypeException.MISSION,
+            aujourdhui + timedelta(days=random.randint(10, 45)),
+            random.randint(1, 4),
+            random.choice(MOTIFS_MISSION), StatutException.REJETE,
+            )
+
+# Une poignée de gardes exceptionnelles validées (n'empêchent pas de prendre
+# rendez-vous ce jour-là, elles s'ajoutent aux créneaux habituels).
+for medecin in random.sample(medecins_tous, k=min(4, len(medecins_tous))):
+    creer_exception(
+        medecin, TypeException.GARDE,
+        aujourdhui + timedelta(days=random.randint(1, 20)),
+        1, "Garde exceptionnelle (renfort service)", StatutException.VALIDE,
+        )
+
+print(f"✅ {nb_exceptions} congés/absences/formations/missions (validés, en attente et rejetés)\n")
 print("┌──────────────────────────────────────────────────────────────────┐")
 print("│              COMPTES DE DÉMONSTRATION                            │")
 print("├──────────────────┬──────────────────────────┬────────────────────┤")

@@ -21,6 +21,7 @@ import RendezVousPage from './pages/RendezVous'
 import Laboratoire from './pages/Laboratoire'
 import Settings from './pages/Settings'
 import DemandesConges from './pages/DemandesConges'
+import SuperPresentation from './pages/SuperPresentation'
 
 
 function App() {
@@ -31,6 +32,7 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/acces-refuse" element={<AccesRefuse />} />
                 <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/presentation" element={<SuperPresentation />} />
 
                 {/* ── Tous les employés connectés ── */}
                 <Route path="/dashboard" element={
