@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Employe
+from services.models import Service
 
 
 class EmployeSerializer(serializers.ModelSerializer):
@@ -54,6 +55,9 @@ class CreateEmployeSerializer(serializers.Serializer):
         choices=['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin']
     )
     specialite     = serializers.CharField(required=False, allow_blank=True)
+    service        = serializers.PrimaryKeyRelatedField(
+        queryset=Service.objects.all(), required=False, allow_null=True
+    )
 
     def validate_username(self, value):
         if User.objects.filter(username=value).exists():
@@ -79,5 +83,6 @@ class CreateEmployeSerializer(serializers.Serializer):
             adresse=validated_data.get('adresse', ''),
             role=validated_data['role'],
             specialite=validated_data.get('specialite', ''),
+            service=validated_data.get('service'),
         )
         return employe

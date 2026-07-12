@@ -7,7 +7,7 @@ from django.utils import timezone
 
 from .models import Service
 from .serializers import ServiceSerializer
-from comptes.permissions import IsAdminRole
+from comptes.permissions import IsAdminRole, IsSuperUser
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -29,7 +29,11 @@ class ServiceViewSet(viewsets.ModelViewSet):
             return Service.objects.none()
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy', 'update', 'partial_update']:
+        if self.action == 'create':
+            # Créer un nouveau service est réservé à l'admin général
+            # (superuser) — un chef de service ne gère que le sien.
+            return [IsSuperUser()]
+        if self.action in ['destroy', 'update', 'partial_update']:
             return [IsAdminRole()]
         return [IsAuthenticated()]
 

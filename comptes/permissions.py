@@ -9,8 +9,37 @@ def get_employe(user):
         return None
 
 
+def same_service(emp, obj):
+    """
+    Vérifie qu'un objet appartient au même service qu'un employé (chef de
+    service). `obj` peut être : un Service (son id fait foi), un Employe ou
+    tout modèle avec un champ `service`, ou tout modèle avec un champ
+    `employe` (ex. CreneauDisponibilite, ExceptionDisponibilite).
+    """
+    from services.models import Service
+
+    if isinstance(obj, Service):
+        target_service_id = obj.id
+    elif hasattr(obj, 'service_id'):
+        target_service_id = obj.service_id
+    elif hasattr(obj, 'employe'):
+        target_service_id = obj.employe.service_id
+    else:
+        target_service_id = None
+
+    return (
+            emp.service_id is not None
+            and target_service_id is not None
+            and target_service_id == emp.service_id
+    )
+
+
 class IsAdminRole(IsAuthenticated):
-    """Chef de service (admin) ou superuser."""
+    """
+    Chef de service (rôle `admin`), dont les droits sont limités à SON
+    service, ou superuser (admin général — ex. directeur d'hôpital), qui n'a
+    aucune restriction.
+    """
 
     def has_permission(self, request, view):
         if not super().has_permission(request, view):
@@ -19,6 +48,23 @@ class IsAdminRole(IsAuthenticated):
             return True
         emp = get_employe(request.user)
         return emp is not None and emp.role == 'admin'
+
+    def has_object_permission(self, request, view, obj):
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        if emp is None or emp.role != 'admin':
+            return False
+        return same_service(emp, obj)
+
+
+class IsSuperUser(IsAuthenticated):
+    """Réservé à l'admin général (superuser) — ex. création de services."""
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        return bool(request.user.is_superuser)
 
 
 class IsMedecinOuAdmin(IsAuthenticated):

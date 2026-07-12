@@ -16,12 +16,19 @@ class CreneauViewSet(viewsets.ModelViewSet):
         if emp is None:
             return CreneauDisponibilite.objects.none()
 
-        # Admin peut voir tous les créneaux, ou filtrer par employe_id
-        if emp.role == 'admin' or self.request.user.is_superuser:
+        # Superuser (admin général) : voit tout, filtrable par employe_id
+        if self.request.user.is_superuser:
             employe_id = self.request.query_params.get('employe')
-            if employe_id:
-                return CreneauDisponibilite.objects.filter(employe_id=employe_id)
-            return CreneauDisponibilite.objects.select_related('employe').all()
+            qs = CreneauDisponibilite.objects.select_related('employe').all()
+            return qs.filter(employe_id=employe_id) if employe_id else qs
+
+        # Chef de service (admin) : uniquement les créneaux de SON service
+        if emp.role == 'admin':
+            qs = CreneauDisponibilite.objects.select_related('employe').filter(
+                employe__service_id=emp.service_id
+            )
+            employe_id = self.request.query_params.get('employe')
+            return qs.filter(employe_id=employe_id) if employe_id else qs
 
         # Sinon : ses propres créneaux uniquement
         return CreneauDisponibilite.objects.filter(employe=emp)
@@ -55,17 +62,23 @@ class ExceptionViewSet(viewsets.ModelViewSet):
         if emp is None:
             return ExceptionDisponibilite.objects.none()
 
-        if emp.role == 'admin' or self.request.user.is_superuser:
+        if self.request.user.is_superuser:
             qs = ExceptionDisponibilite.objects.select_related('employe').all()
-            employe_id = self.request.query_params.get('employe')
-            if employe_id:
-                qs = qs.filter(employe_id=employe_id)
-            statut = self.request.query_params.get('statut')
-            if statut:
-                qs = qs.filter(statut=statut)
-            return qs
+        elif emp.role == 'admin':
+            # Chef de service : uniquement les demandes de SON service
+            qs = ExceptionDisponibilite.objects.select_related('employe').filter(
+                employe__service_id=emp.service_id
+            )
+        else:
+            return ExceptionDisponibilite.objects.filter(employe=emp)
 
-        return ExceptionDisponibilite.objects.filter(employe=emp)
+        employe_id = self.request.query_params.get('employe')
+        if employe_id:
+            qs = qs.filter(employe_id=employe_id)
+        statut = self.request.query_params.get('statut')
+        if statut:
+            qs = qs.filter(statut=statut)
+        return qs
 
     def perform_create(self, serializer):
         emp = get_employe(self.request.user)

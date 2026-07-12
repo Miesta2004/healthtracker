@@ -2,6 +2,7 @@ import { useEffect, useState } from "react"
 import { useNavigate } from "react-router-dom"
 import { createEmploye } from "../api/comptes.ts"
 import { getServices } from "../api/services.ts"
+import { useAuth } from "../contexts/AuthContext"
 import type { RoleEmploye, Service } from '../types'
 
 // ─── Rôles disponibles ────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ function RoleCard({ role, selected, onClick }: {
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function AddEmploye() {
     const navigate = useNavigate()
+    const { user: currentUser } = useAuth()
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
 
@@ -69,9 +71,19 @@ export default function AddEmploye() {
     const [serviceId, setServiceId] = useState<string>('')
     const [services, setServices] = useState<Service[]>([])
 
+    // Un chef de service (admin scopé, pas superuser) ne peut créer que dans
+    // SON service — le backend l'impose de toute façon, donc on verrouille
+    // le champ côté frontend pour éviter la confusion.
+    const isScopedAdmin = !!currentUser?.service_id
+    const lockedServiceId = currentUser?.service_id ? String(currentUser.service_id) : ''
+
     useEffect(() => {
         getServices().then(setServices).catch(() => setServices([]))
     }, [])
+
+    useEffect(() => {
+        if (isScopedAdmin) setServiceId(lockedServiceId)
+    }, [isScopedAdmin, lockedServiceId])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         setForm({ ...form, [e.target.name]: e.target.value })
@@ -97,7 +109,7 @@ export default function AddEmploye() {
             setError('Sélectionne un rôle pour cet employé.')
             return
         }
-        if (role !== 'admin' && !serviceId) {
+        if (!serviceId) {
             setError("Sélectionne un service : sans service, cet employé ne verra aucun patient ni aucune donnée de son établissement.")
             return
         }
@@ -115,7 +127,7 @@ export default function AddEmploye() {
 
     const formValid = form.prenom && form.nom && form.date_naissance && form.sexe &&
         form.telephone && form.adresse && form.username && form.email && form.password && role &&
-        (role === 'admin' || !!serviceId)
+        !!serviceId
 
     return (
         <div className="ht-page">
@@ -191,11 +203,14 @@ export default function AddEmploye() {
                                 <Field label="Spécialité (optionnel)" name="specialite" value={form.specialite} onChange={handleChange} placeholder="Pédiatrie, Cardiologie..." />
                             </div>
                         )}
-                        {role && role !== 'admin' && (
+                        {role && (
                             <div className="mt-4">
-                                <label className="block text-xs text-[var(--ht-text-muted)] mb-1">Service *</label>
+                                <label className="block text-xs text-[var(--ht-text-muted)] mb-1">
+                                    {role === 'admin' ? 'Service dirigé *' : 'Service *'}
+                                </label>
                                 <select value={serviceId} onChange={e => setServiceId(e.target.value)}
-                                        className="ht-input w-full px-3 py-2.5 text-sm"
+                                        disabled={isScopedAdmin}
+                                        className="ht-input w-full px-3 py-2.5 text-sm disabled:opacity-70"
                                 >
                                     <option value="">Sélectionner un service</option>
                                     {services.map(s => (
@@ -203,7 +218,11 @@ export default function AddEmploye() {
                                     ))}
                                 </select>
                                 <p className="text-xs text-[var(--ht-text-muted)] mt-1.5">
-                                    Sans service assigné, cet employé ne verra aucun patient ni aucune donnée de l'établissement.
+                                    {isScopedAdmin
+                                        ? `En tant que chef de service, tu ne peux créer des employés que dans ${currentUser?.service_nom ? `« ${currentUser.service_nom} »` : 'ton service'}.`
+                                        : role === 'admin'
+                                            ? "Ce chef de service ne verra et ne gérera que les données de ce service."
+                                            : "Sans service assigné, cet employé ne verra aucun patient ni aucune donnée de l'établissement."}
                                 </p>
                                 {services.length === 0 && (
                                     <p className="text-xs text-amber-600 mt-1.5">

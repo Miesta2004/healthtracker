@@ -29,6 +29,14 @@ class EmployeViewSet(viewsets.ModelViewSet):
     def create(self, request):
         serializer = CreateEmployeSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+
+        if not request.user.is_superuser:
+            # Un chef de service (rôle admin, non-superuser) ne peut créer
+            # des employés que dans SON propre service, quoi que le
+            # frontend ait envoyé.
+            requester = get_employe(request.user)
+            serializer.validated_data['service'] = requester.service if requester else None
+
         employe = serializer.save()
 
         #Upload photo si fournis
@@ -41,6 +49,14 @@ class EmployeViewSet(viewsets.ModelViewSet):
             employe.photo_path = url
             employe.save()
         return Response(EmployeSerializer(employe).data, status=status.HTTP_201_CREATED)
+
+    def perform_update(self, serializer):
+        if not self.request.user.is_superuser:
+            # Un chef de service ne peut pas déplacer un employé vers un
+            # autre service — has_object_permission garantit déjà qu'il ne
+            # peut modifier que les employés de SON service.
+            serializer.validated_data.pop('service', None)
+        serializer.save()
 
     def destroy(self, request, pk=None):
         employe = self.get_object()
