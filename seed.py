@@ -24,6 +24,7 @@ from services.models import Service
 from hospitalisations.models import Hospitalisation, StatutHospitalisation
 from urgences.models import PassageUrgence, NiveauTri, ModeArrivee, StatutUrgence, DecisionSortie
 from comptes.models import Employe
+from analyses.models import DemandeAnalyse
 
 random.seed(42)
 
@@ -39,6 +40,7 @@ now = timezone.now()
 # ─── NETTOYAGE ────────────────────────────────────────────────────────────────
 print("🗑️  Nettoyage...")
 for Model, label in [
+    (DemandeAnalyse,  "demande(s) d'analyse"),
     (PassageUrgence,  "passage(s) urgences"),
     (Hospitalisation, "hospitalisation(s)"),
     (Alerte,          "alerte(s)"),
@@ -636,6 +638,7 @@ ORDONNANCES = [
 
 total_consult = 0
 total_rdv     = 0
+consultations_par_patient = defaultdict(list)  # patient.id → [Consultation] (utilisé pour lier les demandes d'analyse)
 
 for patient, age, ant_str, profil_key in patients_data:
     # Nombre de consultations selon le profil clinique
@@ -689,7 +692,7 @@ for patient, age, ant_str, profil_key in patients_data:
                      f"ATCD : {ant_str[:120]}{'...' if len(ant_str)>120 else ''}. "
                      f"{'Observance thérapeutique satisfaisante.' if random.random()>0.3 else 'Problème observance signalé.'}")
 
-        Consultation.objects.create(
+        c = Consultation.objects.create(
             patient=patient, type_evenement=type_ev, date=d_consult,
             motif=motif, symptomes=symptomes_base,
             examens_realises=random.choice(EXAMENS_REALISES),
@@ -697,6 +700,7 @@ for patient, age, ant_str, profil_key in patients_data:
             ordonnance=random.choice(ORDONNANCES),
             statut=statut, notes=notes,
         )
+        consultations_par_patient[patient.id].append(c)
         total_consult += 1
 
     # Rendez-vous futurs (0 à 3)
@@ -712,6 +716,125 @@ for patient, age, ant_str, profil_key in patients_data:
         total_rdv += 1
 
 print(f"✅ {total_consult} consultations, {total_rdv} rendez-vous\n")
+
+# ─── DEMANDES D'ANALYSE ───────────────────────────────────────────────────────
+print("🔬 Demandes d'analyse...")
+
+laborantins_list = [e for e in employes if e.role == 'laborantin']
+
+# Type d'analyse le plus plausible selon le profil clinique (réalisme)
+TYPES_PAR_PROFIL = {
+    "diabetique_t2_equilibre":      ["glycemie", "bilan_lipidique", "urine"],
+    "diabetique_t2_desequilibre":   ["glycemie", "bilan_renal", "ionogramme", "urine"],
+    "hypertendu_controle":          ["bilan_renal", "ionogramme", "bilan_lipidique"],
+    "hypertendu_non_controle":      ["bilan_renal", "ionogramme", "bilan_lipidique", "nfs"],
+    "drepanocytaire":               ["nfs", "groupe_sanguin", "hemostase"],
+    "insuffisant_renal":            ["bilan_renal", "ionogramme", "urine", "nfs"],
+    "senior_fragile":               ["nfs", "bilan_renal", "crp"],
+    "enfant_adolescent":            ["nfs", "parasite", "crp"],
+    "femme_enceinte":               ["nfs", "groupe_sanguin", "urine"],
+    "sain":                         ["nfs", "glycemie", "bilan_lipidique", "autre"],
+}
+NOTES_MEDECIN_ANALYSE = [
+    "Bilan de suivi habituel, merci de traiter en priorité normale.",
+    "Contexte clinique évocateur — merci de vérifier attentivement les valeurs limites.",
+    "Suivi de pathologie chronique, résultat à comparer avec le bilan précédent.",
+    "Patient symptomatique — analyse à traiter rapidement si possible.",
+    "Bilan pré-thérapeutique avant ajustement de traitement.",
+    "Contrôle post-traitement, merci de signaler toute anomalie même mineure.",
+]
+RESULTATS_PAR_TYPE = {
+    "nfs":             "Hb 11,8 g/dL, GB 7 200/mm³, plaquettes 260 000/mm³. Formule leucocytaire normale.",
+    "glycemie":        "Glycémie à jeun : 5,4 mmol/L. Dans les valeurs normales.",
+    "bilan_renal":     "Créatinine 78 μmol/L, urée 5,2 mmol/L. Clairance estimée > 90 mL/min. Normal.",
+    "bilan_hepatique": "ASAT 22 UI/L, ALAT 18 UI/L, bilirubine totale 8 μmol/L. Bilan hépatique normal.",
+    "bilan_lipidique": "Cholestérol total 4,8 mmol/L, LDL 2,9 mmol/L, HDL 1,3 mmol/L, triglycérides 1,1 mmol/L.",
+    "ionogramme":      "Na+ 138 mmol/L, K+ 4,1 mmol/L, Cl- 102 mmol/L. Ionogramme équilibré.",
+    "crp":             "CRP à 4 mg/L. Pas de syndrome inflammatoire significatif.",
+    "groupe_sanguin":  "Groupe déterminé et confirmé sur 2 prélèvements distincts, conforme au dossier.",
+    "hemostase":       "TP 92%, TCA ratio 1,05. Hémostase normale, pas de trouble de la coagulation détecté.",
+    "urine":           "ECBU stérile, leucocyturie négative, pas de nitrites. Pas d'infection urinaire.",
+    "parasite":        "Goutte épaisse négative. Aucune forme parasitaire retrouvée au frottis sanguin.",
+    "autre":           "Résultat conforme aux valeurs de référence du laboratoire.",
+}
+
+total_analyses         = 0
+total_alertes_analyses = 0
+
+# ~45 % des patients ont au moins une demande d'analyse durant leur suivi
+for patient, age, ant_str, profil_key in random.sample(patients_data, k=int(NB_PATIENTS * 0.45)):
+    nb_demandes = random.randint(1, 3)
+    consults_patient = consultations_par_patient.get(patient.id, [])
+    types_plausibles = TYPES_PAR_PROFIL.get(profil_key, ["nfs", "glycemie", "autre"])
+
+    for _ in range(nb_demandes):
+        demandeur = patient.medecin_referent or (random.choice(medecins_list) if medecins_list else None)
+        statut = random.choices(
+            ['en_attente', 'en_cours', 'terminee', 'annulee'],
+            weights=[0.25, 0.20, 0.45, 0.10]
+        )[0]
+        consultation_liee = random.choice(consults_patient) if consults_patient and random.random() > 0.4 else None
+
+        # Un laborantin n'est assigné que si la demande a été "prise en charge" :
+        # jamais pour 'en_attente' (règle du premier arrivé, premier servi côté
+        # Laboratoire.tsx), toujours pour 'terminee' (il faut être assigné pour
+        # soumettre un résultat), et parfois pour 'annulee'.
+        if statut == 'en_attente':
+            laborantin = None
+        elif statut in ('en_cours', 'terminee'):
+            laborantin = random.choice(laborantins_list) if laborantins_list else None
+        else:  # annulee
+            laborantin = random.choice(laborantins_list) if laborantins_list and random.random() > 0.5 else None
+
+        type_analyse = random.choice(types_plausibles)
+
+        jours_demande = random.randint(0, JOURS_HISTORIQUE)
+        date_demande  = now - timedelta(days=jours_demande, hours=random.randint(0, 23))
+        date_resultat = None
+        resultats     = ""
+        valeurs_norm  = ""
+
+        if statut == 'terminee':
+            date_resultat = date_demande + timedelta(hours=random.randint(2, 48))
+            resultats     = RESULTATS_PAR_TYPE.get(type_analyse, RESULTATS_PAR_TYPE["autre"])
+            valeurs_norm  = "Voir tableau de référence laboratoire (valeurs adulte standard)."
+
+        da = DemandeAnalyse.objects.create(
+            patient=patient,
+            consultation=consultation_liee,
+            demandeur=demandeur,
+            laborantin=laborantin,
+            type_analyse=type_analyse,
+            urgence=random.choices(['normale', 'urgente'], weights=[0.82, 0.18])[0],
+            statut=statut,
+            notes_medecin=random.choice(NOTES_MEDECIN_ANALYSE),
+            resultats=resultats,
+            valeurs_normales=valeurs_norm,
+            date_resultat=date_resultat,
+        )
+
+        # date_demande a auto_now_add=True côté modèle : impossible à fixer à
+        # la création (même via bulk_create, Django réévalue le champ à
+        # l'insertion). Seul un .update() direct — qui contourne pre_save —
+        # permet de l'étaler dans le passé comme les autres données du seed.
+        DemandeAnalyse.objects.filter(pk=da.pk).update(date_demande=date_demande)
+
+        total_analyses += 1
+
+        # Alerte "résultat disponible" pour les demandes terminées — cohérent
+        # avec la notification créée automatiquement par l'action
+        # soumettre-resultats côté backend (analyses/views.py).
+        if statut == 'terminee':
+            Alerte.objects.create(
+                patient=patient,
+                type='resultat_analyse',
+                message=f"Résultat d'analyse disponible : {da.get_type_analyse_display()}",
+                statut=random.choices(['non_lue', 'lue', 'traitee'], weights=[0.50, 0.25, 0.25])[0],
+            )
+            total_alertes_analyses += 1
+
+total_alertes += total_alertes_analyses
+print(f"✅ {total_analyses} demandes d'analyse ({total_alertes_analyses} alertes de résultat associées)\n")
 
 # ─── HOSPITALISATIONS ─────────────────────────────────────────────────────────
 print("🛏️  Hospitalisations...")
@@ -932,8 +1055,9 @@ print(f"   👤 Patients         : {NB_PATIENTS}")
 print(f"   📊 Signes vitaux    : {total_sv}")
 print(f"   🩺 Consultations    : {total_consult}")
 print(f"   📅 Rendez-vous      : {total_rdv}")
+print(f"   🔬 Demandes d'analyse : {total_analyses}")
 print(f"   🛏️  Hospitalisations : {total_hosp}")
 print(f"   🚑 Passages urgences: {total_urgences}")
-print(f"   🚨 Alertes          : {total_alertes}")
+print(f"   🚨 Alertes          : {total_alertes} (dont {total_alertes_analyses} résultats d'analyse)")
 print("═" * 55)
 print("✅ Base de données peuplée avec succès !")

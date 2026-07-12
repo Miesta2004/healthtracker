@@ -18,6 +18,9 @@ import {
     BedDouble,
     Stethoscope,
     Calendar,
+    CalendarCheck,
+    CalendarClock,
+    UserPlus,
     ShieldAlert,
     FlaskConical,
     Plus,
@@ -157,6 +160,14 @@ export default function Dashboard() {
         return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }).length ?? 0;
 
+    const nouveauCetteSemaine = patients?.filter((p) => {
+        const d = new Date(p.date_creation);
+        const now = new Date();
+        const sept = new Date(now);
+        sept.setDate(now.getDate() - 7);
+        return d >= sept && d <= now;
+    }).length ?? 0;
+
     const urgencesTriees = urgences
         ? [...urgences].sort((a, b) => (a.niveau_tri ?? 5) - (b.niveau_tri ?? 5)).slice(0, 5)
         : [];
@@ -172,6 +183,18 @@ export default function Dashboard() {
             const d = new Date(r.date_heure);
             const now = new Date();
             return d.toDateString() === now.toDateString() && r.statut !== "annule";
+        })
+        .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime());
+
+    const rdvAConfirmer = (rendezVous ?? []).filter((r) => r.statut === "planifie");
+
+    const rdvCetteSemaine = (rendezVous ?? [])
+        .filter((r) => {
+            const d = new Date(r.date_heure);
+            const now = new Date();
+            const dansSeptJours = new Date(now);
+            dansSeptJours.setDate(now.getDate() + 7);
+            return d > now && d <= dansSeptJours && d.toDateString() !== now.toDateString() && r.statut !== "annule";
         })
         .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime());
 
@@ -210,7 +233,7 @@ export default function Dashboard() {
                                 </button>
                             )}
                             {isSecretaire && (
-                                <button onClick={() => navigate("/rendez_vous")} className="btn btn-ghost">
+                                <button onClick={() => navigate("/rendez_vous")} className="btn btn-secondary">
                                     <Calendar size={16} /> Gérer les rendez-vous
                                 </button>
                             )}
@@ -234,13 +257,34 @@ export default function Dashboard() {
                 />
 
                 {/* ── Section KPIs ── */}
-                {(canSeePatients || canSeeUrgences || canSeeHospit || isAdmin) && (
+                {(canSeePatients || canSeeUrgences || canSeeHospit || canSeeRdv || isAdmin) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {canSeePatients && (
                             patients === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="Total patients" value={patients.length} icon={Users} accent
                                           sub={`${nouveauCeMois} ajouté${nouveauCeMois > 1 ? "s" : ""} ce mois`}
                                           onClick={() => navigate("/patients")} />
+                            )
+                        )}
+                        {canSeePatients && (
+                            patients === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Nouveaux patients (semaine)" value={nouveauCetteSemaine} icon={UserPlus}
+                                          sub={nouveauCetteSemaine > 0 ? "Sur les 7 derniers jours" : "Aucun cette semaine"}
+                                          onClick={() => navigate("/patients")} />
+                            )
+                        )}
+                        {canSeeRdv && (
+                            rendezVous === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="Rendez-vous aujourd'hui" value={rdvAujourdhui.length} icon={CalendarCheck}
+                                          sub={rdvAujourdhui.length > 0 ? "Programmés aujourd'hui" : "Aucun aujourd'hui"}
+                                          onClick={() => navigate("/rendez_vous")} />
+                            )
+                        )}
+                        {canSeeRdv && (
+                            rendezVous === null ? <SkeletonKpiCard /> : (
+                                <StatCard label="À confirmer" value={rdvAConfirmer.length} icon={CalendarClock}
+                                          sub={rdvAConfirmer.length > 0 ? "En attente de confirmation" : "Tout est confirmé"}
+                                          onClick={() => navigate("/rendez_vous")} />
                             )
                         )}
                         {canSeeUrgences && (
@@ -284,8 +328,7 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <span className={`badge ${u.niveau_tri ? TRI_BADGE[u.niveau_tri] : "badge-muted"}`} style={{ width: "0.625rem", height: "0.625rem", padding: 0 }} />
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>
-                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
+                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
                                             </div>
                                         </div>
                                         <span className="badge badge-muted uppercase">
@@ -364,6 +407,34 @@ export default function Dashboard() {
                                             <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{r.motif}</p>
                                         </div>
                                         <span className="badge badge-tint">
+                                            {new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </WidgetCard>
+                    )}
+
+                    {canSeeRdv && (
+                        <WidgetCard
+                            title="Cette semaine"
+                            count={rdvCetteSemaine.length}
+                            loading={rendezVous === null}
+                            empty={rdvCetteSemaine.length === 0}
+                            emptyLabel="Aucun rendez-vous prévu dans les 7 prochains jours"
+                            linkLabel="Voir tous les rendez-vous"
+                            onLink={() => navigate("/rendez_vous")}
+                        >
+                            <div className="divide-y divide-[var(--ht-border)]">
+                                {rdvCetteSemaine.slice(0, 5).map(r => (
+                                    <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{r.patient_prenom} {r.patient_nom}</p>
+                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{r.motif}</p>
+                                        </div>
+                                        <span className="badge badge-muted">
+                                            {new Date(r.date_heure).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })}
+                                            {" · "}
                                             {new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
                                         </span>
                                     </div>

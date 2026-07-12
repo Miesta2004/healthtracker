@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
-import { getRendezVous, createRendezVous, updateRendezVous, deleteRendezVous } from '../api/rendezvous'
-import type { Patient, RendezVous, StatutRendezVous } from '../types'
+import { getEmployes } from '../api/comptes'
+import {
+    getRendezVous, createRendezVous, updateRendezVous, deleteRendezVous,
+    getCreneauxDisponibles, getMedecinsDisponibles, getDatesDisponibles,
+} from '../api/rendezvous'
+import type { Patient, RendezVous, StatutRendezVous, Employe, CreneauDisponible, MedecinDisponible, DateDisponible } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import PageHeader from '../components/PageHeader.tsx'
 import { useAuth } from '../contexts/AuthContext'
@@ -17,7 +21,12 @@ import {
     Trash2,
     Check,
     CheckCircle,
-    Ban
+    Ban,
+    Stethoscope,
+    Info,
+    CalendarSearch,
+    UserSearch,
+    CalendarOff,
 } from 'lucide-react'
 
 const PAGE_SIZE = 20
@@ -51,9 +60,47 @@ function isSameDay(a: Date, b: Date) {
     return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
 }
 
+type ModeRecherche = 'par_date' | 'par_medecin' | 'sans_medecin'
+
+const MODES: { key: ModeRecherche; label: string; Icon: typeof CalendarSearch }[] = [
+    { key: 'par_date', label: 'Par date', Icon: CalendarSearch },
+    { key: 'par_medecin', label: 'Par médecin', Icon: UserSearch },
+    { key: 'sans_medecin', label: 'Sans médecin', Icon: CalendarOff },
+]
+
+function formatDateCourte(iso: string) {
+    return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
+}
+
+function MedecinChip({ medecin, onChanger }: { medecin?: Employe; onChanger: () => void }) {
+    if (!medecin) return null
+    return (
+        <div className="flex items-center justify-between px-3 py-2 border rounded-xl text-sm"
+             style={{ borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}>
+            <span className="flex items-center gap-1.5">
+                <Stethoscope size={14} /> Dr. {medecin.prenom} {medecin.nom}{medecin.specialite ? ` — ${medecin.specialite}` : ''}
+            </span>
+            <button onClick={onChanger} className="text-xs transition-colors" style={{ color: 'var(--ht-text-muted)' }}>Changer</button>
+        </div>
+    )
+}
+
+function DateChip({ date, onChanger }: { date: string; onChanger: () => void }) {
+    return (
+        <div className="flex items-center justify-between px-3 py-2 border rounded-xl text-sm"
+             style={{ borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}>
+            <span className="flex items-center gap-1.5 capitalize">
+                <Calendar size={14} /> {formatDateCourte(date)}
+            </span>
+            <button onClick={onChanger} className="text-xs transition-colors" style={{ color: 'var(--ht-text-muted)' }}>Changer</button>
+        </div>
+    )
+}
+
 // ─── Modal : nouveau / modifier rendez-vous ───────────────────────────────────
-function RdvModal({ patients, rdv, onClose, onSaved }: {
+function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
     patients: Patient[]
+    medecins: Employe[]
     rdv: RendezVous | null
     onClose: () => void
     onSaved: (r: RendezVous) => void
@@ -61,12 +108,26 @@ function RdvModal({ patients, rdv, onClose, onSaved }: {
     const isEdit = !!rdv
     const [search, setSearch] = useState('')
     const [patientId, setPatientId] = useState<number | null>(rdv?.patient ?? null)
-    const [date, setDate] = useState(rdv ? rdv.date_heure.slice(0, 10) : new Date().toISOString().slice(0, 10))
+
+    const [mode, setMode] = useState<ModeRecherche>(
+        isEdit ? (rdv?.medecin ? 'par_medecin' : 'sans_medecin') : 'par_date'
+    )
+    const [medecinId, setMedecinId] = useState<number | null>(rdv?.medecin ?? null)
+    const [date, setDate] = useState(rdv ? rdv.date_heure.slice(0, 10) : '')
     const [heure, setHeure] = useState(rdv ? rdv.date_heure.slice(11, 16) : '09:00')
     const [motif, setMotif] = useState(rdv?.motif ?? '')
     const [notes, setNotes] = useState(rdv?.notes ?? '')
     const [submitting, setSubmitting] = useState(false)
     const [erreur, setErreur] = useState('')
+
+    const [creneaux, setCreneaux] = useState<CreneauDisponible[]>([])
+    const [loadingCreneaux, setLoadingCreneaux] = useState(false)
+    const [motifIndisponibilite, setMotifIndisponibilite] = useState('')
+
+    const [medecinsDispo, setMedecinsDispo] = useState<MedecinDisponible[]>([])
+    const [loadingMedecins, setLoadingMedecins] = useState(false)
+    const [datesDispo, setDatesDispo] = useState<DateDisponible[]>([])
+    const [loadingDates, setLoadingDates] = useState(false)
 
     const results = useMemo(() => {
         if (search.trim().length < 2) return []
@@ -75,22 +136,88 @@ function RdvModal({ patients, rdv, onClose, onSaved }: {
     }, [search, patients])
 
     const selectedPatient = patients.find(p => p.id === patientId)
+    const selectedMedecin = medecins.find(m => m.id === medecinId)
+
+    const switchMode = (m: ModeRecherche) => {
+        if (m === mode) return
+        setMode(m)
+        setMedecinId(null)
+        setDate('')
+        setHeure('09:00')
+        setMedecinsDispo([])
+        setDatesDispo([])
+    }
+
+    // Mode "Par date" : liste des médecins disponibles ce jour-là
+    useEffect(() => {
+        if (mode !== 'par_date' || !date || medecinId) return
+        let cancelled = false
+        setLoadingMedecins(true)
+        getMedecinsDisponibles(date)
+            .then(res => { if (!cancelled) setMedecinsDispo(res.medecins) })
+            .catch(() => { if (!cancelled) setMedecinsDispo([]) })
+            .finally(() => { if (!cancelled) setLoadingMedecins(false) })
+        return () => { cancelled = true }
+    }, [mode, date, medecinId])
+
+    // Mode "Par médecin" : prochaines dates disponibles pour ce médecin
+    useEffect(() => {
+        if (mode !== 'par_medecin' || !medecinId || date) return
+        let cancelled = false
+        setLoadingDates(true)
+        getDatesDisponibles(medecinId)
+            .then(res => { if (!cancelled) setDatesDispo(res.dates) })
+            .catch(() => { if (!cancelled) setDatesDispo([]) })
+            .finally(() => { if (!cancelled) setLoadingDates(false) })
+        return () => { cancelled = true }
+    }, [mode, medecinId, date])
+
+    // Une fois médecin + date choisis (quel que soit le chemin), on charge les créneaux horaires
+    useEffect(() => {
+        if (!medecinId || !date) {
+            setCreneaux([])
+            setMotifIndisponibilite('')
+            return
+        }
+        let cancelled = false
+        setLoadingCreneaux(true)
+        getCreneauxDisponibles(medecinId, date, isEdit && rdv ? { excludeId: rdv.id } : undefined)
+            .then(res => {
+                if (cancelled) return
+                setCreneaux(res.creneaux)
+                setMotifIndisponibilite(res.indisponible ? res.motif : '')
+            })
+            .catch(() => {
+                if (!cancelled) { setCreneaux([]); setMotifIndisponibilite('') }
+            })
+            .finally(() => { if (!cancelled) setLoadingCreneaux(false) })
+        return () => { cancelled = true }
+    }, [medecinId, date, isEdit, rdv])
+
+    // Le créneau actuellement sélectionné, s'il figure dans la liste chargée
+    const heureEstDisponible = mode === 'sans_medecin' || creneaux.some(c => c.heure_debut === heure && c.disponible)
+
+    const peutSoumettre = !!patientId && !!motif.trim() && !!date && !!heure
+        && (mode === 'sans_medecin' || (!!medecinId && heureEstDisponible))
 
     const handleSubmit = async () => {
-        if (!patientId || !motif.trim() || !date || !heure) return
+        if (!peutSoumettre) return
         setSubmitting(true)
         setErreur('')
         try {
             const payload = {
                 patient: patientId,
+                medecin: mode === 'sans_medecin' ? null : medecinId,
                 date_heure: new Date(`${date}T${heure}`).toISOString(),
                 motif: motif.trim(),
                 notes,
             }
             const saved = isEdit ? await updateRendezVous(rdv!.id, payload) : await createRendezVous(payload)
             onSaved(saved)
-        } catch {
-            setErreur("Erreur lors de l'enregistrement.")
+        } catch (e: unknown) {
+            const message = (e as { response?: { data?: { detail?: string; non_field_errors?: string[] } } })
+                ?.response?.data
+            setErreur(message?.detail || message?.non_field_errors?.[0] || "Erreur lors de l'enregistrement.")
             setSubmitting(false)
         }
     }
@@ -145,16 +272,176 @@ function RdvModal({ patients, rdv, onClose, onSaved }: {
                         )}
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="ht-field">
-                            <label className="ht-label">Date</label>
-                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="ht-input" />
-                        </div>
-                        <div className="ht-field">
-                            <label className="ht-label">Heure</label>
-                            <input type="time" value={heure} onChange={e => setHeure(e.target.value)} className="ht-input" />
+                    <div className="ht-field">
+                        <label className="ht-label">Comment souhaitez-vous fixer le rendez-vous ?</label>
+                        <div className="flex gap-1 p-1 rounded-xl w-fit flex-wrap" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
+                            {MODES.map(m => (
+                                <button
+                                    key={m.key}
+                                    type="button"
+                                    onClick={() => switchMode(m.key)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                    style={mode === m.key
+                                        ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                        : { color: 'var(--ht-text-secondary)' }}
+                                >
+                                    <m.Icon size={13} /> {m.label}
+                                </button>
+                            ))}
                         </div>
                     </div>
+
+                    {/* ── Mode "Par date" : choisir la date, puis un médecin disponible ── */}
+                    {mode === 'par_date' && (
+                        <>
+                            <div className="ht-field">
+                                <label className="ht-label">Date souhaitée</label>
+                                <input type="date" value={date}
+                                       onChange={e => { setDate(e.target.value); setMedecinId(null) }}
+                                       className="ht-input" />
+                            </div>
+                            {date && (
+                                medecinId ? (
+                                    <MedecinChip medecin={selectedMedecin} onChanger={() => setMedecinId(null)} />
+                                ) : (
+                                    <div className="ht-field">
+                                        <label className="ht-label">Médecins disponibles ce jour-là</label>
+                                        {loadingMedecins ? (
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Chargement…</p>
+                                        ) : medecinsDispo.length === 0 ? (
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Aucun médecin n'a de créneau ce jour-là.</p>
+                                        ) : (
+                                            <div className="space-y-1.5 max-h-52 overflow-y-auto pr-1">
+                                                {medecinsDispo.map(m => (
+                                                    <button
+                                                        key={m.id}
+                                                        type="button"
+                                                        disabled={!m.disponible}
+                                                        onClick={() => setMedecinId(m.id)}
+                                                        className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-left text-sm transition-colors"
+                                                        style={m.disponible
+                                                            ? { border: '1px solid var(--ht-border)', color: 'var(--ht-text)' }
+                                                            : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)', cursor: 'not-allowed' }}
+                                                    >
+                                                        <span>Dr. {m.prenom} {m.nom}{m.specialite ? ` — ${m.specialite}` : ''}</span>
+                                                        <span className="text-xs flex-shrink-0 ml-2">
+                                                            {m.disponible ? `${m.nb_creneaux_libres} créneau${m.nb_creneaux_libres > 1 ? 'x' : ''} libre${m.nb_creneaux_libres > 1 ? 's' : ''}` : m.motif}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            )}
+                        </>
+                    )}
+
+                    {/* ── Mode "Par médecin" : choisir le médecin, puis une date disponible ── */}
+                    {mode === 'par_medecin' && (
+                        <>
+                            <div className="ht-field">
+                                <label className="ht-label">Médecin</label>
+                                <select
+                                    value={medecinId ?? ''}
+                                    onChange={e => { setMedecinId(e.target.value ? Number(e.target.value) : null); setDate('') }}
+                                    className="ht-input"
+                                >
+                                    <option value="">Choisir un médecin…</option>
+                                    {medecins.map(m => (
+                                        <option key={m.id} value={m.id}>
+                                            Dr. {m.prenom} {m.nom}{m.specialite ? ` — ${m.specialite}` : ''}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            {medecinId && (
+                                date ? (
+                                    <DateChip date={date} onChanger={() => setDate('')} />
+                                ) : (
+                                    <div className="ht-field">
+                                        <label className="ht-label">Prochaines dates disponibles</label>
+                                        {loadingDates ? (
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Chargement…</p>
+                                        ) : datesDispo.length === 0 ? (
+                                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Aucune date disponible dans les 30 prochains jours.</p>
+                                        ) : (
+                                            <div className="grid grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-1">
+                                                {datesDispo.map(d => (
+                                                    <button
+                                                        key={d.date}
+                                                        type="button"
+                                                        onClick={() => setDate(d.date)}
+                                                        className="flex flex-col items-center px-2 py-2 rounded-lg text-center transition-colors"
+                                                        style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }}
+                                                    >
+                                                        <span className="text-xs font-semibold capitalize">{formatDateCourte(d.date)}</span>
+                                                        <span className="text-[10px] opacity-80">{d.nb_creneaux_libres} libre{d.nb_creneaux_libres > 1 ? 's' : ''}</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                )
+                            )}
+                        </>
+                    )}
+
+                    {/* ── Mode "Sans médecin" : date/heure libres, sans lien à un planning ── */}
+                    {mode === 'sans_medecin' && (
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="ht-field">
+                                <label className="ht-label">Date</label>
+                                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="ht-input" />
+                            </div>
+                            <div className="ht-field">
+                                <label className="ht-label">Heure</label>
+                                <input type="time" value={heure} onChange={e => setHeure(e.target.value)} className="ht-input" />
+                            </div>
+                        </div>
+                    )}
+
+                    {/* ── Grille des créneaux horaires, une fois médecin + date choisis ── */}
+                    {mode !== 'sans_medecin' && medecinId && date && (
+                        <div className="ht-field">
+                            <label className="ht-label flex items-center gap-1.5">
+                                <Clock size={13} /> Heure du rendez-vous
+                            </label>
+                            {loadingCreneaux ? (
+                                <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Chargement des disponibilités…</p>
+                            ) : motifIndisponibilite ? (
+                                <div className="ht-alert flex items-center gap-2 text-xs" style={{ backgroundColor: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' }}>
+                                    <Info size={14} /> {motifIndisponibilite}
+                                </div>
+                            ) : creneaux.length === 0 ? (
+                                <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Aucun créneau pour ce jour.</p>
+                            ) : (
+                                <div className="grid grid-cols-4 gap-1.5 max-h-40 overflow-y-auto pr-1">
+                                    {creneaux.map(c => {
+                                        const selectionne = heure === c.heure_debut
+                                        return (
+                                            <button
+                                                key={c.heure_debut}
+                                                type="button"
+                                                disabled={!c.disponible}
+                                                onClick={() => setHeure(c.heure_debut)}
+                                                className="text-xs font-semibold py-1.5 rounded-lg transition-colors"
+                                                style={
+                                                    !c.disponible
+                                                        ? { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)', textDecoration: 'line-through', cursor: 'not-allowed' }
+                                                        : selectionne
+                                                            ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                                            : { backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }
+                                                }
+                                            >
+                                                {c.heure_debut}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
 
                     <div className="ht-field">
                         <label className="ht-label">Motif</label>
@@ -178,7 +465,7 @@ function RdvModal({ patients, rdv, onClose, onSaved }: {
                         </button>
                         <button
                             onClick={handleSubmit}
-                            disabled={!patientId || !motif.trim() || submitting}
+                            disabled={!peutSoumettre || submitting}
                             className="btn btn-primary flex-1"
                         >
                             {submitting ? 'Enregistrement…' : isEdit ? 'Enregistrer' : 'Créer le rendez-vous'}
@@ -217,8 +504,13 @@ function RdvCard({ rdv, isAdmin, onEdit, onStatutChange, onDelete }: {
                     <StatutBadge statut={rdv.statut} />
                 </div>
                 <p className="text-xs mt-1 truncate" style={{ color: 'var(--ht-text-secondary)' }}>{rdv.motif}</p>
-                <p className="text-xs mt-1 flex items-center gap-1 capitalize" style={{ color: 'var(--ht-text-muted)' }}>
+                <p className="text-xs mt-1 flex items-center gap-1 capitalize flex-wrap" style={{ color: 'var(--ht-text-muted)' }}>
                     <Calendar size={12} /> {date}
+                    {rdv.medecin && (
+                        <span className="flex items-center gap-1 normal-case">
+                            <Stethoscope size={12} /> Dr. {rdv.medecin_prenom} {rdv.medecin_nom}
+                        </span>
+                    )}
                 </p>
             </div>
             <div className="flex flex-col gap-2 flex-shrink-0 items-end self-center">
@@ -274,6 +566,7 @@ export default function RendezVousPage() {
 
     const [rdvs, setRdvs] = useState<RendezVous[]>([])
     const [patients, setPatients] = useState<Patient[]>([])
+    const [medecins, setMedecins] = useState<Employe[]>([])
     const [loading, setLoading] = useState(true)
     const [filtre, setFiltre] = useState<Filtre>('aujourdhui')
     const [search, setSearch] = useState('')
@@ -282,8 +575,8 @@ export default function RendezVousPage() {
     const [page, setPage] = useState(1)
 
     useEffect(() => {
-        Promise.all([getRendezVous(), getPatients()])
-            .then(([r, p]) => { setRdvs(r); setPatients(p) })
+        Promise.all([getRendezVous(), getPatients(), getEmployes()])
+            .then(([r, p, e]) => { setRdvs(r); setPatients(p); setMedecins(e.filter(m => m.role === 'medecin')) })
             .finally(() => setLoading(false))
     }, [])
 
@@ -345,6 +638,7 @@ export default function RendezVousPage() {
             {showModal && (
                 <RdvModal
                     patients={patients}
+                    medecins={medecins}
                     rdv={editTarget}
                     onClose={() => { setShowModal(false); setEditTarget(null) }}
                     onSaved={handleSaved}

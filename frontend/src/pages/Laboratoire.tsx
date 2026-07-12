@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getPatients } from '../api/patients'
+import PageHeader from "../components/PageHeader.tsx";
 import {
     getDemandes,
     createDemande,
@@ -14,7 +15,6 @@ import { SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
 import {
     FlaskConical,
-    Plus,
     AlertTriangle,
     AlertCircle,
     Search,
@@ -436,23 +436,13 @@ export default function Laboratoire() {
             <Sidebar />
 
             <div className="flex-1 max-w-4xl mx-auto px-6 py-8 w-full space-y-6">
-                <div className="flex items-center justify-between">
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <FlaskConical style={{ color: 'var(--ht-primary)' }} size={24} />
-                            <h1 className="text-xl font-bold" style={{ color: 'var(--ht-text)' }}>Laboratoire d'analyses</h1>
-                        </div>
-                        <p className="text-sm mt-1" style={{ color: 'var(--ht-text-muted)' }}>
-                            {isLab ? "Demandes d'analyses cliniques assignées à votre service" : "Suivi en temps réel des analyses prescrites"}
-                        </p>
-                    </div>
-                    {canRequest && (
-                        <button onClick={() => setShowNouvelle(true)}
-                                className="btn btn-primary btn-sm flex items-center gap-1.5 font-semibold">
-                            <Plus size={16} /> Nouvelle demande
-                        </button>
-                    )}
-                </div>
+                <PageHeader
+                    title="Laboratoire d'analyses"
+                    subtitle={isLab ? "Demandes d'analyses cliniques assignées à votre service" : "Suivi en temps réel des analyses prescrites"}
+                    icon={FlaskConical}
+                    ctaLabel={canRequest ? 'Nouvelle demande' : undefined}
+                    onCtaClick={() => setShowNouvelle(true)}
+                />
 
                 {erreurAction && (
                     <div className="ht-alert ht-alert-danger flex items-center gap-2 text-sm">

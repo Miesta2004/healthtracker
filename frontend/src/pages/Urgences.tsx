@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import { getServices } from '../api/services'
 import { getAntecedents } from '../api/antecedents'
+import PageHeader from "../components/PageHeader.tsx"
 import {
     getFileAttente,
     getUrgencesPatient,
@@ -22,7 +23,6 @@ import {
     User,
     Folder,
     ArrowRight,
-    Plus,
     X,
     CheckCircle2,
     LogOut,
@@ -602,17 +602,13 @@ export default function Urgences() {
             <main className="ht-page-content max-w-7xl space-y-6">
 
                 {/* Section Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4" style={{ borderBottom: '1px solid var(--ht-border)' }}>
-                    <div>
-                        <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>Urgences</h1>
-                        <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>File d'attente et gestion des admissions en temps réel</p>
-                    </div>
-                    {hasRole('admin', 'medecin', 'infirmier') && (
-                        <button onClick={() => setShowNouveau(true)} className="btn btn-primary gap-1.5 self-start sm:self-auto">
-                            <Plus size={16} /> Nouvel arrivant
-                        </button>
-                    )}
-                </div>
+                <PageHeader
+                    title="Urgences"
+                    subtitle="File d'attente et gestion des admissions en temps réel"
+                    icon={AlertTriangle}
+                    ctaLabel={hasRole('admin', 'medecin', 'infirmier') ? 'Nouvel arrivant' : undefined}
+                    onCtaClick={() => setShowNouveau(true)}
+                />
 
                 {/* Compteurs / Mini-stats grid */}
                 <div className="grid grid-cols-2 gap-4">

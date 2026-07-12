@@ -4,7 +4,7 @@ import { Plus } from 'lucide-react'
 
 interface PageBannerProps {
     title: ReactNode
-    subtitle: string
+    subtitle: ReactNode
     icon: LucideIcon
     ctaLabel?: string
     onCtaClick?: () => void
@@ -14,13 +14,15 @@ interface PageBannerProps {
     decorIcons?: LucideIcon[]
     /** 'large' = bandeau plus haut/plus large, pour les pages d'accueil */
     size?: 'default' | 'large'
+    /** Remplace la pastille icône par un avatar custom (ex: initiales d'un employé) — pour les pages de détail */
+    avatar?: ReactNode
 }
 
 /**
  * Bandeau complet illustré.
- * À réserver aux pages peu visitées ou aux états d'accueil/onboarding
- * (ex: Accueil, Services, Rapports, Paramètres) — voir PageHeader pour
- * les pages à fort trafic.
+ * À réserver aux pages peu visitées, aux états d'accueil/onboarding,
+ * ou aux fiches détail (ex: Accueil, Services, Paramètres, fiche Employé/Service)
+ * — voir PageHeader pour les pages-liste à fort trafic.
  */
 export default function PageBanner({
                                        title,
@@ -31,6 +33,7 @@ export default function PageBanner({
                                        actions,
                                        decorIcons = [],
                                        size = 'default',
+                                       avatar,
                                    }: PageBannerProps) {
     const large = size === 'large'
     const mosaicW = large ? 300 : 220
@@ -46,18 +49,20 @@ export default function PageBanner({
         >
             {/* ── Texte + CTA ── */}
             <div className={large ? 'relative z-10 max-w-xl' : 'relative z-10 max-w-md'}>
-                <div
-                    className={`rounded-xl flex items-center justify-center ${large ? 'w-14 h-14 mb-5' : 'w-11 h-11 mb-4'}`}
-                    style={{ backgroundColor: 'var(--ht-brand-bg)' }}
-                >
-                    <Icon size={large ? 26 : 20} style={{ color: 'var(--ht-brand-tint)' }} />
-                </div>
-                <h1 className={`font-bold ${large ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'}`} style={{ color: 'var(--ht-text)' }}>
+                {avatar ?? (
+                    <div
+                        className={`rounded-xl flex items-center justify-center ${large ? 'w-14 h-14 mb-5' : 'w-11 h-11 mb-4'}`}
+                        style={{ backgroundColor: 'var(--ht-brand-bg)' }}
+                    >
+                        <Icon size={large ? 26 : 20} style={{ color: 'var(--ht-brand-tint)' }} />
+                    </div>
+                )}
+                <h1 className={`font-bold flex items-center gap-3 flex-wrap ${large ? 'text-2xl sm:text-3xl' : 'text-xl sm:text-2xl'}`} style={{ color: 'var(--ht-text)' }}>
                     {title}
                 </h1>
-                <p className={`leading-relaxed ${large ? 'text-base mt-2.5' : 'text-sm mt-1.5'}`} style={{ color: 'var(--ht-text-secondary)' }}>
+                <div className={`leading-relaxed ${large ? 'text-base mt-2.5' : 'text-sm mt-1.5'}`} style={{ color: 'var(--ht-text-secondary)' }}>
                     {subtitle}
-                </p>
+                </div>
                 {actions ? (
                     <div className={`flex flex-wrap items-center gap-2.5 ${large ? 'mt-6' : 'mt-4'}`}>
                         {actions}

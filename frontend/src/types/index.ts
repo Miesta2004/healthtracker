@@ -29,12 +29,53 @@ export interface RendezVous {
     patient_nom?: string
     patient_prenom?: string
     patient_dossier?: string
+    medecin?: number | null
+    medecin_nom?: string | null
+    medecin_prenom?: string | null
     date_heure: string
     motif: string
     statut: StatutRendezVous
     statut_label?: string
     notes?: string
     date_creation: string
+}
+
+export interface CreneauDisponible {
+    heure_debut: string
+    heure_fin: string
+    type: TypeCreneau
+    disponible: boolean
+}
+
+export interface CreneauxDisponiblesResponse {
+    creneaux: CreneauDisponible[]
+    indisponible: boolean
+    motif: string
+}
+
+export interface MedecinDisponible {
+    id: number
+    nom: string
+    prenom: string
+    specialite?: string
+    disponible: boolean
+    nb_creneaux_libres: number
+    motif: string
+}
+
+export interface MedecinsDisponiblesResponse {
+    date: string
+    medecins: MedecinDisponible[]
+}
+
+export interface DateDisponible {
+    date: string
+    nb_creneaux_libres: number
+}
+
+export interface DatesDisponiblesResponse {
+    medecin: number
+    dates: DateDisponible[]
 }
 
 export interface AuthTokens {
@@ -317,14 +358,21 @@ export interface CreneauDisponibilite {
     actif: boolean
 }
 
+export type StatutException = 'en_attente' | 'valide' | 'rejete'
+
 export interface ExceptionDisponibilite {
     id: number
     employe: number
+    employe_nom?: string
+    employe_prenom?: string
+    employe_role_label?: string
     type: TypeException
     type_label: string
     date_debut: string
     date_fin: string
     motif: string
     valide: boolean
+    statut: StatutException
+    statut_label: string
     date_creation: string
 }

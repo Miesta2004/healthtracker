@@ -20,6 +20,7 @@ import EmployeDetail from './pages/EmployeDetail'
 import RendezVousPage from './pages/RendezVous'
 import Laboratoire from './pages/Laboratoire'
 import Settings from './pages/Settings'
+import DemandesConges from './pages/DemandesConges'
 
 
 function App() {
@@ -113,6 +114,11 @@ function App() {
                 <Route path="/services/:id" element={
                     <ProtectedRoute roles={['admin']}>
                         <ServiceDetail />
+                    </ProtectedRoute>
+                } />
+                <Route path="/conges" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <DemandesConges />
                     </ProtectedRoute>
                 } />
 

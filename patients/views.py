@@ -18,7 +18,6 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-
         base_qs = Patient.objects.select_related('service', 'medecin_referent')
 
         if user.is_superuser:
@@ -29,37 +28,40 @@ class PatientViewSet(viewsets.ModelViewSet):
             return Patient.objects.none()
 
         role = emp.role
+        q = self.request.query_params.get('q', '').strip()
 
-        # Infirmier : pas de liste globale — accès uniquement via recherche ciblée
-        # mais accès direct au détail d'un patient de son service
+        # ── Infirmier : accès uniquement via recherche ciblée dans son service ──
         if role == 'infirmier':
             if self.action in ('retrieve', 'update', 'partial_update', 'ajouter_antecedent'):
-                return base_qs.filter(service=emp.service)
-            q = self.request.query_params.get('q', '').strip()
+                return base_qs.filter(service=emp.service) if emp.service else base_qs.none()
             if not q:
                 return Patient.objects.none()
-            return base_qs.filter(
-                service=emp.service
-            ).filter(
-                Q(nom__icontains=q) |
-                Q(prenom__icontains=q) |
-                Q(numero_dossier__icontains=q)
+            qs = base_qs.filter(service=emp.service) if emp.service else base_qs
+            return qs.filter(
+                Q(nom__icontains=q) | Q(prenom__icontains=q) | Q(numero_dossier__icontains=q)
             )
 
-        # Laborantin : uniquement les patients avec des demandes d'analyse en cours
+        # ── Laborantin : patients avec demandes en cours ──
         if role == 'laborantin':
             from analyses.models import DemandeAnalyse
             patient_ids = DemandeAnalyse.objects.filter(
-                patient__service=emp.service,
                 statut__in=['en_attente', 'en_cours'],
             ).values_list('patient_id', flat=True).distinct()
             return base_qs.filter(id__in=patient_ids)
 
-        # Secrétaire, médecin, admin : tous les patients du service
-        if emp.service:
-            return base_qs.filter(service=emp.service)
+        # ── Secrétaire, médecin, admin ──
+        qs = base_qs.filter(service=emp.service) if emp.service else base_qs.all()
 
-        return Patient.objects.none()
+        # Filtrage par recherche si paramètre q présent
+        if q:
+            qs = qs.filter(
+                Q(nom__icontains=q) |
+                Q(prenom__icontains=q) |
+                Q(numero_dossier__icontains=q) |
+                Q(telephone__icontains=q)
+            )
+    
+        return qs
 
     def get_permissions(self):
         # L'infirmier et le laborantin ne peuvent pas créer/supprimer

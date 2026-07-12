@@ -78,6 +78,14 @@ class RendezVous(models.Model):
         on_delete=models.CASCADE,
         related_name='rendez_vous'
     )
+    medecin = models.ForeignKey(
+        'comptes.Employe',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='rendez_vous_medecin',
+        limit_choices_to={'role': 'medecin'},
+        help_text="Médecin avec qui le rendez-vous est pris (optionnel)"
+    )
     date_heure = models.DateTimeField()
     motif = models.CharField(max_length=255)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='planifie')

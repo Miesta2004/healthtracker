@@ -16,12 +16,17 @@ class CreneauSerializer(serializers.ModelSerializer):
 
 
 class ExceptionSerializer(serializers.ModelSerializer):
-    type_label = serializers.CharField(source='get_type_display', read_only=True)
+    type_label          = serializers.CharField(source='get_type_display', read_only=True)
+    statut_label        = serializers.CharField(source='get_statut_display', read_only=True)
+    employe_nom         = serializers.CharField(source='employe.nom', read_only=True)
+    employe_prenom      = serializers.CharField(source='employe.prenom', read_only=True)
+    employe_role_label  = serializers.CharField(source='employe.get_role_display', read_only=True)
 
     class Meta:
         model  = ExceptionDisponibilite
         fields = [
-            'id', 'employe', 'type', 'type_label',
-            'date_debut', 'date_fin', 'motif', 'valide', 'date_creation'
+            'id', 'employe', 'employe_nom', 'employe_prenom', 'employe_role_label',
+            'type', 'type_label', 'date_debut', 'date_fin', 'motif',
+            'valide', 'statut', 'statut_label', 'date_creation'
         ]
-        read_only_fields = ['employe', 'valide', 'date_creation']
+        read_only_fields = ['employe', 'valide', 'statut', 'date_creation']

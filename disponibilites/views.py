@@ -3,7 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from comptes.permissions import IsAdminRole, get_employe
-from .models import CreneauDisponibilite, ExceptionDisponibilite
+from .models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
 from .serializers import CreneauSerializer, ExceptionSerializer
 
 
@@ -56,10 +56,14 @@ class ExceptionViewSet(viewsets.ModelViewSet):
             return ExceptionDisponibilite.objects.none()
 
         if emp.role == 'admin' or self.request.user.is_superuser:
+            qs = ExceptionDisponibilite.objects.select_related('employe').all()
             employe_id = self.request.query_params.get('employe')
             if employe_id:
-                return ExceptionDisponibilite.objects.filter(employe_id=employe_id)
-            return ExceptionDisponibilite.objects.select_related('employe').all()
+                qs = qs.filter(employe_id=employe_id)
+            statut = self.request.query_params.get('statut')
+            if statut:
+                qs = qs.filter(statut=statut)
+            return qs
 
         return ExceptionDisponibilite.objects.filter(employe=emp)
 
@@ -72,6 +76,7 @@ class ExceptionViewSet(viewsets.ModelViewSet):
         """Admin valide une demande de congé/absence."""
         exception = self.get_object()
         exception.valide = True
+        exception.statut = StatutException.VALIDE
         exception.save()
         return Response(ExceptionSerializer(exception).data)
 
@@ -80,5 +85,6 @@ class ExceptionViewSet(viewsets.ModelViewSet):
         """Admin rejette une demande."""
         exception = self.get_object()
         exception.valide = False
+        exception.statut = StatutException.REJETE
         exception.save()
         return Response(ExceptionSerializer(exception).data)

@@ -58,6 +58,12 @@ class TypeException(models.TextChoices):
     MISSION     = 'mission',     'Mission extérieure'
 
 
+class StatutException(models.TextChoices):
+    EN_ATTENTE = 'en_attente', 'En attente'
+    VALIDE     = 'valide',     'Validé'
+    REJETE     = 'rejete',     'Rejeté'
+
+
 class ExceptionDisponibilite(models.Model):
     """Exception ponctuelle : congé, absence, garde exceptionnelle…"""
     employe     = models.ForeignKey(
@@ -70,7 +76,13 @@ class ExceptionDisponibilite(models.Model):
     motif       = models.CharField(max_length=255, blank=True)
     valide      = models.BooleanField(
         default=False,
-        help_text="Validé par l'admin ou chef de service"
+        help_text="Validé par l'admin ou chef de service (déprécié, voir `statut`)"
+    )
+    statut      = models.CharField(
+        max_length=20,
+        choices=StatutException.choices,
+        default=StatutException.EN_ATTENTE,
+        help_text="En attente / Validé / Rejeté par l'admin ou chef de service"
     )
     date_creation = models.DateTimeField(auto_now_add=True)
 

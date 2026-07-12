@@ -1,12 +1,15 @@
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
 from .models import Antecedent
 from .serializers import AntecedentSerializer
+from comptes.permissions import IsMedecinOuInfirmier
 
 class AntecedentViewSet(viewsets.ModelViewSet):
     queryset = Antecedent.objects.select_related('patient','consultation_source').all()
     serializer_class = AntecedentSerializer
-    permission_classes = [IsAuthenticated]
+    # Antécédents médicaux : réservés à l'équipe clinique (admin, médecin, infirmier).
+    # La secrétaire et le laborantin n'y ont pas accès — cohérent avec la restriction
+    # déjà appliquée côté frontend (PatientDetail > AntecedentsPanel).
+    permission_classes = [IsMedecinOuInfirmier]
 
     def get_queryset(self):
         queryset = super().get_queryset()

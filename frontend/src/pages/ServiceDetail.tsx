@@ -8,6 +8,7 @@ import {
     ArrowLeft, Users, UserCheck, CalendarDays, CalendarRange,
     Calendar, Stethoscope, Activity, ShieldCheck, ShieldAlert, Droplet,
 } from 'lucide-react'
+import PageBanner from "../components/PageBanner.tsx";
 
 // ─── Constantes rôles (mêmes libellés/couleurs que la page Employés) ──────────
 const ROLE_LABELS: Record<RoleEmploye, string> = {
@@ -268,30 +269,31 @@ export default function ServiceDetail() {
             <main className="ht-page-content max-w-7xl space-y-6">
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4"
-                     style={{ borderBottom: '1px solid var(--ht-border)' }}>
-                    <div className="flex items-start gap-3">
-                        <button onClick={() => navigate('/services')}
-                                className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 hover:opacity-75 transition-opacity"
-                                style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}
-                                title="Retour aux services">
-                            <ArrowLeft size={16} />
-                        </button>
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>{service.nom}</h1>
-                                <span className={`badge ${service.actif ? 'badge-tint' : 'badge-muted'} flex items-center gap-1`}>
-                                    {service.actif ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
-                                    {service.actif ? 'Actif' : 'Inactif'}
-                                </span>
-                            </div>
-                            <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
-                                {service.chef_nom ? `Dr. ${service.chef_nom} · ` : ''}
-                                {service.description || 'Tableau de bord du service'}
-                            </p>
-                        </div>
-                    </div>
-                </div>
+                <button onClick={() => navigate('/services')}
+                        className="flex items-center gap-1.5 text-sm hover:opacity-75 transition-opacity"
+                        style={{ color: 'var(--ht-text-secondary)' }}>
+                    <ArrowLeft size={15} /> Retour aux services
+                </button>
+
+                <PageBanner
+                    icon={Stethoscope}
+                    title={
+                        <>
+                            {service.nom}
+                            <span className={`badge ${service.actif ? 'badge-tint' : 'badge-muted'} flex items-center gap-1`}>
+                                {service.actif ? <ShieldCheck size={12} /> : <ShieldAlert size={12} />}
+                                {service.actif ? 'Actif' : 'Inactif'}
+                            </span>
+                        </>
+                    }
+                    subtitle={
+                        <>
+                            {service.chef_nom ? `Dr. ${service.chef_nom} · ` : ''}
+                            {service.description || 'Tableau de bord du service'}
+                        </>
+                    }
+                    decorIcons={[Users, Activity]}
+                />
 
                 {/* KPIs patients */}
                 <div>

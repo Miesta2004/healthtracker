@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonSettingsPage, SkeletonText, SkeletonBlock } from '../components/Skeleton'
 import {
@@ -9,7 +9,7 @@ import {
 } from '../api/disponibilites'
 import type { CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, TypeException } from '../types'
 import { getMe } from '../api/comptes'
-import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock } from 'lucide-react'
+import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import PageBanner from '../components/PageBanner.tsx'
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
@@ -35,6 +35,12 @@ const TYPE_CRENEAU_COLORS: Record<TypeCreneau, { bg: string; color: string }> = 
     garde:            { bg: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' },
     astreinte:        { bg: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' },
     teleconsultation: { bg: 'var(--ht-success-bg)', color: 'var(--ht-success)' },
+}
+
+const STATUT_EXCEPTION_CONFIG: Record<'en_attente' | 'valide' | 'rejete', { label: string; bg: string; color: string; Icon: typeof Clock }> = {
+    en_attente: { label: 'En attente', bg: 'var(--ht-warning-bg)', color: 'var(--ht-warning)', Icon: Clock },
+    valide:     { label: 'Validé',     bg: 'var(--ht-success-bg)', color: 'var(--ht-success)', Icon: CheckCircle2 },
+    rejete:     { label: 'Rejeté',     bg: 'var(--ht-danger-bg)',  color: 'var(--ht-danger)',  Icon: XCircle },
 }
 
 // ─── Onglets ──────────────────────────────────────────────────────────────────
@@ -362,9 +368,12 @@ function OngletDisponibilites() {
         setCreneaux(prev => prev.filter(c => c.id !== id))
     }
 
+    const [erreurEx, setErreurEx] = useState('')
+
     const handleAddException = async () => {
         if (!newExDebut || !newExFin) return
         setAddingEx(true)
+        setErreurEx('')
         try {
             const created = await createException({
                 type: newExType,
@@ -375,6 +384,16 @@ function OngletDisponibilites() {
             setExceptions(prev => [...prev, created])
             setShowFormEx(false)
             setNewExMotif('')
+        } catch (e: unknown) {
+            const data = (e as { response?: { data?: Record<string, unknown> } })?.response?.data
+            const premierMessage = data
+                ? Object.values(data).flat().filter(Boolean)[0]
+                : undefined
+            setErreurEx(
+                typeof premierMessage === 'string'
+                    ? premierMessage
+                    : "Erreur lors de l'envoi de la demande. Réessayez."
+            )
         } finally {
             setAddingEx(false)
         }
@@ -531,6 +550,7 @@ function OngletDisponibilites() {
                             <input type="text" value={newExMotif} onChange={e => setNewExMotif(e.target.value)}
                                    className="ht-input" placeholder="Ex : Congé annuel" />
                         </div>
+                        {erreurEx && <Feedback type="error" message={erreurEx} />}
                         <div className="flex gap-2">
                             <button onClick={() => setShowFormEx(false)} className="btn btn-ghost btn-sm">
                                 Annuler
@@ -546,36 +566,37 @@ function OngletDisponibilites() {
                     <p className="text-sm text-[var(--ht-text-muted)]">Aucune absence déclarée.</p>
                 ) : (
                     <div className="space-y-2">
-                        {exceptions.map(ex => (
-                            <div key={ex.id}
-                                 className="flex items-center justify-between px-4 py-3 rounded-xl bg-[var(--ht-card-bg)]"
-                                 style={{ border: '1px solid var(--ht-border)' }}>
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <span className="text-sm font-medium text-[var(--ht-text)]">{ex.type_label}</span>
-                                        <span className="badge flex items-center gap-1"
-                                              style={ex.valide
-                                                  ? { backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }
-                                                  : { backgroundColor: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' }}>
-                                            {ex.valide ? <CheckCircle2 size={11} /> : <Clock size={11} />}
-                                            {ex.valide ? 'Validé' : 'En attente'}
+                        {exceptions.map(ex => {
+                            const cfg = STATUT_EXCEPTION_CONFIG[ex.statut] ?? STATUT_EXCEPTION_CONFIG.en_attente
+                            return (
+                                <div key={ex.id}
+                                     className="flex items-center justify-between px-4 py-3 rounded-xl bg-[var(--ht-card-bg)]"
+                                     style={{ border: '1px solid var(--ht-border)' }}>
+                                    <div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-sm font-medium text-[var(--ht-text)]">{ex.type_label}</span>
+                                            <span className="badge flex items-center gap-1"
+                                                  style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                                            <cfg.Icon size={11} />
+                                                {cfg.label}
                                         </span>
+                                        </div>
+                                        <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
+                                            {new Date(ex.date_debut).toLocaleDateString('fr-FR')} →{' '}
+                                            {new Date(ex.date_fin).toLocaleDateString('fr-FR')}
+                                            {ex.motif && ` · ${ex.motif}`}
+                                        </p>
                                     </div>
-                                    <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
-                                        {new Date(ex.date_debut).toLocaleDateString('fr-FR')} →{' '}
-                                        {new Date(ex.date_fin).toLocaleDateString('fr-FR')}
-                                        {ex.motif && ` · ${ex.motif}`}
-                                    </p>
+                                    {ex.statut !== 'valide' && (
+                                        <button onClick={() => handleDeleteException(ex.id)}
+                                                className="text-xs px-2 py-1 rounded hover:bg-[var(--ht-danger-bg)]"
+                                                style={{ color: 'var(--ht-danger)' }}>
+                                            {ex.statut === 'rejete' ? 'Supprimer' : 'Annuler'}
+                                        </button>
+                                    )}
                                 </div>
-                                {!ex.valide && (
-                                    <button onClick={() => handleDeleteException(ex.id)}
-                                            className="text-xs px-2 py-1 rounded hover:bg-[var(--ht-danger-bg)]"
-                                            style={{ color: 'var(--ht-danger)' }}>
-                                        Annuler
-                                    </button>
-                                )}
-                            </div>
-                        ))}
+                            )
+                        })}
                     </div>
                 )}
             </div>
@@ -703,7 +724,10 @@ function OngletNotifications({ employe }: { employe: Record<string, unknown> }) 
 // ─── Page principale Settings ─────────────────────────────────────────────────
 export default function Settings() {
     const navigate = useNavigate()
-    const [onglet, setOnglet] = useState<Onglet>('profil')
+    const [searchParams] = useSearchParams()
+    const ongletParam = searchParams.get('tab') as Onglet | null
+    const ongletInitial: Onglet = ONGLETS.some(o => o.id === ongletParam) ? (ongletParam as Onglet) : 'profil'
+    const [onglet, setOnglet] = useState<Onglet>(ongletInitial)
     const [employe, setEmploye] = useState<Record<string, unknown> | null>(null)
     const [photoUrl, setPhotoUrl] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
