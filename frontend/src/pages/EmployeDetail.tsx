@@ -2,11 +2,12 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getEmploye, updateEmploye } from '../api/comptes'
 import { getServices } from '../api/services'
+import { getCreneauxDeEmploye, getExceptionsDeEmploye } from '../api/disponibilites'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonDetailPage } from '../components/Skeleton'
-import type { Employe, RoleEmploye, TypeContrat, Service } from '../types'
-import { Edit3, User, Lock, FileText, ClipboardList } from 'lucide-react'
+import type { Employe, RoleEmploye, TypeContrat, Service, CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, StatutException } from '../types'
+import { Edit3, User, Lock, FileText, ClipboardList, CalendarClock, Clock, CheckCircle2, XCircle } from 'lucide-react'
 
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const ROLE_LABELS: Record<RoleEmploye, string> = {
@@ -19,6 +20,21 @@ const ROLE_COLORS: Record<RoleEmploye, string> = {
 }
 const CONTRAT_LABELS: Record<string, string> = {
     cdi: 'CDI', cdd: 'CDD', stage: 'Stage', vacation: 'Vacation', benevolat: 'Bénévolat',
+}
+const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
+const TYPE_CRENEAU_COLORS: Record<TypeCreneau, { bg: string; color: string }> = {
+    presentiel:       { bg: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' },
+    garde:            { bg: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' },
+    astreinte:        { bg: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' },
+    teleconsultation: { bg: 'var(--ht-success-bg)', color: 'var(--ht-success)' },
+}
+const TYPE_CRENEAU_LABELS: Record<TypeCreneau, string> = {
+    presentiel: 'Présentiel', garde: 'Garde', astreinte: 'Astreinte', teleconsultation: 'Téléconsultation',
+}
+const STATUT_EXCEPTION_CONFIG: Record<StatutException, { label: string; bg: string; color: string; Icon: typeof Clock }> = {
+    en_attente: { label: 'En attente', bg: 'var(--ht-warning-bg)', color: 'var(--ht-warning)', Icon: Clock },
+    valide:     { label: 'Validé',     bg: 'var(--ht-success-bg)', color: 'var(--ht-success)', Icon: CheckCircle2 },
+    rejete:     { label: 'Rejeté',     bg: 'var(--ht-danger-bg)',  color: 'var(--ht-danger)',  Icon: XCircle },
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -85,6 +101,9 @@ export default function EmployeDetail() {
 
     const [employe, setEmploye] = useState<Employe | null>(null)
     const [services, setServices] = useState<Service[]>([])
+    const [creneaux, setCreneaux] = useState<CreneauDisponibilite[]>([])
+    const [exceptions, setExceptions] = useState<ExceptionDisponibilite[]>([])
+    const [loadingPlanning, setLoadingPlanning] = useState(true)
     const [loading, setLoading] = useState(true)
     const [editing, setEditing] = useState(false)
     const [saving, setSaving] = useState(false)
@@ -106,6 +125,16 @@ export default function EmployeDetail() {
             setServices(svcs)
         }).catch(() => navigate('/employes'))
             .finally(() => setLoading(false))
+
+        setLoadingPlanning(true)
+        Promise.all([
+            getCreneauxDeEmploye(Number(id)),
+            getExceptionsDeEmploye(Number(id)),
+        ]).then(([c, e]) => {
+            setCreneaux(c)
+            setExceptions(e)
+        }).catch(() => { setCreneaux([]); setExceptions([]) })
+            .finally(() => setLoadingPlanning(false))
     }, [id])
 
     const startEdit = () => {
@@ -206,60 +235,151 @@ export default function EmployeDetail() {
 
                 {/* ── Mode lecture ── */}
                 {!editing && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-                        <SectionCard title="Informations personnelles" icon={User}>
-                            <InfoRow label="Nom complet"    value={`${employe.prenom} ${employe.nom}`} />
-                            <InfoRow label="Date naissance" value={formatDate(employe.date_naissance)} />
-                            <InfoRow label="Âge"            value={employe.age ? `${employe.age} ans` : null} />
-                            <InfoRow label="Sexe"           value={employe.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'} />
-                            <InfoRow label="Téléphone"      value={employe.telephone} />
-                            <InfoRow label="Adresse"        value={employe.adresse} />
-                        </SectionCard>
+                            <SectionCard title="Informations personnelles" icon={User}>
+                                <InfoRow label="Nom complet"    value={`${employe.prenom} ${employe.nom}`} />
+                                <InfoRow label="Date naissance" value={formatDate(employe.date_naissance)} />
+                                <InfoRow label="Âge"            value={employe.age ? `${employe.age} ans` : null} />
+                                <InfoRow label="Sexe"           value={employe.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'} />
+                                <InfoRow label="Téléphone"      value={employe.telephone} />
+                                <InfoRow label="Adresse"        value={employe.adresse} />
+                            </SectionCard>
 
-                        <SectionCard title="Compte & accès" icon={Lock}>
-                            <InfoRow label="Identifiant"  value={`@${employe.username}`} />
-                            <InfoRow label="Email"        value={employe.email} />
-                            <InfoRow label="Rôle"         value={
-                                <span className="font-semibold" style={{ color: ROLE_COLORS[employe.role] }}>
+                            <SectionCard title="Compte & accès" icon={Lock}>
+                                <InfoRow label="Identifiant"  value={`@${employe.username}`} />
+                                <InfoRow label="Email"        value={employe.email} />
+                                <InfoRow label="Rôle"         value={
+                                    <span className="font-semibold" style={{ color: ROLE_COLORS[employe.role] }}>
                                     {ROLE_LABELS[employe.role]}
                                 </span>
-                            } />
-                            <InfoRow label="Service"      value={employe.service_nom} />
-                            <InfoRow label="Spécialité"   value={employe.specialite} />
-                            <InfoRow label="Matricule"    value={<span className="font-mono">{employe.matricule}</span>} />
-                        </SectionCard>
+                                } />
+                                <InfoRow label="Service"      value={employe.service_nom} />
+                                <InfoRow label="Spécialité"   value={employe.specialite} />
+                                <InfoRow label="Matricule"    value={<span className="font-mono">{employe.matricule}</span>} />
+                            </SectionCard>
 
-                        <SectionCard title="Contrat de travail" icon={FileText}>
-                            <div className="mb-3 flex items-center gap-2">
-                                {employe.type_contrat && (
-                                    <span className="badge" style={{ backgroundColor: 'var(--ht-primary-light)', color: 'var(--ht-primary)' }}>
+                            <SectionCard title="Contrat de travail" icon={FileText}>
+                                <div className="mb-3 flex items-center gap-2">
+                                    {employe.type_contrat && (
+                                        <span className="badge" style={{ backgroundColor: 'var(--ht-primary-light)', color: 'var(--ht-primary)' }}>
                                         {CONTRAT_LABELS[employe.type_contrat] ?? employe.type_contrat}
                                     </span>
-                                )}
-                                <span className="text-xs px-2.5 py-1 rounded-full font-medium"
-                                      style={{ color: contratStatut.color, backgroundColor: contratStatut.bg }}>
+                                    )}
+                                    <span className="text-xs px-2.5 py-1 rounded-full font-medium"
+                                          style={{ color: contratStatut.color, backgroundColor: contratStatut.bg }}>
                                     {contratStatut.label}
                                 </span>
-                                {duree && (
-                                    <span className="text-xs text-[var(--ht-text-muted)]">{duree}</span>
-                                )}
-                            </div>
-                            <InfoRow label="Début"       value={formatDate(employe.date_debut_contrat)} />
-                            <InfoRow label="Fin"         value={employe.type_contrat === 'cdi' ? 'Sans limite (CDI)' : formatDate(employe.date_fin_contrat)} />
-                        </SectionCard>
+                                    {duree && (
+                                        <span className="text-xs text-[var(--ht-text-muted)]">{duree}</span>
+                                    )}
+                                </div>
+                                <InfoRow label="Début"       value={formatDate(employe.date_debut_contrat)} />
+                                <InfoRow label="Fin"         value={employe.type_contrat === 'cdi' ? 'Sans limite (CDI)' : formatDate(employe.date_fin_contrat)} />
+                            </SectionCard>
 
-                        <SectionCard title="Description du poste" icon={ClipboardList}>
-                            {employe.description_poste ? (
-                                <p className="text-sm text-[var(--ht-text-secondary)] whitespace-pre-line leading-relaxed">
-                                    {employe.description_poste}
-                                </p>
+                            <SectionCard title="Description du poste" icon={ClipboardList}>
+                                {employe.description_poste ? (
+                                    <p className="text-sm text-[var(--ht-text-secondary)] whitespace-pre-line leading-relaxed">
+                                        {employe.description_poste}
+                                    </p>
+                                ) : (
+                                    <p className="text-sm text-[var(--ht-text-muted)] italic">Aucune description renseignée.</p>
+                                )}
+                            </SectionCard>
+
+                        </div>
+
+                        {/* ── Planning & disponibilités (pleine largeur) ── */}
+                        <SectionCard title="Planning & disponibilités" icon={CalendarClock}>
+                            {loadingPlanning ? (
+                                <p className="text-sm text-[var(--ht-text-muted)]">Chargement…</p>
                             ) : (
-                                <p className="text-sm text-[var(--ht-text-muted)] italic">Aucune description renseignée.</p>
+                                <div className="space-y-6">
+                                    {/* Grille hebdomadaire récurrente (lecture seule) */}
+                                    <div>
+                                        <p className="text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wide mb-3">
+                                            Planning hebdomadaire récurrent
+                                        </p>
+                                        <div className="grid grid-cols-7 gap-2">
+                                            {JOURS.map((jour, idx) => {
+                                                const creneauxJour = creneaux.filter(c => c.jour === idx && c.actif)
+                                                return (
+                                                    <div key={jour}>
+                                                        <p className="text-xs font-medium text-[var(--ht-text-muted)] text-center mb-2">
+                                                            {jour.slice(0, 3)}
+                                                        </p>
+                                                        <div className="min-h-10 space-y-1.5">
+                                                            {creneauxJour.length === 0 ? (
+                                                                <div className="h-10 rounded-lg border border-dashed" style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border-input)' }} />
+                                                            ) : (
+                                                                creneauxJour.map(c => {
+                                                                    const cfg = TYPE_CRENEAU_COLORS[c.type]
+                                                                    return (
+                                                                        <div key={c.id} className="rounded-lg px-1.5 py-1 text-center" style={{ backgroundColor: cfg.bg }}>
+                                                                            <p className="text-xs font-semibold" style={{ color: cfg.color }}>{c.heure_debut.slice(0, 5)}</p>
+                                                                            <p className="text-xs" style={{ color: cfg.color }}>{c.heure_fin.slice(0, 5)}</p>
+                                                                        </div>
+                                                                    )
+                                                                })
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                        {creneaux.length > 0 && (
+                                            <div className="flex flex-wrap gap-3 mt-3">
+                                                {Object.entries(TYPE_CRENEAU_COLORS).map(([type, cfg]) => (
+                                                    <div key={type} className="flex items-center gap-1.5">
+                                                        <span className="w-3 h-3 rounded-sm inline-block" style={{ backgroundColor: cfg.bg, border: `1px solid ${cfg.color}` }} />
+                                                        <span className="text-xs text-[var(--ht-text-muted)]">{TYPE_CRENEAU_LABELS[type as TypeCreneau]}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Congés & absences */}
+                                    <div>
+                                        <p className="text-xs font-semibold text-[var(--ht-text-muted)] uppercase tracking-wide mb-3">
+                                            Congés & absences
+                                        </p>
+                                        {exceptions.length === 0 ? (
+                                            <p className="text-sm text-[var(--ht-text-muted)]">Aucune absence déclarée.</p>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                {exceptions.map(ex => {
+                                                    const cfg = STATUT_EXCEPTION_CONFIG[ex.statut] ?? STATUT_EXCEPTION_CONFIG.en_attente
+                                                    return (
+                                                        <div key={ex.id}
+                                                             className="flex items-center justify-between px-4 py-3 rounded-xl"
+                                                             style={{ border: '1px solid var(--ht-border)' }}>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-medium text-[var(--ht-text)]">{ex.type_label}</span>
+                                                                    <span className="badge flex items-center gap-1"
+                                                                          style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                                                                    <cfg.Icon size={11} /> {cfg.label}
+                                                                </span>
+                                                                </div>
+                                                                <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
+                                                                    {new Date(ex.date_debut).toLocaleDateString('fr-FR')} →{' '}
+                                                                    {new Date(ex.date_fin).toLocaleDateString('fr-FR')}
+                                                                    {ex.motif && ` · ${ex.motif}`}
+                                                                </p>
+                                                            </div>
+                                                        </div>
+                                                    )
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             )}
                         </SectionCard>
-
-                    </div>
+                    </>
                 )}
 
                 {/* ── Mode édition ── */}

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Employe
 from .serializers import EmployeSerializer, CreateEmployeSerializer
-from .permissions import IsAdminRole
+from .permissions import IsAdminRole, get_employe
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .storage import upload_photo, get_signed_url, delete_photo

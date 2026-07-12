@@ -5,15 +5,16 @@ from rest_framework.permissions import IsAuthenticated
 
 from .models import DemandeAnalyse
 from .serializers import DemandeAnalyseSerializer, DemandeAnalyseLaboSerializer
-from comptes.permissions import get_employe, IsMedecinOuAdmin
+from comptes.permissions import get_employe, IsMedecinOuAdmin, IsMedecinOuInfirmier
 from alertes.models import Alerte
 
 
 class DemandeAnalyseViewSet(viewsets.ModelViewSet):
     """
-    - Médecin / admin : CRUD complet, voit les demandes de son service.
-    - Laborantin : lecture + saisie des résultats, serializer restreint.
-    - Secrétaire / infirmier : accès refusé.
+    - Médecin / infirmier / admin : lecture des demandes de leur service.
+      Médecin, infirmier et admin peuvent créer une demande.
+    - Laborantin : lecture (toutes) + saisie des résultats, serializer restreint.
+    - Secrétaire : accès refusé.
     """
     permission_classes = [IsAuthenticated]
 
@@ -32,7 +33,7 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
             ).all()
         else:
             emp = get_employe(user)
-            if emp is None or emp.role in ('secretaire', 'infirmier'):
+            if emp is None or emp.role == 'secretaire':
                 return DemandeAnalyse.objects.none()
 
             qs = DemandeAnalyse.objects.select_related(
@@ -42,8 +43,10 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
             if emp.role == 'laborantin':
                 # Le laborantin voit toutes les demandes — tous services confondus
                 qs = qs.filter(statut__in=['en_attente', 'en_cours', 'terminee'])
-            elif emp.role == 'medecin' and emp.service_id:
-                # Le médecin voit uniquement les demandes de son service
+            elif emp.role in ('medecin', 'infirmier'):
+                # Médecin et infirmier ne voient que les demandes de leur service
+                if not emp.service_id:
+                    return DemandeAnalyse.objects.none()
                 qs = qs.filter(patient__service=emp.service)
             else:
                 # Admin voit tout
@@ -60,7 +63,9 @@ class DemandeAnalyseViewSet(viewsets.ModelViewSet):
         serializer.save(demandeur=emp)
 
     def get_permissions(self):
-        if self.action in ['create', 'destroy']:
+        if self.action == 'create':
+            return [IsMedecinOuInfirmier()]
+        if self.action == 'destroy':
             return [IsMedecinOuAdmin()]
         return [IsAuthenticated()]
 

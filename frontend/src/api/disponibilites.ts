@@ -48,6 +48,17 @@ export const deleteException = async (id: number): Promise<void> => {
     await api.delete(`/exceptions/${id}/`)
 }
 
+// ─── Vue admin : planning d'un employé donné ────────────────────────────────
+export const getCreneauxDeEmploye = async (employeId: number): Promise<CreneauDisponibilite[]> => {
+    const res = await api.get(`/creneaux/?employe=${employeId}`)
+    return res.data
+}
+
+export const getExceptionsDeEmploye = async (employeId: number): Promise<ExceptionDisponibilite[]> => {
+    const res = await api.get(`/exceptions/?employe=${employeId}`)
+    return res.data
+}
+
 // ─── Vue admin : validation des demandes de congé/absence ───────────────────
 export const getExceptions = async (
     statut?: 'en_attente' | 'valide' | 'rejete'

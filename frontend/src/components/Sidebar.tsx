@@ -264,7 +264,7 @@ export default function Sidebar() {
                     />
                 )}
 
-                {hasRole("admin", "medecin", "secretaire") && (
+                {hasRole("admin", "medecin", "infirmier", "secretaire") && (
                     <SidebarItem
                         icon={Calendar}
                         label="Rendez-vous"

@@ -5,7 +5,6 @@ import { getAntecedents, createAntecedent, updateAntecedent, deleteAntecedent } 
 import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Alerte, StatutAlerte } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
-import RestrictedAccess from '../components/RestrictedAccess'
 import { getConsultations } from '../api/consultations'
 import { getAlertes, updateAlerteStatut } from '../api/alertes'
 import { getDemandesPatient, createDemande } from '../api/analyses'
@@ -222,12 +221,11 @@ function AddAntecedentModal({ onSave, onCancel, loading }: {
 }
 
 // ─── Panneau Antécédents (liste + actions) ───────────────────────────────────
-function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, restricted }: {
+function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
     antecedents: Antecedent[]
     onAdd: () => void
     onToggleStatut: (a: Antecedent) => void
     onDelete: (a: Antecedent) => void
-    restricted?: boolean
 }) {
     const actifs = antecedents.filter(a => a.statut === 'actif')
 
@@ -235,22 +233,18 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, restri
         <div className="ht-card ht-card-padded-sm">
             <div className="ht-card-header !px-0 !pt-0 mb-4">
                 <h2 className="flex-1">Antécédents médicaux</h2>
-                {!restricted && (
-                    <div className="flex items-center gap-2">
-                        {actifs.length > 0 && (
-                            <span className="badge badge-tint">
-                                {actifs.length} actif{actifs.length > 1 ? 's' : ''}
-                            </span>
-                        )}
-                        <button onClick={onAdd} className="btn btn-secondary btn-sm">
-                            <Plus size={12} /> Ajouter
-                        </button>
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    {actifs.length > 0 && (
+                        <span className="badge badge-tint">
+                            {actifs.length} actif{actifs.length > 1 ? 's' : ''}
+                        </span>
+                    )}
+                    <button onClick={onAdd} className="btn btn-secondary btn-sm">
+                        <Plus size={12} /> Ajouter
+                    </button>
+                </div>
             </div>
-            {restricted ? (
-                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les antécédents médicaux de ce patient." />
-            ) : antecedents.length === 0 ? (
+            {antecedents.length === 0 ? (
                 <div className="ht-empty">Aucun antécédent renseigné</div>
             ) : (
                 <div className="space-y-2.5">
@@ -287,33 +281,28 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, restri
 }
 
 // ─── Panel historique des analyses ────────────────────────────────────────────
-function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats, restricted }: {
+function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
     demandes: DemandeAnalyse[]
     canRequest: boolean
     onRequest: () => void
     onVoirResultats: (d: DemandeAnalyse) => void
-    restricted?: boolean
 }) {
     return (
         <div className="ht-card ht-card-padded-sm">
             <div className="ht-card-header !px-0 !pt-0 mb-4">
                 <h2 className="flex-1">Analyses de laboratoire</h2>
-                {!restricted && (
-                    <div className="flex items-center gap-2">
-                        {demandes.length > 0 && (
-                            <span className="badge badge-muted">{demandes.length}</span>
-                        )}
-                        {canRequest && (
-                            <button onClick={onRequest} className="btn btn-secondary btn-sm">
-                                <Plus size={12} /> Demander
-                            </button>
-                        )}
-                    </div>
-                )}
+                <div className="flex items-center gap-2">
+                    {demandes.length > 0 && (
+                        <span className="badge badge-muted">{demandes.length}</span>
+                    )}
+                    {canRequest && (
+                        <button onClick={onRequest} className="btn btn-secondary btn-sm">
+                            <Plus size={12} /> Demander
+                        </button>
+                    )}
+                </div>
             </div>
-            {restricted ? (
-                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les analyses de laboratoire de ce patient." />
-            ) : demandes.length === 0 ? (
+            {demandes.length === 0 ? (
                 <div className="ht-empty">Aucune demande d'analyse</div>
             ) : (
                 <div className="space-y-2.5">
@@ -393,7 +382,7 @@ function AlertesTab({ alertes, onUpdateStatut }: { alertes: Alerte[]; onUpdateSt
 type SuiviTab = 'alertes' | 'consultations' | 'rdv'
 
 function SuiviPatientTabs({
-                              alertes, onUpdateAlerteStatut, patientId, consultations, onConsultationsUpdate, rendezVous, onVoirAgenda, canViewConsultations,
+                              alertes, onUpdateAlerteStatut, patientId, consultations, onConsultationsUpdate, rendezVous, onVoirAgenda,
                           }: {
     alertes: Alerte[]
     onUpdateAlerteStatut: (a: Alerte) => void
@@ -402,7 +391,6 @@ function SuiviPatientTabs({
     onConsultationsUpdate: (c: Consultation[]) => void
     rendezVous: RendezVous[]
     onVoirAgenda: () => void
-    canViewConsultations?: boolean
 }) {
     const [tab, setTab] = useState<SuiviTab>('alertes')
     const nonLues = alertes.filter(a => a.statut === 'non_lue').length
@@ -437,11 +425,7 @@ function SuiviPatientTabs({
             {tab === 'alertes' && <AlertesTab alertes={alertes} onUpdateStatut={onUpdateAlerteStatut} />}
 
             {tab === 'consultations' && (
-                canViewConsultations ? (
-                    <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
-                ) : (
-                    <RestrictedAccess message="Votre rôle ne vous permet pas de consulter l'historique des consultations de ce patient." />
-                )
+                <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
             )}
 
             {tab === 'rdv' && (
@@ -475,14 +459,12 @@ function SuiviPatientTabs({
 }
 
 // ─── Panel historique des passages aux urgences ──────────────────────────────
-function UrgencesPanel({ passages, restricted }: { passages: PassageUrgence[]; restricted?: boolean }) {
+function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
     const tries = [...passages].sort((a, b) => new Date(b.date_arrivee).getTime() - new Date(a.date_arrivee).getTime())
     return (
         <div className="ht-card ht-card-padded-sm">
             <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Passages aux urgences</h2>
-            {restricted ? (
-                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter l'historique des passages aux urgences de ce patient." />
-            ) : tries.length === 0 ? (
+            {tries.length === 0 ? (
                 <div className="ht-empty">Aucun passage aux urgences</div>
             ) : (
                 <div className="space-y-2.5">
@@ -641,11 +623,7 @@ export default function PatientDetail() {
 
     const canEdit = hasRole('admin', 'secretaire', 'medecin')
     const canDelete = hasRole('admin')
-    const canRequestLab = hasRole('admin', 'medecin')
-    const canViewClinicalHistory = hasRole('admin', 'medecin', 'infirmier')
-    // Alignés sur les permissions réelles du backend (voir analyses/views.py et urgences/views.py)
-    const canViewAnalyses = hasRole('admin', 'medecin', 'laborantin')
-    const canViewUrgencesHistorique = hasRole('admin', 'medecin', 'infirmier')
+    const canRequestLab = hasRole('admin', 'medecin', 'infirmier')
 
     const [patient, setPatient] = useState<Patient | null>(null)
     const [signes, setSignes] = useState<SignesVitaux[]>([])
@@ -1103,7 +1081,6 @@ export default function PatientDetail() {
                             onConsultationsUpdate={setConsultations}
                             rendezVous={rdvs}
                             onVoirAgenda={() => navigate('/rendez_vous')}
-                            canViewConsultations={canViewClinicalHistory}
                         />
 
                         {/* ─── BLOC 4 : Antécédents & Analyses ─── */}
@@ -1113,20 +1090,18 @@ export default function PatientDetail() {
                                 onAdd={() => setShowAddAntecedent(true)}
                                 onToggleStatut={handleToggleAntecedentStatut}
                                 onDelete={handleDeleteAntecedent}
-                                restricted={!canViewClinicalHistory}
                             />
                             <AnalysesPanel
                                 demandes={demandes}
                                 canRequest={canRequestLab}
                                 onRequest={() => setShowLabModal(true)}
                                 onVoirResultats={(d) => setSelectedAnalyse(d)}
-                                restricted={!canViewAnalyses}
                             />
                         </div>
 
                         {/* ─── BLOC 5 : Urgences & Hospitalisations ─── */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <UrgencesPanel passages={urgences} restricted={!canViewUrgencesHistorique}/>
+                            <UrgencesPanel passages={urgences}/>
                             <HospitalisationsPanel hospitalisations={hospitalisations}/>
                         </div>
                     </div>

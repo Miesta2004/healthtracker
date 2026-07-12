@@ -39,7 +39,8 @@ class PatientAPITest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             username="testuser",
-            password="testpass123"
+            password="testpass123",
+            is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
