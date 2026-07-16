@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
 import { getAntecedents, createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
+import { dateNaissanceDepuisAge } from '../utils/dateNaissance'
 import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Alerte, StatutAlerte } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
@@ -12,16 +13,16 @@ import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
 import { getRendezVousPatient } from '../api/rendezvous'
 import { getUrgencesPatient } from '../api/urgences'
 import { getHospitalisations } from '../api/hospitalisations'
-import type { RendezVous, PassageUrgence, Hospitalisation } from '../types'
+import { getAssignations, createAssignation, deleteAssignation } from '../api/disponibilites'
+import { getEmployes } from '../api/comptes'
+import type { RendezVous, PassageUrgence, Hospitalisation, AssignationPatient, Employe, Shift } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import Sidebar from '../components/Sidebar.tsx'
 import GraviteBadge from '../components/GraviteBadge'
-import PulseDot from '../components/PulseDot'
-import EKGTrace from '../components/EKGTrace'
-import { computeGravite, GRAVITE_COLOR_VAR } from '../utils/gravite'
+import { computeGravite } from '../utils/gravite'
 import {
-    Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight, MapPin,
+    Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight,
     Phone, User, Stethoscope, AlertTriangle, Bell, Calendar, Check,
     Droplet, Thermometer, Heart, FileText
 } from 'lucide-react'
@@ -67,6 +68,12 @@ const STATUT_HOSPIT_CONFIG: Record<string, { label: string; badge: string }> = {
     en_cours:  { label: 'En cours',         badge: 'badge-tint' },
     sortie:    { label: 'Sortie effectuée', badge: 'badge-success' },
     transfert: { label: 'Transféré',        badge: 'badge-warning' },
+}
+
+const SHIFT_LABELS: Record<Shift, string> = {
+    matin:      'Matin (7h–15h)',
+    apres_midi: 'Après-midi (15h–23h)',
+    nuit:       'Nuit (23h–7h)',
 }
 
 function StatutMini({ statut, config }: { statut: string; config: Record<string, { label: string; badge: string }> }) {
@@ -485,6 +492,96 @@ function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
     )
 }
 
+// ─── Panel assignation infirmier(ère) ↔ patient (chef de service) ───────────
+function AssignationsPanel({ assignations, infirmiers, onAssign, onDelete, loading }: {
+    assignations: AssignationPatient[]
+    infirmiers: Employe[]
+    onAssign: (data: { infirmier: number; date: string; shift: Shift }) => void
+    onDelete: (a: AssignationPatient) => void
+    loading: boolean
+}) {
+    const [showForm, setShowForm] = useState(false)
+    const [infirmierId, setInfirmierId] = useState('')
+    const [date, setDate] = useState(new Date().toISOString().slice(0, 10))
+    const [shift, setShift] = useState<Shift>('matin')
+
+    const tries = [...assignations].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+
+    return (
+        <div className="ht-card ht-card-padded-sm">
+            <div className="ht-card-header !px-0 !pt-0 mb-4">
+                <h2 className="flex-1">Infirmiers assignés</h2>
+                <button onClick={() => setShowForm(p => !p)} className="btn btn-secondary btn-sm">
+                    <Plus size={12} /> Assigner
+                </button>
+            </div>
+
+            {showForm && (
+                <div className="mb-4 p-4 rounded-xl space-y-3" style={{ backgroundColor: 'var(--ht-bg)', border: '1px solid var(--ht-border-input)' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                        <div className="ht-field">
+                            <label className="ht-label">Infirmier(ère)</label>
+                            <select value={infirmierId} onChange={e => setInfirmierId(e.target.value)} className="ht-input">
+                                <option value="">Sélectionner</option>
+                                {infirmiers.map(i => (
+                                    <option key={i.id} value={i.id}>{i.prenom} {i.nom}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="ht-field">
+                            <label className="ht-label">Date</label>
+                            <input type="date" value={date} onChange={e => setDate(e.target.value)} className="ht-input" />
+                        </div>
+                        <div className="ht-field">
+                            <label className="ht-label">Poste</label>
+                            <select value={shift} onChange={e => setShift(e.target.value as Shift)} className="ht-input">
+                                {(Object.entries(SHIFT_LABELS) as [Shift, string][]).map(([k, label]) => (
+                                    <option key={k} value={k}>{label}</option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="flex gap-2">
+                        <button onClick={() => setShowForm(false)} className="btn btn-ghost btn-sm">Annuler</button>
+                        <button
+                            onClick={() => { if (infirmierId) { onAssign({ infirmier: Number(infirmierId), date, shift }); setShowForm(false); setInfirmierId('') } }}
+                            disabled={!infirmierId || loading}
+                            className="btn btn-primary btn-sm"
+                        >
+                            {loading ? 'Assignation…' : 'Confirmer'}
+                        </button>
+                    </div>
+                    {infirmiers.length === 0 && (
+                        <p className="text-xs" style={{ color: 'var(--ht-danger)' }}>
+                            Aucun(e) infirmier(ère) dans ton service.
+                        </p>
+                    )}
+                </div>
+            )}
+
+            {tries.length === 0 ? (
+                <div className="ht-empty">Aucune assignation enregistrée</div>
+            ) : (
+                <div className="space-y-2.5">
+                    {tries.map(a => (
+                        <div key={a.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{a.infirmier_prenom} {a.infirmier_nom}</p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                    {formatDate(a.date)} · {a.shift_label}
+                                </p>
+                            </div>
+                            <button onClick={() => onDelete(a)} className="p-1 rounded-md hover:bg-black/5 transition-colors" style={{ color: 'var(--ht-text-muted)' }}>
+                                <X size={14} />
+                            </button>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ─── Panel historique des hospitalisations ───────────────────────────────────
 function HospitalisationsPanel({ hospitalisations }: { hospitalisations: Hospitalisation[] }) {
     const tries = [...hospitalisations].sort((a, b) => new Date(b.date_admission).getTime() - new Date(a.date_admission).getTime())
@@ -619,11 +716,12 @@ function ResultatsAnalyseModal({ demande, onClose }: { demande: DemandeAnalyse; 
 export default function PatientDetail() {
     const {id} = useParams<{ id: string }>()
     const navigate = useNavigate()
-    const {hasRole} = useAuth()
+    const {hasRole, user} = useAuth()
 
     const canEdit = hasRole('admin', 'secretaire', 'medecin')
     const canDelete = hasRole('admin')
     const canRequestLab = hasRole('admin', 'medecin', 'infirmier')
+    const canAssignInfirmier = hasRole('admin') || !!user?.est_major
 
     const [patient, setPatient] = useState<Patient | null>(null)
     const [signes, setSignes] = useState<SignesVitaux[]>([])
@@ -634,6 +732,11 @@ export default function PatientDetail() {
     const [urgences, setUrgences] = useState<PassageUrgence[]>([])
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[]>([])
     const [alertes, setAlertes] = useState<Alerte[]>([])
+
+    // Assignation infirmier(ère) ↔ patient — chef de service uniquement
+    const [assignations, setAssignations] = useState<AssignationPatient[]>([])
+    const [infirmiersService, setInfirmiersService] = useState<Employe[]>([])
+    const [assignLoading, setAssignLoading] = useState(false)
 
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState('')
@@ -689,6 +792,14 @@ export default function PatientDetail() {
             })
             .finally(() => setLoading(false))
     }, [id])
+
+    useEffect(() => {
+        if (!canAssignInfirmier || !patient) return
+        getAssignations({ patient: patient.id }).then(setAssignations).catch(() => setAssignations([]))
+        getEmployes()
+            .then(all => setInfirmiersService(all.filter(e => e.role === 'infirmier' && e.service === (patient as any).service)))
+            .catch(() => setInfirmiersService([]))
+    }, [canAssignInfirmier, patient])
 
     const handleDelete = async () => {
         if (!id || !patient) return
@@ -778,6 +889,29 @@ export default function PatientDetail() {
         }
     }
 
+    const handleAssignInfirmier = async (data: { infirmier: number; date: string; shift: Shift }) => {
+        if (!patient) return
+        setAssignLoading(true)
+        try {
+            const created = await createAssignation({ ...data, patient: patient.id })
+            setAssignations(prev => [created, ...prev])
+        } catch {
+            alert("Erreur lors de l'assignation (l'infirmier(ère) et le patient doivent être du même service).")
+        } finally {
+            setAssignLoading(false)
+        }
+    }
+
+    const handleDeleteAssignation = async (a: AssignationPatient) => {
+        if (!confirm("Retirer cette assignation ?")) return
+        try {
+            await deleteAssignation(a.id)
+            setAssignations(prev => prev.filter(item => item.id !== a.id))
+        } catch {
+            alert("Erreur lors de la suppression.")
+        }
+    }
+
     if (loading) return <SkeletonDetailPage/>
     if (error || !patient) {
         return (
@@ -796,6 +930,7 @@ export default function PatientDetail() {
 
     const gravite = computeGravite(alertes)
     const derniereFC = signes[0]?.frequence_cardiaque ?? null
+    const hospitalisationActive = hospitalisations.find(h => h.statut === 'en_cours') ?? null
 
     return (
         <div className="ht-page">
@@ -817,6 +952,8 @@ export default function PatientDetail() {
                             {canEdit && (
                                 <button onClick={() => {
                                     setEditForm(patient);
+                                    setModeDateNaissanceEdit(patient.date_naissance_estimee ? 'age' : 'date');
+                                    setAgeApproxEdit(patient.date_naissance_estimee ? String(calcAge(patient.date_naissance)) : '');
                                     setIsEditing(true);
                                 }} className="btn btn-secondary btn-sm">
                                     <Edit3 size={12}/> Modifier l'identité
@@ -853,7 +990,38 @@ export default function PatientDetail() {
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Date de naissance *</label>
-                                    <input type="date" required className="ht-input" value={editForm.date_naissance || ''} onChange={e => setEditForm({...editForm, date_naissance: e.target.value})} />
+                                    <div className="flex items-center gap-4 mb-2">
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--ht-text-secondary)' }}>
+                                            <input type="radio" name="mode_date_naissance_edit" checked={modeDateNaissanceEdit === 'date'}
+                                                   onChange={() => setModeDateNaissanceEdit('date')} />
+                                            Date connue
+                                        </label>
+                                        <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--ht-text-secondary)' }}>
+                                            <input type="radio" name="mode_date_naissance_edit" checked={modeDateNaissanceEdit === 'age'}
+                                                   onChange={() => setModeDateNaissanceEdit('age')} />
+                                            Âge approximatif
+                                        </label>
+                                    </div>
+                                    {modeDateNaissanceEdit === 'date' ? (
+                                        <input type="date" required className="ht-input" value={editForm.date_naissance || ''}
+                                               onChange={e => setEditForm({ ...editForm, date_naissance: e.target.value, date_naissance_estimee: false })} />
+                                    ) : (
+                                        <input type="number" min="0" max="130" required className="ht-input" placeholder="Ex : 34"
+                                               value={ageApproxEdit}
+                                               onChange={e => {
+                                                   setAgeApproxEdit(e.target.value)
+                                                   setEditForm({
+                                                       ...editForm,
+                                                       date_naissance: e.target.value ? dateNaissanceDepuisAge(Number(e.target.value)) : editForm.date_naissance,
+                                                       date_naissance_estimee: true,
+                                                   })
+                                               }} />
+                                    )}
+                                    {patient.date_naissance_estimee && modeDateNaissanceEdit === 'age' && (
+                                        <p className="text-xs mt-1.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                            Date estimée au 1er juillet de l'année déduite. Passez sur « Date connue » dès que la vraie date est confirmée.
+                                        </p>
+                                    )}
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Sexe *</label>
@@ -960,71 +1128,68 @@ export default function PatientDetail() {
                                 <div className="flex-1 min-w-0 w-full">
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                         <div>
-                                            <h1 className="text-2xl font-bold flex items-center gap-2.5" style={{ color: 'var(--ht-text)' }}>
+                                            <h1 className="ht-serif text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
                                                 {patient.prenom} {patient.nom}
-                                                <PulseDot freq={derniereFC} color={GRAVITE_COLOR_VAR[gravite]} size={9} />
                                             </h1>
-                                            <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
-                                                {calcAge(patient.date_naissance)} ans · {patient.sexe === 'M' ? 'Masculin' : 'Féminin'} · Né(e) le {formatDate(patient.date_naissance)}
+                                            <p className="ht-mono text-sm mt-1.5" style={{ color: 'var(--ht-text-secondary)' }}>
+                                                {patient.date_naissance_estimee ? '≈ ' : ''}{calcAge(patient.date_naissance)} ans · {patient.sexe === 'M' ? 'Masculin' : 'Féminin'}
+                                                {(hospitalisationActive?.service_nom || patient.service_nom) && ` · ${hospitalisationActive?.service_nom || patient.service_nom}`}
+                                                {hospitalisationActive && (hospitalisationActive.chambre || hospitalisationActive.lit) &&
+                                                    ` · Chambre ${hospitalisationActive.chambre}${hospitalisationActive.lit ? `-${hospitalisationActive.lit}` : ''}`}
+                                            </p>
+                                            <p className="ht-mono text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                                                Dossier {patient.numero_dossier || `P${String(patient.id).padStart(6, '0')}`}
                                             </p>
                                         </div>
 
-                                        {/* Badges de statut */}
-                                        <div className="flex items-center gap-2 flex-shrink-0">
-                                            <GraviteBadge gravite={gravite} />
-                                            <span
-                                                className="flex-shrink-0 text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
-                                                style={(patient as any).actif ?? true
-                                                    ? { backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)', border: '1px solid var(--ht-primary)' }
-                                                    : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
-                                                }
-                                            >
-                                            {((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
+                                        {!((patient as any).actif ?? true) && (
+                                            <span className="badge badge-muted flex-shrink-0 uppercase tracking-wide">○ Inactif</span>
+                                        )}
+                                    </div>
+
+                                    <div className="mt-4">
+                                        <GraviteBadge gravite={gravite} />
+                                    </div>
+
+                                    {/* Badges de métadonnées */}
+                                    <div className="flex flex-wrap gap-2 mt-3">
+                                        <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
+                                              style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
+                                            <Droplet size={12} style={{ color: 'var(--ht-text-muted)' }} />
+                                            {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin inconnu'}
+                                        </span>
+                                        {patient.medecin_nom && (
+                                            <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
+                                                  style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
+                                                <Stethoscope size={12} style={{ color: 'var(--ht-text-muted)' }} /> Dr. {patient.medecin_nom}
                                             </span>
+                                        )}
+                                        {(hospitalisationActive?.service_nom || patient.service_nom) && (
+                                            <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
+                                                  style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
+                                                <Phone size={12} style={{ color: 'var(--ht-text-muted)' }} /> Service {hospitalisationActive?.service_nom || patient.service_nom}
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {/* Allergies — bandeau plein, pas juste un badge */}
+                                    {patient.allergies?.trim() && (
+                                        <div className="flex items-center gap-2.5 mt-3 px-4 py-2.5 rounded-xl"
+                                             style={{ backgroundColor: 'var(--ht-danger-bg-light)', border: '1px solid var(--ht-danger)' }}>
+                                            <AlertTriangle size={16} style={{ color: 'var(--ht-danger)' }} className="flex-shrink-0" />
+                                            <p className="text-sm" style={{ color: 'var(--ht-danger)' }}>
+                                                <span className="font-bold">Allergie —</span> {patient.allergies}
+                                            </p>
                                         </div>
-                                    </div>
+                                    )}
 
-                                    <div className="mt-3 opacity-70">
-                                        <EKGTrace color={GRAVITE_COLOR_VAR[gravite]} height={18} />
-                                    </div>
-
-                                    {/* Badges de métadonnées sans émojis */}
-                                    <div className="flex flex-wrap gap-2 mt-4">
-                                        {/* Groupe Sanguin */}
-                                        <span className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                                              style={(patient as any).groupe_sanguin
-                                                  ? { backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }
-                                                  : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }
-                                              }>
-                                          <Activity size={12} />
-                                            {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin non renseigné'}
-                                    </span>
-                                        {/* Allergies */}
-                                        {patient.allergies?.trim() && (
-                                            <span className="px-3 py-1 rounded-xl text-xs font-semibold flex items-center gap-1.5"
-                                                  style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
-                                          <AlertTriangle size={12} />
-                                                Allergies : {patient.allergies}
-                                    </span>
-                                        )}
-                                        {/* Téléphone */}
-                                        {patient.telephone && (
-                                            <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
-                                            <Phone size={12} style={{ color: 'var(--ht-text-muted)' }} /> {patient.telephone}
-                                        </span>
-                                        )}
-                                        {/* Adresse */}
-                                        {patient.adresse && (
-                                            <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
-                                            <MapPin size={12} style={{ color: 'var(--ht-text-muted)' }} /> {patient.adresse}
-                                        </span>
-                                        )}
-
-                                        {/* Identifiant et date de création */}
-                                        <span className="px-3 py-1 rounded-xl text-xs font-medium flex items-center gap-1.5" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-muted)' }}>
-                                        <User size={12} /> Dossier #{(patient as any).nip || patient.id} · Créé le {formatDate(patient.date_creation)}
-                                    </span>
-                                    </div>
+                                    {/* Antécédents actifs — résumé en une ligne */}
+                                    {antecedents.filter(a => a.statut === 'actif').length > 0 && (
+                                        <p className="text-sm mt-3" style={{ color: 'var(--ht-text-secondary)' }}>
+                                            <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>Antécédents :</span>{' '}
+                                            {antecedents.filter(a => a.statut === 'actif').map(a => a.libelle).join(', ')}
+                                        </p>
+                                    )}
                                 </div>
 
                             </div>
@@ -1038,7 +1203,7 @@ export default function PatientDetail() {
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <InfoRow label="Prénom" value={patient.prenom} />
                                 <InfoRow label="Nom" value={patient.nom} />
-                                <InfoRow label="Date de naissance" value={formatDate(patient.date_naissance)} />
+                                <InfoRow label="Date de naissance" value={`${formatDate(patient.date_naissance)}${patient.date_naissance_estimee ? ' (estimée)' : ''}`} />
                                 <InfoRow label="Âge" value={`${calcAge(patient.date_naissance)} ans`} />
                                 <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
                                 <InfoRow label="Groupe sanguin" value={(patient as any).groupe_sanguin || 'Non renseigné'} />
@@ -1104,6 +1269,17 @@ export default function PatientDetail() {
                             <UrgencesPanel passages={urgences}/>
                             <HospitalisationsPanel hospitalisations={hospitalisations}/>
                         </div>
+
+                        {/* ─── BLOC 6 : Infirmiers assignés (chef de service) ─── */}
+                        {canAssignInfirmier && (
+                            <AssignationsPanel
+                                assignations={assignations}
+                                infirmiers={infirmiersService}
+                                onAssign={handleAssignInfirmier}
+                                onDelete={handleDeleteAssignation}
+                                loading={assignLoading}
+                            />
+                        )}
                     </div>
                 )}
             </main>

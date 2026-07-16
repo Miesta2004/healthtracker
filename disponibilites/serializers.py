@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CreneauDisponibilite, ExceptionDisponibilite
+from .models import CreneauDisponibilite, ExceptionDisponibilite, AssignationPatient
 
 
 class CreneauSerializer(serializers.ModelSerializer):
@@ -30,3 +30,27 @@ class ExceptionSerializer(serializers.ModelSerializer):
             'valide', 'statut', 'statut_label', 'date_creation'
         ]
         read_only_fields = ['employe', 'valide', 'statut', 'date_creation']
+
+
+class AssignationPatientSerializer(serializers.ModelSerializer):
+    shift_label      = serializers.CharField(source='get_shift_display', read_only=True)
+    infirmier_nom    = serializers.CharField(source='infirmier.nom', read_only=True)
+    infirmier_prenom = serializers.CharField(source='infirmier.prenom', read_only=True)
+    patient_nom      = serializers.CharField(source='patient.nom', read_only=True)
+    patient_prenom   = serializers.CharField(source='patient.prenom', read_only=True)
+    patient_dossier  = serializers.CharField(source='patient.numero_dossier', read_only=True)
+    service_nom      = serializers.CharField(source='service.nom', read_only=True)
+
+    class Meta:
+        model  = AssignationPatient
+        fields = [
+            'id', 'infirmier', 'infirmier_nom', 'infirmier_prenom',
+            'patient', 'patient_nom', 'patient_prenom', 'patient_dossier',
+            'service', 'service_nom', 'date', 'shift', 'shift_label', 'date_creation',
+        ]
+        read_only_fields = ['service', 'date_creation']
+
+    def validate_infirmier(self, infirmier):
+        if infirmier.role != 'infirmier':
+            raise serializers.ValidationError("Seul un employé avec le rôle infirmier peut être assigné à un patient.")
+        return infirmier

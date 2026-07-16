@@ -105,3 +105,95 @@ class PatientAPITest(TestCase):
         response = self.client.delete(f'/api/patients/{patient_id}/')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
         self.assertEqual(Patient.objects.count(), 0)
+
+class PatientDateNaissanceEstimeeTest(TestCase):
+    """Tests du cas 'âge approximatif connu, date de naissance inconnue'"""
+
+    def setUp(self):
+        self.user = User.objects.create_user(username="testuser2", password="testpass123")
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+
+    def test_date_naissance_estimee_par_defaut_false(self):
+        """Un patient créé normalement (date connue) n'est pas marqué comme estimé"""
+        patient = Patient.objects.create(
+            nom="Diop", prenom="Ibrahima", date_naissance=date(1990, 3, 15), sexe="M",
+        )
+        self.assertFalse(patient.date_naissance_estimee)
+
+    def test_creer_patient_avec_age_estime(self):
+        """Vérifie qu'on peut créer un patient avec une date de naissance déduite d'un âge approximatif"""
+        annee_naissance = date.today().year - 34
+        response = self.client.post('/api/patients/', {
+            "nom": "Sans-papiers", "prenom": "Inconnu",
+            "date_naissance": f"{annee_naissance}-07-01",
+            "date_naissance_estimee": True,
+            "sexe": "M",
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data['date_naissance_estimee'])
+        self.assertEqual(response.data['date_naissance'], f"{annee_naissance}-07-01")
+
+    def test_corriger_date_naissance_reinitialise_le_flag(self):
+        """Vérifie qu'on peut corriger la date une fois connue et repasser le flag à False"""
+        patient = Patient.objects.create(
+            nom="Fall", prenom="Aminata", date_naissance=date(1995, 7, 1),
+            sexe="F", date_naissance_estimee=True,
+        )
+        response = self.client.patch(f'/api/patients/{patient.id}/', {
+            "date_naissance": "1995-11-23",
+            "date_naissance_estimee": False,
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['date_naissance_estimee'])
+        self.assertEqual(response.data['date_naissance'], '1995-11-23')
+
+
+class RecalculerPatientsActifsTest(TestCase):
+    """Tests de la commande de recalcul actif/inactif basé sur la dernière activité"""
+
+    def setUp(self):
+        from django.utils import timezone
+        from datetime import timedelta
+        from consultations.models import Consultation
+        self.timezone = timezone
+        self.timedelta = timedelta
+        self.Consultation = Consultation
+
+    def test_patient_sans_activite_recente_devient_inactif(self):
+        from django.core.management import call_command
+        patient = Patient.objects.create(
+            nom="Sarr", prenom="Vieux", date_naissance=date(1950, 1, 1), sexe="M", actif=True,
+        )
+        Patient.objects.filter(pk=patient.pk).update(
+            date_creation=self.timezone.now() - self.timedelta(days=365 * 5)
+        )
+        call_command('recalculer_patients_actifs')
+        patient.refresh_from_db()
+        self.assertFalse(patient.actif)
+
+    def test_patient_avec_consultation_recente_reste_actif(self):
+        from django.core.management import call_command
+        patient = Patient.objects.create(
+            nom="Ndoye", prenom="Recent", date_naissance=date(1980, 1, 1), sexe="F", actif=True,
+        )
+        self.Consultation.objects.create(
+            patient=patient, type_evenement='consultation', date=self.timezone.now(), motif="Contrôle",
+        )
+        call_command('recalculer_patients_actifs')
+        patient.refresh_from_db()
+        self.assertTrue(patient.actif)
+
+    def test_patient_decede_jamais_recalcule(self):
+        """Un patient décédé garde son statut actif tel quel — ce n'est pas le sujet"""
+        from django.core.management import call_command
+        patient = Patient.objects.create(
+            nom="Fall", prenom="Defunt", date_naissance=date(1940, 1, 1), sexe="M",
+            actif=True, statut_vital=Patient.StatutVital.DECEDE,
+        )
+        Patient.objects.filter(pk=patient.pk).update(
+            date_creation=self.timezone.now() - self.timedelta(days=365 * 10)
+        )
+        call_command('recalculer_patients_actifs')
+        patient.refresh_from_db()
+        self.assertTrue(patient.actif)  # inchangé, malgré 10 ans d'ancienneté

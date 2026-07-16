@@ -108,6 +108,7 @@ export default function EmployeDetail() {
     const [editing, setEditing] = useState(false)
     const [saving, setSaving] = useState(false)
     const [erreur, setErreur] = useState('')
+    const [majorLoading, setMajorLoading] = useState(false)
 
     // Formulaire d'édition
     const [form, setForm] = useState<Partial<Employe>>({})
@@ -160,6 +161,19 @@ export default function EmployeDetail() {
 
     const cancelEdit = () => { setEditing(false); setErreur('') }
 
+    const handleToggleMajor = async () => {
+        if (!employe) return
+        setMajorLoading(true)
+        try {
+            const updated = await updateEmploye(employe.id, { est_major: !employe.est_major })
+            setEmploye(updated)
+        } catch {
+            alert("Erreur lors de la mise à jour du statut major.")
+        } finally {
+            setMajorLoading(false)
+        }
+    }
+
     const handleSave = async () => {
         setSaving(true)
         setErreur('')
@@ -207,6 +221,12 @@ export default function EmployeDetail() {
                                   style={{ backgroundColor: `${ROLE_COLORS[employe.role]}18`, color: ROLE_COLORS[employe.role] }}>
                                 {ROLE_LABELS[employe.role]}
                             </span>
+                            {employe.role === 'infirmier' && employe.est_major && (
+                                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                                      style={{ backgroundColor: 'var(--ht-warning-bg)', color: 'var(--ht-warning)' }}>
+                                    ★ Major
+                                </span>
+                            )}
                             <span className="text-xs px-2.5 py-1 rounded-full font-medium"
                                   style={employe.actif
                                       ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
@@ -223,6 +243,15 @@ export default function EmployeDetail() {
                             Compte créé le {formatDate(employe.date_creation)} · @{employe.username}
                         </p>
                     </div>
+                    {isAdmin && !editing && employe.role === 'infirmier' && (
+                        <button
+                            onClick={handleToggleMajor}
+                            disabled={majorLoading}
+                            className="btn btn-secondary flex-shrink-0"
+                        >
+                            {employe.est_major ? 'Retirer le statut major' : 'Désigner major'}
+                        </button>
+                    )}
                     {isAdmin && !editing && (
                         <button
                             onClick={startEdit}

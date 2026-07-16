@@ -67,6 +67,42 @@ class IsSuperUser(IsAuthenticated):
         return bool(request.user.is_superuser)
 
 
+def is_major(emp):
+    """Un infirmier désigné infirmière/infirmier major de son service."""
+    return bool(emp and emp.role == 'infirmier' and getattr(emp, 'est_major', False))
+
+
+class IsAdminOuMajor(IsAuthenticated):
+    """
+    Chef de service (admin, tout son service) OU infirmier(ère) major
+    (son service, mais uniquement pour des ressources concernant des
+    infirmiers — assignations patients, plannings/congés infirmiers).
+    La restriction "concerne bien un infirmier" est vérifiée ici quand
+    l'objet a un `role` (Employe) ou un `employe`/`infirmier` avec un rôle.
+    """
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        return emp is not None and (emp.role == 'admin' or is_major(emp))
+
+    def has_object_permission(self, request, view, obj):
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        if emp is None or not same_service(emp, obj):
+            return False
+        if emp.role == 'admin':
+            return True
+        if is_major(emp):
+            cible = getattr(obj, 'infirmier', None) or getattr(obj, 'employe', None) or obj
+            return getattr(cible, 'role', None) == 'infirmier'
+        return False
+
+
 class IsMedecinOuAdmin(IsAuthenticated):
     """Médecin ou chef de service."""
 

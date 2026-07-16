@@ -18,13 +18,23 @@ class EmployeSerializer(serializers.ModelSerializer):
             'id', 'username', 'email',
             'nom', 'prenom', 'date_naissance', 'sexe', 'age',
             'telephone', 'adresse', 'photo_path',
-            'role', 'role_label', 'specialite', 'matricule', 'actif',
+            'role', 'role_label', 'specialite', 'matricule', 'actif', 'est_major',
             'service', 'service_nom',
             'type_contrat', 'type_contrat_label',
             'date_debut_contrat', 'date_fin_contrat',
             'description_poste',
             'date_creation',
         ]
+
+    def validate(self, data):
+        # est_major n'a de sens que pour un infirmier.
+        if data.get('est_major'):
+            new_role = data.get('role', getattr(self.instance, 'role', None))
+            if new_role != 'infirmier':
+                raise serializers.ValidationError(
+                    {'est_major': "Seul un employé avec le rôle infirmier peut être désigné major."}
+                )
+        return data
 
     def update(self, instance, validated_data):
         """
@@ -34,6 +44,8 @@ class EmployeSerializer(serializers.ModelSerializer):
         if new_role is not None and new_role != instance.role:
             instance.user.is_staff = (new_role == 'admin')
             instance.user.save(update_fields=['is_staff'])
+            if new_role != 'infirmier' and 'est_major' not in validated_data:
+                validated_data['est_major'] = False
 
         for attr, value in validated_data.items():
             setattr(instance, attr, value)

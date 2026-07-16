@@ -4,6 +4,7 @@ export interface Patient {
     nom: string
     prenom: string
     date_naissance: string
+    date_naissance_estimee?: boolean
     age?: number
     sexe: 'M' | 'F'
     groupe_sanguin?: string
@@ -12,6 +13,7 @@ export interface Patient {
     allergies?: string
     antecedents?: string
     actif: boolean
+    statut_vital?: 'vivant' | 'decede'
     date_creation: string
     numero_dossier?: string
     service?: number | null
@@ -125,6 +127,7 @@ export interface Employe {
     specialite?: string
     matricule: string
     actif: boolean
+    est_major?: boolean
     service?: number | null
     service_nom?: string | null
     type_contrat?: TypeContrat
@@ -184,8 +187,9 @@ export interface CurrentUser {
     nom?: string
     prenom?: string
     specialite?: string
-    service_id?: number | null
+    service?: number | null
     service_nom?: string | null
+    est_major?: boolean
 }
 
 // ─── Antécédents ──────────────────────────────────────────────────────────────
@@ -375,4 +379,31 @@ export interface ExceptionDisponibilite {
     statut: StatutException
     statut_label: string
     date_creation: string
+}
+
+// ─── Assignations infirmier ↔ patient ────────────────────────────────────────
+export type Shift = 'matin' | 'apres_midi' | 'nuit'
+
+export interface AssignationPatient {
+    id: number
+    infirmier: number
+    infirmier_nom?: string
+    infirmier_prenom?: string
+    patient: number
+    patient_nom?: string
+    patient_prenom?: string
+    patient_dossier?: string
+    service: number
+    service_nom?: string
+    date: string
+    shift: Shift
+    shift_label: string
+    date_creation: string
+}
+
+export interface MesPatientsAssignesResponse {
+    date: string
+    shift: Shift
+    shift_label: string
+    assignations: AssignationPatient[]
 }

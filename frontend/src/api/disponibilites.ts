@@ -1,5 +1,5 @@
 import api from './client'
-import type { CreneauDisponibilite, ExceptionDisponibilite } from '../types'
+import type { CreneauDisponibilite, ExceptionDisponibilite, AssignationPatient, MesPatientsAssignesResponse } from '../types'
 
 // ─── Créneaux récurrents ─────────────────────────────────────────────────────
 export const getMesCreneaux = async (): Promise<CreneauDisponibilite[]> => {
@@ -107,4 +107,36 @@ export const uploadMaPhoto = async (file: File): Promise<string> => {
 export const getMaPhotoUrl = async (): Promise<string | null> => {
     const res = await api.get('/employes/ma_photo_url/')
     return res.data.url
+}
+
+// ─── Assignations infirmier ↔ patient ────────────────────────────────────────
+
+// Pour l'infirmière connectée : ses patients pour le poste (shift) en cours
+export const getMesPatientsAssignes = async (): Promise<MesPatientsAssignesResponse> => {
+    const res = await api.get('/assignations/mes-patients/')
+    return res.data
+}
+
+// Pour le chef de service : les assignations de son service (filtrables)
+export const getAssignations = async (params?: {
+    infirmier?: number
+    patient?: number
+    date?: string
+}): Promise<AssignationPatient[]> => {
+    const res = await api.get('/assignations/', { params })
+    return res.data
+}
+
+export const createAssignation = async (data: {
+    infirmier: number
+    patient: number
+    date: string
+    shift: 'matin' | 'apres_midi' | 'nuit'
+}): Promise<AssignationPatient> => {
+    const res = await api.post('/assignations/', data)
+    return res.data
+}
+
+export const deleteAssignation = async (id: number): Promise<void> => {
+    await api.delete(`/assignations/${id}/`)
 }

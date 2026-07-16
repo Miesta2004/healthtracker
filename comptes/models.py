@@ -57,6 +57,14 @@ class Employe(Personne):
         blank=True,
         help_text="Préférences utilisateur stockées en JSON"
     )
+    est_major = models.BooleanField(
+        default=False,
+        help_text=(
+            "Infirmier(ère) major — responsable de l'organisation des soins "
+            "infirmiers de son service (assignation des patients, planning "
+            "et congés des infirmiers). Uniquement pertinent si role='infirmier'."
+        )
+    )
 
     def save(self, *args, **kwargs):
         if not self.matricule:
@@ -79,5 +87,9 @@ class Employe(Personne):
             models.CheckConstraint(
                 condition=models.Q(sexe__in=['M', 'F']),
                 name='employe_sexe_valid',  # ou 'patient_sexe_valid'
+            ),
+            models.CheckConstraint(
+                condition=models.Q(est_major=False) | models.Q(role='infirmier'),
+                name='employe_est_major_seulement_infirmier',
             )
         ]

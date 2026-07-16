@@ -4,6 +4,7 @@ import { createPatient } from '../api/patients'
 import { createAntecedent } from '../api/antecedents'
 import type { TypeAntecedent } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
+import { dateNaissanceDepuisAge } from '../utils/dateNaissance'
 import {
     Search,
     Check,
@@ -129,6 +130,9 @@ export default function AddPatient() {
         groupe_sanguin: '', telephone: '', adresse: '',
     })
 
+    const [modeDateNaissance, setModeDateNaissance] = useState<'date' | 'age'>('date')
+    const [ageApprox, setAgeApprox] = useState('')
+
     const [selectedAllergies, setSelectedAllergies] = useState<string[]>([])
     const [customAllergies, setCustomAllergies] = useState<string[]>([])
 
@@ -174,6 +178,10 @@ export default function AddPatient() {
         try {
             const payload = {
                 ...form,
+                date_naissance: modeDateNaissance === 'age'
+                    ? dateNaissanceDepuisAge(Number(ageApprox))
+                    : form.date_naissance,
+                date_naissance_estimee: modeDateNaissance === 'age',
                 allergies: allAllergies.join(', ') || '',
                 antecedents: allAntecedents.join(', ') || '',
             }
@@ -203,7 +211,8 @@ export default function AddPatient() {
         }
     }
 
-    const step1Valid = form.prenom && form.nom && form.date_naissance && form.sexe
+    const step1Valid = form.prenom && form.nom &&
+        (modeDateNaissance === 'date' ? !!form.date_naissance : !!ageApprox && Number(ageApprox) > 0)
 
     return (
         <div className="ht-page">
@@ -237,8 +246,38 @@ export default function AddPatient() {
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <Field label="Prénom *" name="prenom" value={form.prenom} onChange={handleChange} required placeholder="Fatou" />
                                     <Field label="Nom *" name="nom" value={form.nom} onChange={handleChange} required placeholder="Diallo" />
-                                    <Field label="Date de naissance *" name="date_naissance" type="date" value={form.date_naissance} onChange={handleChange} required />
 
+                                    <div className="ht-field sm:col-span-2">
+                                        <label className="ht-label">Date de naissance *</label>
+                                        <div className="flex items-center gap-4 mb-2">
+                                            <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--ht-text-secondary)' }}>
+                                                <input type="radio" name="mode_date_naissance" checked={modeDateNaissance === 'date'}
+                                                       onChange={() => setModeDateNaissance('date')} />
+                                                Date connue
+                                            </label>
+                                            <label className="flex items-center gap-1.5 text-xs cursor-pointer" style={{ color: 'var(--ht-text-secondary)' }}>
+                                                <input type="radio" name="mode_date_naissance" checked={modeDateNaissance === 'age'}
+                                                       onChange={() => setModeDateNaissance('age')} />
+                                                Âge approximatif seulement
+                                            </label>
+                                        </div>
+
+                                        {modeDateNaissance === 'date' ? (
+                                            <input type="date" name="date_naissance" value={form.date_naissance} onChange={handleChange}
+                                                   required className="ht-input" />
+                                        ) : (
+                                            <>
+                                                <input type="number" min="0" max="130" placeholder="Ex : 34"
+                                                       value={ageApprox} onChange={e => setAgeApprox(e.target.value)}
+                                                       required className="ht-input" />
+                                                <p className="text-xs mt-1.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                                    Utile si le patient ne connaît pas sa date exacte (urgence, absence de papiers).
+                                                    Une date au 1er juillet {ageApprox ? new Date().getFullYear() - Number(ageApprox) : '…'} sera
+                                                    enregistrée par convention, et pourra être corrigée plus tard depuis la fiche patient.
+                                                </p>
+                                            </>
+                                        )}
+                                    </div>
                                     <div className="ht-field">
                                         <label className="ht-label">Sexe *</label>
                                         <select name="sexe" value={form.sexe} onChange={handleChange} required className="ht-input">

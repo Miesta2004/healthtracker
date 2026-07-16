@@ -74,8 +74,8 @@ export default function AddEmploye() {
     // Un chef de service (admin scopé, pas superuser) ne peut créer que dans
     // SON service — le backend l'impose de toute façon, donc on verrouille
     // le champ côté frontend pour éviter la confusion.
-    const isScopedAdmin = !!currentUser?.service_id
-    const lockedServiceId = currentUser?.service_id ? String(currentUser.service_id) : ''
+    const isScopedAdmin = !!currentUser?.service
+    const lockedServiceId = currentUser?.service ? String(currentUser.service) : ''
 
     useEffect(() => {
         getServices().then(setServices).catch(() => setServices([]))

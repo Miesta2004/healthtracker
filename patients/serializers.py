@@ -13,6 +13,7 @@ class PatientListSerializer(serializers.ModelSerializer):
             'id', 'nom', 'prenom', 'age', 'sexe', 'telephone',
             'groupe_sanguin', 'allergies', 'antecedents', 'actif',
             'numero_dossier', 'date_creation', 'service_nom',
+            'date_naissance_estimee', 'statut_vital',
         ]
 
 

@@ -1,15 +1,29 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
-import type { Patient } from '../types'
+import { getMesPatientsAssignes } from '../api/hospitalisations'
+import type { Patient, AssignationSoin, Shift } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
-import { Users, AlertTriangle, ClipboardList, UserPlus, Building2, Search, SearchX, Droplet, UserX } from 'lucide-react'
+import { Users, AlertTriangle, ClipboardList, UserPlus, Building2, Search, SearchX, Droplet, UserX, BedDouble, Sun, Sunset, Moon, ChevronDown, ChevronUp } from 'lucide-react'
 import PageHeader from '../components/PageHeader.tsx'
 
 const PAGE_SIZE = 20
+
+const SHIFTS: { id: Shift; label: string; icon: any }[] = [
+    { id: 'matin', label: 'Matin', icon: Sun },
+    { id: 'apres_midi', label: 'Après-midi', icon: Sunset },
+    { id: 'nuit', label: 'Nuit', icon: Moon },
+]
+
+function shiftActuel(): Shift {
+    const h = new Date().getHours()
+    if (h >= 7 && h < 15) return 'matin'
+    if (h >= 15 && h < 23) return 'apres_midi'
+    return 'nuit'
+}
 
 function MiniBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
     const pct = max > 0 ? (value / max) * 100 : 0
@@ -90,9 +104,15 @@ export default function Patients() {
     const [sortBy,       setSortBy]       = useState<'nom' | 'date'>('nom')
     const [page,         setPage]         = useState(1)
 
-    // Recherche ciblée pour infirmier
+    // Recherche ciblée pour infirmier (secondaire, désormais)
     const [nurseQuery,    setNurseQuery]    = useState('')
     const [nurseSearched, setNurseSearched] = useState(false)
+    const [showSearch,    setShowSearch]    = useState(false)
+
+    // Patients assignés à l'infirmier pour son shift (vue principale)
+    const [assignations,        setAssignations]        = useState<AssignationSoin[]>([])
+    const [loadingAssignations, setLoadingAssignations]  = useState(true)
+    const [shift,                setShift]                = useState<Shift>(shiftActuel())
 
     // Chargement liste complète (non-infirmiers)
     useEffect(() => {
@@ -102,6 +122,16 @@ export default function Patients() {
             .catch(() => navigate('/login'))
             .finally(() => setLoading(false))
     }, [isNurse])
+
+    // Chargement des patients assignés (shift courant) pour l'infirmier
+    useEffect(() => {
+        if (!isNurse) return
+        setLoadingAssignations(true)
+        getMesPatientsAssignes(undefined, shift)
+            .then(setAssignations)
+            .catch(() => setAssignations([]))
+            .finally(() => setLoadingAssignations(false))
+    }, [isNurse, shift])
 
     // Recherche avec debounce pour infirmier
     useEffect(() => {
@@ -174,7 +204,7 @@ export default function Patients() {
                 <PageHeader
                     title="Patients"
                     subtitle={isNurse
-                        ? 'Recherchez un patient de votre service pour accéder à son dossier'
+                        ? 'Vos patients assignés pour ce shift, triés par chambre'
                         : "Gérez les dossiers des patients de l'établissement"}
                     icon={Users}
                     ctaLabel={hasRole('admin', 'medecin', 'secretaire') ? 'Nouveau patient' : undefined}
@@ -184,77 +214,155 @@ export default function Patients() {
                 {/* ══════════════ VUE INFIRMIER ══════════════ */}
                 {isNurse && (
                     <div className="space-y-6">
-                        {/* Bandeau service */}
-                        <div className="ht-card p-5 flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                                 style={{ backgroundColor: 'var(--ht-primary-light)' }}><Building2 size={18} style={{ color: 'var(--ht-primary)' }} /></div>
-                            <div>
-                                <p className="text-xs text-[var(--ht-text-muted)] mb-0.5">Votre service</p>
-                                <p className="text-sm font-semibold text-[var(--ht-text)]">
-                                    {user?.service_nom ?? <span className="text-[var(--ht-text-muted)] italic">Non assigné(e) à un service</span>}
-                                </p>
-                                <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">
-                                    La recherche porte uniquement sur les patients de ce service.
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Champ de recherche */}
-                        <div className="ht-card p-6">
-                            <h2 className="text-sm font-semibold text-[var(--ht-text-secondary)] mb-1">Rechercher un patient</h2>
-                            <p className="text-xs text-[var(--ht-text-muted)] mb-4">
-                                Tapez un nom, prénom ou numéro de dossier (au moins 2 caractères).
-                            </p>
-                            <div className="relative">
-                                <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ht-text-muted)' }} />
-                                <input
-                                    type="text" autoFocus
-                                    value={nurseQuery}
-                                    onChange={e => setNurseQuery(e.target.value)}
-                                    placeholder="Ex : Diallo, Fatou, P123456..."
-                                    className="ht-input w-full pl-9 pr-3 py-2.5 text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Résultats */}
-                        <div className="ht-card">
-                            {nurseQuery.trim().length < 2 ? (
-                                <div className="px-6 py-16 text-center">
-                                    <Search size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
-                                    <p className="text-[var(--ht-text-muted)] text-sm">Entrez au moins 2 caractères pour lancer la recherche</p>
+                        {/* Bandeau service + sélecteur de shift */}
+                        <div className="ht-card p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
+                                     style={{ backgroundColor: 'var(--ht-primary-light)' }}><Building2 size={18} style={{ color: 'var(--ht-primary)' }} /></div>
+                                <div>
+                                    <p className="text-xs text-[var(--ht-text-muted)] mb-0.5">Votre service</p>
+                                    <p className="text-sm font-semibold text-[var(--ht-text)]">
+                                        {user?.service_nom ?? <span className="text-[var(--ht-text-muted)] italic">Non assigné(e) à un service</span>}
+                                    </p>
                                 </div>
-                            ) : loading ? (
-                                <SkeletonSimpleList rows={3} />
-                            ) : patients.length === 0 && nurseSearched ? (
+                            </div>
+                            <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                                {SHIFTS.map(s => (
+                                    <button
+                                        key={s.id}
+                                        onClick={() => setShift(s.id)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${
+                                            shift === s.id ? '' : 'hover:bg-[var(--ht-muted-bg)]'
+                                        }`}
+                                        style={shift === s.id
+                                            ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                            : { color: 'var(--ht-text-muted)', border: '1px solid var(--ht-border)' }}
+                                    >
+                                        <s.icon size={13} /> {s.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Mes patients (assignation du shift) */}
+                        <div className="ht-card">
+                            <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid var(--ht-border)' }}>
+                                <h2 className="text-sm font-semibold text-[var(--ht-text)] flex items-center gap-2">
+                                    <BedDouble size={16} style={{ color: 'var(--ht-primary)' }} />
+                                    Mes patients — {SHIFTS.find(s => s.id === shift)?.label}
+                                    {!loadingAssignations && (
+                                        <span className="badge badge-muted">{assignations.length}</span>
+                                    )}
+                                </h2>
+                            </div>
+
+                            {loadingAssignations ? (
+                                <SkeletonSimpleList rows={4} />
+                            ) : assignations.length === 0 ? (
                                 <div className="px-6 py-16 text-center">
-                                    <UserX size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
-                                    <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
+                                    <BedDouble size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
+                                    <p className="text-[var(--ht-text-muted)] text-sm">
+                                        Aucun patient ne vous est assigné pour ce shift.
+                                    </p>
+                                    <p className="text-xs text-[var(--ht-text-muted)] mt-1">
+                                        Les assignations sont faites par l'administration en début de poste.
+                                    </p>
                                 </div>
                             ) : (
                                 <div>
-                                    {patients.map(p => (
-                                        <div key={p.id}
-                                             onClick={() => navigate(`/patients/${p.id}`)}
-                                             className="ht-table-row group" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
+                                    {assignations.map(a => (
+                                        <div key={a.id}
+                                             onClick={() => navigate(`/patients/${a.patient_id}`)}
+                                             className="ht-table-row group" style={{ gridTemplateColumns: 'auto auto 1fr auto' }}>
+                                            <div className="flex flex-col items-center justify-center w-16 flex-shrink-0 text-center">
+                                                <span className="text-[10px] uppercase tracking-wide text-[var(--ht-text-muted)]">Ch.</span>
+                                                <span className="text-sm font-bold text-[var(--ht-text)]">{a.chambre || '—'}</span>
+                                                {a.lit && <span className="text-[10px] text-[var(--ht-text-muted)]">Lit {a.lit}</span>}
+                                            </div>
                                             <div className="ht-avatar ht-avatar-md">
-                                                {p.prenom[0]}{p.nom[0]}
+                                                {a.patient_prenom?.[0]}{a.patient_nom?.[0]}
                                             </div>
                                             <div className="min-w-0 flex-1">
                                                 <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
-                                                    {p.prenom} {p.nom}
+                                                    {a.patient_prenom} {a.patient_nom}
                                                 </p>
                                                 <p className="text-xs text-[var(--ht-text-muted)]">
-                                                    {(p as any).numero_dossier} · {p.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
+                                                    {a.patient_age ?? '—'} ans {a.service_nom ? `· ${a.service_nom}` : ''}
                                                 </p>
                                             </div>
-                                            {p.groupe_sanguin && (
-                                                <span className="badge badge-tint font-semibold flex items-center gap-1">
-                                                    <Droplet size={11} /> {p.groupe_sanguin}
-                                                </span>
-                                            )}
                                         </div>
                                     ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Recherche secondaire — patient hors assignation */}
+                        <div className="ht-card">
+                            <button
+                                onClick={() => setShowSearch(!showSearch)}
+                                className="w-full flex items-center justify-between px-6 py-4 text-left"
+                            >
+                                <span className="text-sm font-semibold text-[var(--ht-text-secondary)] flex items-center gap-2">
+                                    <Search size={15} /> Rechercher un autre patient
+                                </span>
+                                {showSearch ? <ChevronUp size={16} style={{ color: 'var(--ht-text-muted)' }} /> : <ChevronDown size={16} style={{ color: 'var(--ht-text-muted)' }} />}
+                            </button>
+
+                            {showSearch && (
+                                <div style={{ borderTop: '1px solid var(--ht-border)' }}>
+                                    <div className="px-6 py-4">
+                                        <p className="text-xs text-[var(--ht-text-muted)] mb-3">
+                                            Utile pour un remplacement, une garde sur un autre étage, ou un patient transféré. Tapez un nom, prénom ou numéro de dossier.
+                                        </p>
+                                        <div className="relative">
+                                            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ht-text-muted)' }} />
+                                            <input
+                                                type="text" autoFocus
+                                                value={nurseQuery}
+                                                onChange={e => setNurseQuery(e.target.value)}
+                                                placeholder="Ex : Diallo, Fatou, P123456..."
+                                                className="ht-input w-full pl-9 pr-3 py-2.5 text-sm"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {nurseQuery.trim().length < 2 ? (
+                                        <div className="px-6 py-10 text-center">
+                                            <p className="text-[var(--ht-text-muted)] text-xs">Entrez au moins 2 caractères pour lancer la recherche</p>
+                                        </div>
+                                    ) : loading ? (
+                                        <SkeletonSimpleList rows={3} />
+                                    ) : patients.length === 0 && nurseSearched ? (
+                                        <div className="px-6 py-10 text-center">
+                                            <UserX size={28} className="mx-auto mb-2" style={{ color: 'var(--ht-text-muted)' }} />
+                                            <p className="text-[var(--ht-text-muted)] text-sm">Aucun patient trouvé pour « {nurseQuery} »</p>
+                                        </div>
+                                    ) : (
+                                        <div>
+                                            {patients.map(p => (
+                                                <div key={p.id}
+                                                     onClick={() => navigate(`/patients/${p.id}`)}
+                                                     className="ht-table-row group" style={{ gridTemplateColumns: 'auto 1fr auto' }}>
+                                                    <div className="ht-avatar ht-avatar-md">
+                                                        {p.prenom[0]}{p.nom[0]}
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
+                                                            {p.prenom} {p.nom}
+                                                        </p>
+                                                        <p className="text-xs text-[var(--ht-text-muted)]">
+                                                            {(p as any).numero_dossier} · {p.sexe === 'M' ? '♂ Masculin' : '♀ Féminin'}
+                                                        </p>
+                                                    </div>
+                                                    {p.groupe_sanguin && (
+                                                        <span className="badge badge-tint font-semibold flex items-center gap-1">
+                                                            <Droplet size={11} /> {p.groupe_sanguin}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -432,7 +540,7 @@ export default function Patients() {
                                                     </div>
                                                 </div>
                                                 <div className="col-span-1 text-center">
-                                                    <span className="text-sm font-medium text-[var(--ht-text-secondary)]">{patient.age ?? '—'}</span>
+                                                    <span className="text-sm font-medium text-[var(--ht-text-secondary)]">{patient.date_naissance_estimee ? '≈ ' : ''}{patient.age ?? '—'}</span>
                                                     <span className="text-xs text-[var(--ht-text-muted)]"> ans</span>
                                                 </div>
                                                 <div className="col-span-2 flex justify-center">

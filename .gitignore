@@ -1,1 +1,25 @@
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Django
+db.sqlite3
+db.sqlite3-journal
+media/
+staticfiles/
+
+# Environnements virtuels
+venv/
+env/
+.venv/
+
+# Node (déjà couvert par frontend/.gitignore, mais au cas où)
+node_modules/
+
+# Éditeurs / OS
+.vscode/
+.idea/
+.DS_Store

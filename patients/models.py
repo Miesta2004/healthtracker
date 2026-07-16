@@ -40,8 +40,32 @@ class Patient(Personne):
     groupe_sanguin  = models.CharField(max_length=3, choices=GROUPE_SANGUIN_CHOICES, blank=True)
     allergies       = models.TextField(blank=True)
     antecedents     = models.TextField(blank=True)
-    actif           = models.BooleanField(default=True)
+    actif           = models.BooleanField(
+        default=True,
+        help_text="Reflète une activité récente dans le dossier (consultation, "
+                  "hospitalisation, rendez-vous, signes vitaux). Recalculé "
+                  "périodiquement via 'python manage.py recalculer_patients_actifs' "
+                  "(seuil par défaut : 3 ans) ; peut aussi être ajusté manuellement.",
+    )
     numero_dossier  = models.CharField(max_length=20, unique=True, blank=True)
+    date_naissance_estimee = models.BooleanField(
+        default=False,
+        help_text="La date de naissance n'est pas connue avec certitude : elle a été "
+                  "déduite d'un âge approximatif déclaré (convention : 1er juillet de "
+                  "l'année de naissance estimée). À corriger dès que la vraie date est connue.",
+    )
+
+    class StatutVital(models.TextChoices):
+        VIVANT  = 'vivant',  'Vivant'
+        DECEDE  = 'decede',  'Décédé'
+
+    statut_vital = models.CharField(
+        max_length=10, choices=StatutVital.choices, default=StatutVital.VIVANT,
+        help_text="Distinct de 'actif' : un patient décédé n'est pas 'inactif au sens "
+                  "dossier plus suivi', c'est un fait clinique définitif. Positionné "
+                  "automatiquement à 'décédé' par l'app morgue lors de l'enregistrement "
+                  "d'un décès.",
+    )
     service          = models.ForeignKey(          # ← nouveau
         'services.Service',
         on_delete=models.SET_NULL,
