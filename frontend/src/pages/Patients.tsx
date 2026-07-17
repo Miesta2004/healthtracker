@@ -282,13 +282,13 @@ export default function Patients() {
                                         Tapez un nom, prénom ou numéro de dossier (au moins 2 caractères).
                                     </p>
                                     <div className="relative">
-                                        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--ht-text-muted)' }} />
+                                        <Search size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--ht-text-muted)] pointer-events-none" />
                                         <input
                                             type="text" autoFocus
                                             value={nurseQuery}
                                             onChange={e => setNurseQuery(e.target.value)}
                                             placeholder="Ex : Diallo, Fatou, P123456..."
-                                            className="ht-input w-full pl-9 pr-3 py-2.5 text-sm"
+                                            className="ht-input ht-input-icon-l w-full py-2.5 text-sm"
                                         />
                                     </div>
                                 </div>

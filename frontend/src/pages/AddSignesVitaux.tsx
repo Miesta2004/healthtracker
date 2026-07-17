@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { postSignesVitaux } from '../api/patients'
+import { getPatient } from '../api/patients'
+import type { Patient } from '../types'
 import {
     Heart,
     Activity,
@@ -11,6 +13,7 @@ import {
     Calendar,
     CheckCircle2,
     AlertCircle,
+    AlertTriangle,
     type LucideIcon
 } from 'lucide-react'
 
@@ -147,6 +150,7 @@ export default function SaisieSignesVitaux() {
     const navigate = useNavigate()
     const patientId = Number(id)
 
+    const [patient, setPatient] = useState<Patient | null>(null)
     const [date, setDate] = useState<string>(
         new Date().toISOString().slice(0, 16)
     )
@@ -156,6 +160,10 @@ export default function SaisieSignesVitaux() {
     const [submitting, setSubmitting] = useState(false)
     const [erreur, setErreur] = useState('')
     const [succes, setSucces] = useState(false)
+
+    useEffect(() => {
+        if (patientId) getPatient(patientId).then(setPatient).catch(() => {})
+    }, [patientId])
 
     const handleChange = (key: string, val: string) => {
         setValeurs(prev => ({ ...prev, [key]: val }))
@@ -193,7 +201,7 @@ export default function SaisieSignesVitaux() {
 
     if (succes) {
         return (
-            <div className="ht-page flex items-center justify-center" style={{ backgroundColor: 'var(--ht-bg)' }}>
+            <div className="ht-page-standalone flex items-center justify-center" style={{ backgroundColor: 'var(--ht-bg)' }}>
                 <div className="text-center space-y-3">
                     <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto"
                          style={{ color: 'var(--ht-success)', backgroundColor: 'var(--ht-success-bg)' }}>
@@ -207,80 +215,136 @@ export default function SaisieSignesVitaux() {
     }
 
     return (
-        <div className="ht-page min-h-screen flex flex-col" style={{ backgroundColor: 'var(--ht-bg)' }}>
+        <div className="ht-page-standalone min-h-screen flex flex-col" style={{ backgroundColor: 'var(--ht-bg)' }}>
             {/* Header / Nav */}
-            <nav className="border-b px-6 py-4 flex items-center gap-4 sticky top-0 z-10"
+            <nav className="border-b px-4 sm:px-6 py-4 flex items-center gap-4 sticky top-0 z-10"
                  style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
-                <button
-                    onClick={() => navigate(`/patients/${patientId}`)}
-                    className="text-sm flex items-center gap-1.5 transition-colors"
-                    style={{ color: 'var(--ht-text-secondary)' }}
-                    onMouseEnter={e => e.currentTarget.style.color = 'var(--ht-text)'}
-                    onMouseLeave={e => e.currentTarget.style.color = 'var(--ht-text-secondary)'}
-                >
-                    <ArrowLeft size={16} /> Retour au dossier
-                </button>
-                <span style={{ color: 'var(--ht-border)' }}>|</span>
-                <span className="text-sm font-bold" style={{ color: 'var(--ht-text)' }}>Saisie des constantes</span>
+                <div className="max-w-6xl mx-auto w-full flex items-center gap-4">
+                    <button
+                        onClick={() => navigate(`/patients/${patientId}`)}
+                        className="text-sm flex items-center gap-1.5 transition-colors"
+                        style={{ color: 'var(--ht-text-secondary)' }}
+                        onMouseEnter={e => e.currentTarget.style.color = 'var(--ht-text)'}
+                        onMouseLeave={e => e.currentTarget.style.color = 'var(--ht-text-secondary)'}
+                    >
+                        <ArrowLeft size={16} /> Retour au dossier
+                    </button>
+                    <span style={{ color: 'var(--ht-border)' }}>|</span>
+                    <span className="text-sm font-bold" style={{ color: 'var(--ht-text)' }}>
+                        {patient ? `${patient.prenom} ${patient.nom}` : 'Saisie des constantes'}
+                    </span>
+                </div>
             </nav>
 
-            <div className="max-w-2xl mx-auto px-6 py-8 space-y-6 w-full flex-1">
-                {/* Date de mesure */}
-                <div className="ht-card p-5 border" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
-                    <label className="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: 'var(--ht-text-muted)' }}>
-                        <Calendar size={14} /> Date et heure du relevé
-                    </label>
-                    <input
-                        type="datetime-local"
-                        value={date}
-                        onChange={e => setDate(e.target.value)}
-                        className="ht-input w-full px-3 py-2.5 text-sm"
-                    />
-                    <p className="text-xs mt-2" style={{ color: 'var(--ht-text-muted)' }}>
-                        Par défaut positionné à l'heure actuelle. Ajustez si le relevé est rétroactif.
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 w-full flex-1">
+                <div className="mb-6">
+                    <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>Saisie des constantes</h1>
+                    <p className="text-sm mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
+                        Enregistrer un relevé de signes vitaux pour ce patient
                     </p>
                 </div>
 
-                {/* Grille des constantes */}
-                <div>
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
-                        Constantes cliniques (remplissez uniquement les données disponibles)
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {CHAMPS.map(c => (
-                            <ChampSaisie
-                                key={c.key}
-                                champ={c}
-                                value={valeurs[c.key]}
-                                onChange={handleChange}
-                            />
-                        ))}
-                    </div>
-                </div>
-
-                {/* Gestion d'erreurs d'API */}
                 {erreur && (
-                    <div className="ht-alert ht-alert-danger flex items-center gap-2">
+                    <div className="ht-alert ht-alert-danger flex items-center gap-2 mb-6">
                         <AlertCircle size={16} className="flex-shrink-0" />
                         <p className="text-sm font-medium">{erreur}</p>
                     </div>
                 )}
 
-                {/* Actions du formulaire */}
-                <div className="flex gap-3 pb-8">
-                    <button
-                        onClick={() => navigate(`/patients/${patientId}`)}
-                        className="btn btn-ghost flex-1"
-                    >
-                        Annuler
-                    </button>
-                    <button
-                        onClick={handleSubmit}
-                        disabled={!formulaireValide || !toutesValeursValides || submitting}
-                        className="btn btn-primary flex-1 font-semibold"
-                    >
-                        {submitting ? 'Enregistrement en cours…' : 'Valider le relevé'}
-                    </button>
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+
+                    {/* ── Colonne principale (2/3) : constantes cliniques ── */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
+                                Constantes cliniques (remplissez uniquement les données disponibles)
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {CHAMPS.map(c => (
+                                    <ChampSaisie
+                                        key={c.key}
+                                        champ={c}
+                                        value={valeurs[c.key]}
+                                        onChange={handleChange}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Actions (mobile / repli sous le formulaire) */}
+                        <div className="flex gap-3 pb-8 lg:hidden">
+                            <button
+                                onClick={() => navigate(`/patients/${patientId}`)}
+                                className="btn btn-ghost flex-1"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!formulaireValide || !toutesValeursValides || submitting}
+                                className="btn btn-primary flex-1 font-semibold"
+                            >
+                                {submitting ? 'Enregistrement en cours…' : 'Valider le relevé'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* ── Colonne latérale (1/3) : date du relevé & rappel patient ── */}
+                    <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
+                        {/* Date de mesure */}
+                        <div className="ht-card p-5 border" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                            <label className="text-[10px] font-bold uppercase tracking-wider mb-3 flex items-center gap-1.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                <Calendar size={14} /> Date et heure du relevé
+                            </label>
+                            <input
+                                type="datetime-local"
+                                value={date}
+                                onChange={e => setDate(e.target.value)}
+                                className="ht-input w-full px-3 py-2.5 text-sm"
+                            />
+                            <p className="text-xs mt-2" style={{ color: 'var(--ht-text-muted)' }}>
+                                Par défaut positionné à l'heure actuelle. Ajustez si le relevé est rétroactif.
+                            </p>
+                        </div>
+
+                        {/* Rappel patient */}
+                        <div className="ht-card ht-card-padded-sm">
+                            <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
+                                Patient
+                            </h2>
+                            {patient ? (
+                                <div className="space-y-1.5">
+                                    <p className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
+                                        {patient.prenom} {patient.nom}
+                                    </p>
+                                    {patient.allergies && (
+                                        <p className="text-xs font-semibold flex items-center gap-1.5" style={{ color: 'var(--ht-danger)' }}>
+                                            <AlertTriangle size={14} /> Allergies : {patient.allergies}
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Chargement…</p>
+                            )}
+                        </div>
+
+                        {/* Actions de validation (desktop, sticky) */}
+                        <div className="ht-card ht-card-padded-sm hidden lg:flex flex-col gap-2">
+                            <button
+                                onClick={handleSubmit}
+                                disabled={!formulaireValide || !toutesValeursValides || submitting}
+                                className="btn btn-primary w-full justify-center font-semibold"
+                            >
+                                {submitting ? 'Enregistrement en cours…' : 'Valider le relevé'}
+                            </button>
+                            <button
+                                onClick={() => navigate(`/patients/${patientId}`)}
+                                className="btn btn-ghost w-full justify-center"
+                            >
+                                Annuler
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

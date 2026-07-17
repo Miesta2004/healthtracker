@@ -69,7 +69,7 @@ INSTALLED_APPS = [
 #Configuration DRF + JWT
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'comptes.authentication.CookieJWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
@@ -86,6 +86,23 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': False,
 }
+# ── Authentification par cookies httpOnly (voir comptes/authentication.py) ──
+AUTH_COOKIE_ACCESS = 'ht_access'
+AUTH_COOKIE_REFRESH = 'ht_refresh'
+AUTH_COOKIE_SECURE = os.getenv('AUTH_COOKIE_SECURE', 'False' if DEBUG else 'True') == 'True'
+# 'Lax' suffit en dev grâce au proxy Vite (frontend et API vus comme la même
+# origine par le navigateur — voir frontend/vite.config.ts). En prod, SI le
+# frontend est servi sur un domaine différent de l'API (pas de reverse-proxy
+# commun), il FAUT passer à 'None' — ce qui exige AUTH_COOKIE_SECURE=True et
+# donc du HTTPS partout.
+AUTH_COOKIE_SAMESITE = os.getenv('AUTH_COOKIE_SAMESITE', 'Lax')
+
+# Le cookie CSRF doit rester lisible en JS (contrairement aux cookies d'auth)
+# pour que le frontend puisse l'envoyer dans le header X-CSRFToken.
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = AUTH_COOKIE_SAMESITE
+CSRF_COOKIE_SECURE = AUTH_COOKIE_SECURE
+
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',

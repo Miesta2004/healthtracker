@@ -1,32 +1,23 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { CurrentUser, RoleEmploye } from '../types'
-import { getCurrentRole, isAuthenticated as checkAuth } from '../utils/auth'
 import { getMe } from '../api/comptes'
-import { logout as logoutApi } from '../api/auth'
+import { login as loginApi, logout as logoutApi } from '../api/auth'
+import type { LoginCredentials } from '../types'
 
 interface AuthContextValue {
     user: CurrentUser | null
     loading: boolean
-    /**
-     * Vérifie si l'utilisateur connecté a l'un des rôles passés.
-     * Exemple : hasRole('admin', 'medecin')
-     */
     hasRole: (...roles: RoleEmploye[]) => boolean
-    logout: () => void
-    /**
-     * À appeler juste après un login réussi (tokens déjà stockés dans le
-     * localStorage) pour recharger le profil sans avoir besoin de recharger
-     * la page entière.
-     */
-    refreshUser: () => Promise<void>
+    login: (credentials: LoginCredentials) => Promise<void>
+    logout: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextValue>({
     user: null,
     loading: true,
     hasRole: () => false,
-    logout: () => {},
-    refreshUser: async () => {},
+    login: async () => {},
+    logout: async () => {},
 })
 
 export function AuthProvider({ children }: { children: ReactNode }) {
@@ -34,18 +25,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [loading, setLoading] = useState(true)
 
     const loadUser = async () => {
-        if (!checkAuth()) {
-            setUser(null)
-            setLoading(false)
-            return
-        }
+        // Avec des cookies httpOnly, le JS ne peut plus savoir s'il existe un
+        // token sans demander au serveur — on tente systématiquement getMe()
+        // au démarrage plutôt que de vérifier un flag local d'abord (comme
+        // avant avec localStorage). Coût : un aller-retour réseau de plus au
+        // chargement, y compris pour un visiteur jamais connecté — c'est le
+        // compromis standard des cookies httpOnly.
         try {
             const me = await getMe()
             setUser(me)
         } catch {
-            // Token invalide/expiré et refresh impossible (déjà géré par
-            // l'intercepteur de client.ts, qui nettoie le localStorage) :
-            // on aligne juste l'état local ici.
             setUser(null)
         } finally {
             setLoading(false)
@@ -57,27 +46,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const hasRole = (...roles: RoleEmploye[]): boolean => {
-        if (!user) {
-            // Fallback rapide : on décode le JWT sans appel réseau
-            const role = getCurrentRole()
-            return role ? roles.includes(role) : false
-        }
-        return roles.includes(user.role)
+        return user ? roles.includes(user.role) : false
     }
 
-    const logout = () => {
-        logoutApi()
+    const login = async (credentials: LoginCredentials) => {
+        await loginApi(credentials)
+        await loadUser()
+    }
+
+    const logout = async () => {
+        await logoutApi()
         setUser(null)
         window.location.href = '/login'
     }
 
-    const refreshUser = async () => {
-        setLoading(true)
-        await loadUser()
-    }
-
     return (
-        <AuthContext.Provider value={{ user, loading, hasRole, logout, refreshUser }}>
+        <AuthContext.Provider value={{ user, loading, hasRole, login, logout }}>
             {children}
         </AuthContext.Provider>
     )

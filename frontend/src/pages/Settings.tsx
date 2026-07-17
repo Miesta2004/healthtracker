@@ -11,6 +11,8 @@ import type { CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, TypeExc
 import { getMe } from '../api/comptes'
 import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock, XCircle } from 'lucide-react'
 import PageBanner from '../components/PageBanner.tsx'
+import type { LucideIcon } from 'lucide-react'
+
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 const JOURS = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche']
@@ -46,7 +48,7 @@ const STATUT_EXCEPTION_CONFIG: Record<'en_attente' | 'valide' | 'rejete', { labe
 // ─── Onglets ──────────────────────────────────────────────────────────────────
 type Onglet = 'profil' | 'securite' | 'signature' | 'disponibilites' | 'contrat' | 'notifications'
 
-const ONGLETS: { id: Onglet; label: string; icon: any }[] = [
+const ONGLETS: { id: Onglet; label: string; icon: LucideIcon }[] = [
     { id: 'profil',          label: 'Profil',          icon: User },
     { id: 'securite',        label: 'Sécurité',        icon: Lock },
     { id: 'signature',       label: 'Signature',       icon: Signature },
@@ -409,13 +411,15 @@ function OngletDisponibilites() {
     )
 
     if (loading) return (
-        <div className="grid grid-cols-7 gap-2">
-            {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="space-y-2">
-                    <SkeletonText width="60%" height={10} />
-                    <SkeletonBlock className="h-16 w-full" />
-                </div>
-            ))}
+        <div className="overflow-x-auto -mx-1 px-1">
+            <div className="grid grid-cols-7 gap-2 min-w-[560px] sm:min-w-0">
+                {Array.from({ length: 7 }).map((_, i) => (
+                    <div key={i} className="space-y-2">
+                        <SkeletonText width="60%" height={10} />
+                        <SkeletonBlock className="h-16 w-full" />
+                    </div>
+                ))}
+            </div>
         </div>
     )
 
@@ -468,41 +472,44 @@ function OngletDisponibilites() {
                     </div>
                 )}
 
-                {/* Grille 7 jours */}
-                <div className="grid grid-cols-7 gap-2">
-                    {JOURS.map((jour, idx) => (
-                        <div key={jour}>
-                            <p className="text-xs font-medium text-[var(--ht-text-muted)] text-center mb-2">
-                                {jour.slice(0, 3)}
-                            </p>
-                            <div className="min-h-16 space-y-1.5">
-                                {creneauxParJour[idx].length === 0 ? (
-                                    <div className="h-10 rounded-lg border border-dashed" style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border-input)' }} />
-                                ) : (
-                                    creneauxParJour[idx].map(c => {
-                                        const cfg = TYPE_CRENEAU_COLORS[c.type]
-                                        return (
-                                            <div key={c.id}
-                                                 className="rounded-lg px-1.5 py-1 text-center relative group"
-                                                 style={{ backgroundColor: cfg.bg }}>
-                                                <p className="text-xs font-semibold" style={{ color: cfg.color }}>
-                                                    {c.heure_debut.slice(0, 5)}
-                                                </p>
-                                                <p className="text-xs" style={{ color: cfg.color }}>
-                                                    {c.heure_fin.slice(0, 5)}
-                                                </p>
-                                                <button
-                                                    onClick={() => handleDeleteCreneau(c.id)}
-                                                    className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-xs items-center justify-center hidden group-hover:flex"
-                                                    style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}
-                                                ><X size={10} /></button>
-                                            </div>
-                                        )
-                                    })
-                                )}
+                {/* Grille 7 jours — scrollable horizontalement sur mobile plutôt que
+                    d'écraser 7 colonnes dans une largeur trop étroite */}
+                <div className="overflow-x-auto -mx-1 px-1">
+                    <div className="grid grid-cols-7 gap-2 min-w-[560px] sm:min-w-0">
+                        {JOURS.map((jour, idx) => (
+                            <div key={jour}>
+                                <p className="text-xs font-medium text-[var(--ht-text-muted)] text-center mb-2">
+                                    {jour.slice(0, 3)}
+                                </p>
+                                <div className="min-h-16 space-y-1.5">
+                                    {creneauxParJour[idx].length === 0 ? (
+                                        <div className="h-10 rounded-lg border border-dashed" style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border-input)' }} />
+                                    ) : (
+                                        creneauxParJour[idx].map(c => {
+                                            const cfg = TYPE_CRENEAU_COLORS[c.type]
+                                            return (
+                                                <div key={c.id}
+                                                     className="rounded-lg px-1.5 py-1 text-center relative group"
+                                                     style={{ backgroundColor: cfg.bg }}>
+                                                    <p className="text-xs font-semibold" style={{ color: cfg.color }}>
+                                                        {c.heure_debut.slice(0, 5)}
+                                                    </p>
+                                                    <p className="text-xs" style={{ color: cfg.color }}>
+                                                        {c.heure_fin.slice(0, 5)}
+                                                    </p>
+                                                    <button
+                                                        onClick={() => handleDeleteCreneau(c.id)}
+                                                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full text-xs items-center justify-center hidden group-hover:flex"
+                                                        style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}
+                                                    ><X size={10} /></button>
+                                                </div>
+                                            )
+                                        })
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    ))}
+                        ))}
+                    </div>
                 </div>
 
                 {/* Légende */}
@@ -767,15 +774,15 @@ export default function Settings() {
                     />
                 </div>
 
-                <div className="flex gap-6">
-                    {/* Onglets latéraux */}
-                    <aside className="w-48 flex-shrink-0">
-                        <nav className="space-y-1">
+                <div className="flex flex-col lg:flex-row gap-6">
+                    {/* Onglets : ligne horizontale scrollable sur mobile, colonne fixe à partir de lg */}
+                    <aside className="w-full lg:w-48 flex-shrink-0">
+                        <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:overflow-visible lg:pb-0">
                             {ONGLETS.map(o => (
                                 <button
                                     key={o.id}
                                     onClick={() => setOnglet(o.id)}
-                                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left"
+                                    className="flex-shrink-0 lg:w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm transition-colors text-left whitespace-nowrap"
                                     style={onglet === o.id
                                         ? { backgroundColor: 'var(--ht-primary)', color: 'white', fontWeight: 600 }
                                         : { color: 'var(--ht-text-secondary)' }

@@ -311,30 +311,35 @@ function DemandeRow({ demande, isLab, canManage, onPrendreEnCharge, onAnnuler, o
         : demande.patient_nom
 
     return (
-        <div className="px-5 py-4 flex items-center gap-4 border-b last:border-0 transition-colors"
+        <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 border-b last:border-0 transition-colors"
              style={{ borderColor: 'var(--ht-border)' }}
              onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--ht-muted-bg)'}
              onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}>
 
-            {demande.urgence === 'urgente' && demande.statut !== 'terminee' && demande.statut !== 'annulee' ? (
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse" style={{ backgroundColor: 'var(--ht-danger)' }} title="Urgente" />
-            ) : (
-                <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-transparent" />
-            )}
+            <div className="flex items-start gap-3 min-w-0 flex-1">
+                {demande.urgence === 'urgente' && demande.statut !== 'terminee' && demande.statut !== 'annulee' ? (
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 animate-pulse mt-1.5" style={{ backgroundColor: 'var(--ht-danger)' }} title="Urgente" />
+                ) : (
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0 bg-transparent mt-1.5" />
+                )}
 
-            <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold truncate" style={{ color: 'var(--ht-text)' }}>{demande.type_label}</p>
-                <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--ht-text-muted)' }}>
-                    <span className="font-medium" style={{ color: 'var(--ht-text-secondary)' }}>{nomPatient}</span>
-                    {demande.patient_dossier && <span>· ID: {demande.patient_dossier}</span>}
-                    {demande.demandeur_nom && !isLab && <span>· Dr. {demande.demandeur_nom}</span>}
-                    <span className="flex items-center gap-0.5"><Clock size={11} /> {tempsEcoule(demande.date_demande)}</span>
-                </p>
+                <div className="min-w-0 flex-1">
+                    <p className="text-sm font-bold truncate" style={{ color: 'var(--ht-text)' }}>{demande.type_label}</p>
+                    <p className="text-xs mt-1 flex items-center gap-1.5 flex-wrap" style={{ color: 'var(--ht-text-muted)' }}>
+                        <span className="font-medium" style={{ color: 'var(--ht-text-secondary)' }}>{nomPatient}</span>
+                        {demande.patient_dossier && <span>· ID: {demande.patient_dossier}</span>}
+                        {demande.demandeur_nom && !isLab && <span>· Dr. {demande.demandeur_nom}</span>}
+                        <span className="flex items-center gap-0.5"><Clock size={11} /> {tempsEcoule(demande.date_demande)}</span>
+                    </p>
+                </div>
             </div>
 
-            <div className="flex items-center gap-3">
+            {/* Sur mobile : passe sous le contenu et s'étale sur toute la largeur.
+                Sur sm+ : reste aligné à droite comme avant. Les boutons wrappent
+                désormais au lieu de forcer un débordement horizontal. */}
+            <div className="flex items-center gap-3 flex-wrap pl-5 sm:pl-0">
                 <StatutBadge statut={demande.statut} />
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                     {isLab && demande.statut === 'en_attente' && (
                         <button onClick={() => onPrendreEnCharge(demande)}
                                 className="btn btn-primary btn-sm font-semibold">

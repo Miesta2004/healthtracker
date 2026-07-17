@@ -15,12 +15,11 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 from django.contrib import admin
-from django.urls import path,include
+from django.urls import path, include
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from rest_framework.permissions import AllowAny
-from comptes.views import CustomTokenView
-from rest_framework_simplejwt.views import TokenRefreshView
+from comptes.views import CookieTokenObtainView, CookieTokenRefreshView, LogoutView
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -36,12 +35,9 @@ schema_view = get_schema_view(
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('healthtracker.api_urls')),
-    #JWT Auth
-    #👉 L'interface admin Django. Va sur /admin/ dans le navigateur et tu as un back-office complet automatiquement.
-    # Comme phpMyAdmin mais en mieux.
-    path('api/auth/login/', CustomTokenView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(),name='token_refresh'),
-    #Swagger
+    # Auth par cookies httpOnly (voir comptes/views.py + comptes/authentication.py)
+    path('api/auth/login/', CookieTokenObtainView.as_view(), name='token_obtain_pair'),
+    path('api/auth/refresh/', CookieTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/auth/logout/', LogoutView.as_view(), name='logout'),
     path('api/docs/', schema_view.with_ui('swagger', cache_timeout=0), name='swagger-ui'),
-
 ]

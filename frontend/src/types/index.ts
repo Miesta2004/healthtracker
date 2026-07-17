@@ -79,11 +79,6 @@ export interface DatesDisponiblesResponse {
     dates: DateDisponible[]
 }
 
-export interface AuthTokens {
-    access: string
-    refresh: string
-}
-
 export interface LoginCredentials {
     username: string
     password: string

@@ -255,6 +255,13 @@ body {
 .ht-page.compact { padding-left: var(--sidebar-width-compact); }
 .ht-page-content { max-width: 72rem; margin: 0 auto; padding: 2rem 1.5rem; }
 
+/* Pages sans sidebar (formulaires plein écran, éditions, etc.) : pas de
+   padding-left réservé pour la sidebar, le contenu est centré via son
+   propre conteneur max-w-*. */
+.ht-page-standalone {
+    min-height: 100vh; background-color: var(--ht-bg);
+}
+
 .ht-avatar { border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--ht-primary-contrast); flex-shrink: 0; background-color: var(--ht-primary); }
 .ht-avatar-sm { width: 2rem; height: 2rem; font-size: 0.75rem; }
 .ht-avatar-md { width: 2.25rem; height: 2.25rem; font-size: 0.875rem; }

@@ -1,13 +1,16 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from rest_framework.authentication import SessionAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.conf import settings
+from django.middleware.csrf import get_token
 from .models import Employe
 from .serializers import EmployeSerializer, CreateEmployeSerializer
 from .permissions import IsAdminRole, get_employe
-from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
 from django.contrib.auth.hashers import check_password
 
@@ -16,13 +19,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
-        """
-        Scope par service, à l'image de PatientViewSet : un superuser voit
-        tout, un chef de service (admin) et les autres rôles ne voient que
-        les employés de LEUR service. Sans ce filtrage, n'importe quel
-        compte authentifié pouvait lister tous les employés de tous les
-        services (faille corrigée ici).
-        """
         qs = Employe.objects.select_related('user', 'service').all()
 
         user = self.request.user
@@ -50,15 +46,11 @@ class EmployeViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
 
         if not request.user.is_superuser:
-            # Un chef de service (rôle admin, non-superuser) ne peut créer
-            # des employés que dans SON propre service, quoi que le
-            # frontend ait envoyé.
             requester = get_employe(request.user)
             serializer.validated_data['service'] = requester.service if requester else None
 
         employe = serializer.save()
 
-        # Upload photo si fournie
         if 'photo' in request.FILES:
             try:
                 url = upload_photo(
@@ -69,9 +61,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
                 employe.photo_path = url
                 employe.save()
             except FichierInvalide as exc:
-                # L'employé est déjà créé : on renvoie un 201 mais on signale
-                # explicitement que la photo n'a pas pu être attachée, plutôt
-                # que de faire échouer toute la création.
                 return Response(
                     {
                         **EmployeSerializer(employe).data,
@@ -84,18 +73,10 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         if not self.request.user.is_superuser:
-            # Un chef de service ne peut pas déplacer un employé vers un
-            # autre service — has_object_permission garantit déjà qu'il ne
-            # peut modifier que les employés de SON service.
             serializer.validated_data.pop('service', None)
         serializer.save()
 
     def destroy(self, request, pk=None):
-        """
-        Désactivation (soft delete) au lieu d'une suppression définitive du
-        compte : on préserve la traçabilité (qui a prescrit/hospitalisé
-        quoi) tout en coupant l'accès de l'employé à l'application.
-        """
         employe = self.get_object()
         employe.actif = False
         employe.user.is_active = False
@@ -105,7 +86,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):
-        """Profil de l'utilisateur connecté"""
         try:
             employe = request.user.employe
             return Response(EmployeSerializer(employe).data)
@@ -118,7 +98,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
     def upload_photo(self, request, pk=None):
-        """Upload photo de profil d'un employé"""
         employe = self.get_object()
         if 'photo' not in request.FILES:
             return Response({'error': 'Aucune photo fournie'}, status=400)
@@ -136,7 +115,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['patch'], permission_classes=[IsAuthenticated])
     def update_profil(self, request):
-        """L'employé met à jour ses propres infos (téléphone, adresse, signature)."""
         emp = get_employe(request.user)
         if emp is None:
             return Response({'error': 'Employé introuvable'}, status=404)
@@ -150,7 +128,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def change_password(self, request):
-        """Changement de mot de passe self-service."""
         user = request.user
         ancien = request.data.get('ancien_mot_de_passe', '')
         nouveau = request.data.get('nouveau_mot_de_passe', '')
@@ -176,7 +153,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
         parser_classes=[MultiPartParser, FormParser]
     )
     def upload_ma_photo(self, request):
-        """L'employé connecté upload sa propre photo."""
         emp = get_employe(request.user)
         if emp is None:
             return Response({'error': 'Employé introuvable'}, status=404)
@@ -192,8 +168,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
         except FichierInvalide as exc:
             return Response({'error': str(exc)}, status=400)
 
-        # Supprime l'ancienne UNE FOIS le nouvel upload confirmé réussi,
-        # pour ne jamais se retrouver sans aucune photo si l'upload échoue.
         ancienne_photo = emp.photo_path
         emp.photo_path = url
         emp.save()
@@ -204,7 +178,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def ma_photo_url(self, request):
-        """Retourne une URL signée temporaire pour la photo de l'employé connecté."""
         emp = get_employe(request.user)
         if emp is None or not emp.photo_path:
             return Response({'url': None})
@@ -238,5 +211,104 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
         return token
 
 
-class CustomTokenView(TokenObtainPairView):
-    serializer_class = CustomTokenSerializer
+def _set_auth_cookies(response, access_token, refresh_token=None):
+    """Pose les cookies httpOnly access/refresh sur la réponse HTTP."""
+    access_lifetime = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
+    response.set_cookie(
+        settings.AUTH_COOKIE_ACCESS, str(access_token),
+        max_age=int(access_lifetime.total_seconds()),
+        httponly=True, secure=settings.AUTH_COOKIE_SECURE,
+        samesite=settings.AUTH_COOKIE_SAMESITE, path='/',
+    )
+    if refresh_token is not None:
+        refresh_lifetime = settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME']
+        # Path restreint : ce cookie n'a besoin d'être envoyé qu'aux endpoints
+        # d'auth (refresh/logout), pas à toute l'API — réduit la surface
+        # d'exposition en cas de faille XSS ailleurs sur le site.
+        response.set_cookie(
+            settings.AUTH_COOKIE_REFRESH, str(refresh_token),
+            max_age=int(refresh_lifetime.total_seconds()),
+            httponly=True, secure=settings.AUTH_COOKIE_SECURE,
+            samesite=settings.AUTH_COOKIE_SAMESITE, path='/api/auth/',
+        )
+
+
+def _clear_auth_cookies(response):
+    response.delete_cookie(settings.AUTH_COOKIE_ACCESS, path='/')
+    response.delete_cookie(settings.AUTH_COOKIE_REFRESH, path='/api/auth/')
+
+
+class CookieTokenObtainView(APIView):
+    """
+    POST /api/auth/login/ — valide les identifiants et pose les cookies
+    httpOnly access/refresh. Ne renvoie JAMAIS les tokens dans le corps de la
+    réponse (c'est tout l'intérêt : le JS ne doit jamais pouvoir les lire).
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = CustomTokenSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        tokens = serializer.validated_data
+
+        response = Response({'detail': 'Connexion réussie.'}, status=status.HTTP_200_OK)
+        _set_auth_cookies(response, tokens['access'], tokens['refresh'])
+        # Force la pose du cookie csrftoken (lisible en JS, pas httpOnly) dès
+        # la connexion, pour que le frontend puisse l'envoyer en header sur
+        # les requêtes suivantes qui modifient des données.
+        get_token(request)
+        return response
+
+
+class CookieTokenRefreshView(APIView):
+    """
+    POST /api/auth/refresh/ — lit le refresh token dans son cookie httpOnly
+    (jamais dans le corps de la requête) et pose un nouveau cookie access
+    (+ un nouveau cookie refresh, ROTATE_REFRESH_TOKENS étant actif).
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Le cookie refresh est envoyé automatiquement par le navigateur ⇒
+        # vérification CSRF nécessaire ici aussi (sinon un site tiers pourrait
+        # forcer un refresh silencieux, sans intérêt direct pour lui, mais on
+        # reste cohérent : toute requête POST authentifiée par cookie doit
+        # être protégée).
+        SessionAuthentication().enforce_csrf(request)
+
+        raw_refresh = request.COOKIES.get(settings.AUTH_COOKIE_REFRESH)
+        if not raw_refresh:
+            return Response({'detail': 'Session expirée, reconnexion nécessaire.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = TokenRefreshSerializer(data={'refresh': raw_refresh})
+        try:
+            serializer.is_valid(raise_exception=True)
+        except Exception:
+            response = Response({'detail': 'Session expirée, reconnexion nécessaire.'}, status=status.HTTP_401_UNAUTHORIZED)
+            _clear_auth_cookies(response)
+            return response
+
+        data = serializer.validated_data
+        response = Response({'detail': 'Token rafraîchi.'}, status=status.HTTP_200_OK)
+        _set_auth_cookies(response, data['access'], data.get('refresh'))
+        get_token(request)
+        return response
+
+
+class LogoutView(APIView):
+    """
+    POST /api/auth/logout/ — supprime les cookies. Volontairement accessible
+    sans authentification stricte : son seul effet est de nettoyer des
+    cookies, jamais une opération sensible, et elle doit réussir même si
+    l'access token est déjà expiré au moment où l'utilisateur clique sur
+    "déconnexion".
+    """
+    authentication_classes = []
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        response = Response({'detail': 'Déconnecté.'}, status=status.HTTP_200_OK)
+        _clear_auth_cookies(response)
+        return response
