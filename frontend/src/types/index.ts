@@ -21,7 +21,6 @@ export interface Patient {
     medecin_referent?: number | null
     medecin_nom?: string | null
 }
-
 // ─── Rendez-vous ────────────────────────────────────────────────────────────
 export type StatutRendezVous = 'planifie' | 'confirme' | 'annule' | 'termine'
 

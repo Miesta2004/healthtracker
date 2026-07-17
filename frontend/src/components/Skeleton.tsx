@@ -102,6 +102,25 @@ export function SkeletonSimpleList({ rows = 4 }: { rows?: number }) {
     )
 }
 
+// ─── Lignes de chargement génériques pour un panneau de section ────────────
+// (antécédents, analyses, urgences, hospitalisations... — utilisé pendant
+// que CETTE section précise charge, indépendamment des autres.)
+export function SkeletonListRows({ rows = 3 }: { rows?: number }) {
+    return (
+        <div className="space-y-2.5">
+            {Array.from({ length: rows }).map((_, i) => (
+                <div key={i} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)' }}>
+                    <div className="flex-1 space-y-1.5">
+                        <SkeletonText width="55%" height={12} />
+                        <SkeletonText width="35%" height={10} />
+                    </div>
+                    <SkeletonText width={60} height={18} />
+                </div>
+            ))}
+        </div>
+    )
+}
+
 // ─── Page de détail (fiche patient, consultation...) ────────────────────────
 export function SkeletonDetailPage() {
     return (

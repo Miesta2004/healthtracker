@@ -1,4 +1,4 @@
-from rest_framework import viewsets,status
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -8,13 +8,32 @@ from .serializers import EmployeSerializer, CreateEmployeSerializer
 from .permissions import IsAdminRole, get_employe
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .storage import upload_photo, get_signed_url, delete_photo
+from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
 from django.contrib.auth.hashers import check_password
 
 
 class EmployeViewSet(viewsets.ModelViewSet):
-    queryset = Employe.objects.select_related('user', 'service').all()
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_queryset(self):
+        """
+        Scope par service, à l'image de PatientViewSet : un superuser voit
+        tout, un chef de service (admin) et les autres rôles ne voient que
+        les employés de LEUR service. Sans ce filtrage, n'importe quel
+        compte authentifié pouvait lister tous les employés de tous les
+        services (faille corrigée ici).
+        """
+        qs = Employe.objects.select_related('user', 'service').all()
+
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+
+        emp = get_employe(user)
+        if emp is None:
+            return Employe.objects.none()
+
+        return qs.filter(service=emp.service) if emp.service else Employe.objects.none()
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -22,9 +41,9 @@ class EmployeViewSet(viewsets.ModelViewSet):
         return EmployeSerializer
 
     def get_permissions(self):
-        if self.action in ['create' , 'destroy' , 'update' , 'partial_update']:
+        if self.action in ['create', 'destroy', 'update', 'partial_update']:
             return [IsAdminRole()]
-        return[IsAuthenticated()]
+        return [IsAuthenticated()]
 
     def create(self, request):
         serializer = CreateEmployeSerializer(data=request.data)
@@ -39,15 +58,28 @@ class EmployeViewSet(viewsets.ModelViewSet):
 
         employe = serializer.save()
 
-        #Upload photo si fournis
+        # Upload photo si fournie
         if 'photo' in request.FILES:
-            url = upload_photo(
-                request.FILES['photo'],
-                f"{employe.id}.jpg",
-                folder='employes'
-            )
-            employe.photo_path = url
-            employe.save()
+            try:
+                url = upload_photo(
+                    request.FILES['photo'],
+                    f"{employe.id}.jpg",
+                    folder='employes'
+                )
+                employe.photo_path = url
+                employe.save()
+            except FichierInvalide as exc:
+                # L'employé est déjà créé : on renvoie un 201 mais on signale
+                # explicitement que la photo n'a pas pu être attachée, plutôt
+                # que de faire échouer toute la création.
+                return Response(
+                    {
+                        **EmployeSerializer(employe).data,
+                        'photo_error': str(exc),
+                    },
+                    status=status.HTTP_201_CREATED,
+                )
+
         return Response(EmployeSerializer(employe).data, status=status.HTTP_201_CREATED)
 
     def perform_update(self, serializer):
@@ -59,8 +91,16 @@ class EmployeViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def destroy(self, request, pk=None):
+        """
+        Désactivation (soft delete) au lieu d'une suppression définitive du
+        compte : on préserve la traçabilité (qui a prescrit/hospitalisé
+        quoi) tout en coupant l'accès de l'employé à l'application.
+        """
         employe = self.get_object()
-        employe.user.delete()
+        employe.actif = False
+        employe.user.is_active = False
+        employe.user.save(update_fields=['is_active'])
+        employe.save(update_fields=['actif'])
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
@@ -72,24 +112,27 @@ class EmployeViewSet(viewsets.ModelViewSet):
         except Employe.DoesNotExist:
             return Response({
                 'username': request.user.username,
-                'role':'admin',
-                'role_label':'Administrateur',
+                'role': 'admin',
+                'role_label': 'Administrateur',
             })
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminRole])
-    def upload_photo(self,request,pk=None):
+    def upload_photo(self, request, pk=None):
         """Upload photo de profil d'un employé"""
         employe = self.get_object()
         if 'photo' not in request.FILES:
-            return Response({'error':'Aucune photo fournie'}, status=400)
-        url = upload_photo(
-            request.FILES['photo'],
-            f"{employe.id}.jpg",
-            folder = 'employes'
-        )
+            return Response({'error': 'Aucune photo fournie'}, status=400)
+        try:
+            url = upload_photo(
+                request.FILES['photo'],
+                f"{employe.id}.jpg",
+                folder='employes'
+            )
+        except FichierInvalide as exc:
+            return Response({'error': str(exc)}, status=400)
         employe.photo_path = url
         employe.save()
-        return Response({'photo_path':url})
+        return Response({'photo_path': url})
 
     @action(detail=False, methods=['patch'], permission_classes=[IsAuthenticated])
     def update_profil(self, request):
@@ -104,7 +147,6 @@ class EmployeViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
-
 
     @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
     def change_password(self, request):
@@ -128,8 +170,11 @@ class EmployeViewSet(viewsets.ModelViewSet):
         user.save()
         return Response({'message': 'Mot de passe mis à jour avec succès'})
 
-
-    @action(detail=False, methods=['post'],permission_classes=[IsAuthenticated],parser_classes=[MultiPartParser, FormParser])
+    @action(
+        detail=False, methods=['post'],
+        permission_classes=[IsAuthenticated],
+        parser_classes=[MultiPartParser, FormParser]
+    )
     def upload_ma_photo(self, request):
         """L'employé connecté upload sa propre photo."""
         emp = get_employe(request.user)
@@ -138,19 +183,24 @@ class EmployeViewSet(viewsets.ModelViewSet):
         if 'photo' not in request.FILES:
             return Response({'error': 'Aucune photo fournie'}, status=400)
 
-        # Supprime l'ancienne si elle existe
-        if emp.photo_path:
-            delete_photo(emp.photo_path)
+        try:
+            url = upload_photo(
+                request.FILES['photo'],
+                f"{emp.id}.jpg",
+                folder='employes'
+            )
+        except FichierInvalide as exc:
+            return Response({'error': str(exc)}, status=400)
 
-        url = upload_photo(
-            request.FILES['photo'],
-            f"{emp.id}.jpg",
-            folder='employes'
-        )
+        # Supprime l'ancienne UNE FOIS le nouvel upload confirmé réussi,
+        # pour ne jamais se retrouver sans aucune photo si l'upload échoue.
+        ancienne_photo = emp.photo_path
         emp.photo_path = url
         emp.save()
-        return Response({'photo_path': url})
+        if ancienne_photo:
+            delete_photo(ancienne_photo)
 
+        return Response({'photo_path': url})
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def ma_photo_url(self, request):
@@ -160,6 +210,7 @@ class EmployeViewSet(viewsets.ModelViewSet):
             return Response({'url': None})
         url = get_signed_url(emp.photo_path)
         return Response({'url': url})
+
 
 class CustomTokenSerializer(TokenObtainPairSerializer):
     @classmethod
@@ -185,6 +236,7 @@ class CustomTokenSerializer(TokenObtainPairSerializer):
             token['service_id']  = None
             token['service_nom'] = None
         return token
+
 
 class CustomTokenView(TokenObtainPairView):
     serializer_class = CustomTokenSerializer

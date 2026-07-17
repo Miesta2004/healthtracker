@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { CurrentUser, RoleEmploye } from '../types'
 import { getCurrentRole, isAuthenticated as checkAuth } from '../utils/auth'
 import { getMe } from '../api/comptes'
+import { logout as logoutApi } from '../api/auth'
 
 interface AuthContextValue {
     user: CurrentUser | null
@@ -42,9 +43,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const me = await getMe()
             setUser(me)
         } catch {
-            // Token invalide ou expiré : on nettoie
-            localStorage.removeItem('access_token')
-            localStorage.removeItem('refresh_token')
+            // Token invalide/expiré et refresh impossible (déjà géré par
+            // l'intercepteur de client.ts, qui nettoie le localStorage) :
+            // on aligne juste l'état local ici.
             setUser(null)
         } finally {
             setLoading(false)
@@ -65,8 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     const logout = () => {
-        localStorage.removeItem('access_token')
-        localStorage.removeItem('refresh_token')
+        logoutApi()
         setUser(null)
         window.location.href = '/login'
     }

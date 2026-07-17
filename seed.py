@@ -27,15 +27,16 @@ from comptes.models import Employe
 from analyses.models import DemandeAnalyse
 from disponibilites.models import (
     CreneauDisponibilite, ExceptionDisponibilite, JourSemaine, TypeCreneau,
-    TypeException, StatutException,
+    TypeException, StatutException, AssignationPatient, Shift,
 )
+from morgue.models import Deces, Autopsie, LieuDeces, StatutDeces, TypeAutopsie
 
 random.seed(42)
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
 JOURS_HISTORIQUE = 180   # 6 mois de données
-NB_PATIENTS      = 80
-NB_URGENCES      = 150   # passages aux urgences totaux
+NB_PATIENTS      = 240   # x3 par rapport au seed précédent (80)
+NB_URGENCES      = 420   # scalé avec le volume de patients (150 → x2.8)
 NB_MESURES_MIN   = 6
 NB_MESURES_MAX   = 25
 
@@ -44,6 +45,9 @@ now = timezone.now()
 # ─── NETTOYAGE ────────────────────────────────────────────────────────────────
 print("🗑️  Nettoyage...")
 for Model, label in [
+    (Autopsie,        "autopsie(s)"),
+    (Deces,           "décès enregistré(s)"),
+    (AssignationPatient, "assignation(s) infirmier ↔ patient"),
     (DemandeAnalyse,  "demande(s) d'analyse"),
     (PassageUrgence,  "passage(s) urgences"),
     (Hospitalisation, "hospitalisation(s)"),
@@ -295,6 +299,94 @@ for svc_obj in services.values():
             svc_obj.save()
             print(f"   {svc_obj.nom} → {chef.prenom} {chef.nom} (responsable technique)")
 print()
+
+# ── Renfort d'équipe (x3 médecins / infirmiers au total) ──────────────────────
+# Les employés ci-dessus sont l'équipe "historique" avec bio détaillée.
+# On complète avec du personnel généré pour atteindre un effectif réaliste
+# d'hôpital (une dizaine de services actifs ne peut pas tourner avec 1 seul
+# médecin chacun).
+print("👥 Renfort d'équipe (médecins et infirmiers supplémentaires)...")
+
+SPECIALITES_PAR_SERVICE = {
+    "Cardiologie":                  ["Cardiologie générale", "Rythmologie", "Cardiologie interventionnelle"],
+    "Médecine interne":             ["Médecine interne générale", "Médecine polyvalente"],
+    "Pédiatrie":                    ["Pédiatrie générale", "Néonatologie"],
+    "Diabétologie-Endocrinologie":  ["Diabétologie", "Endocrinologie"],
+    "Urgences":                     ["Médecine d'urgence", "Réanimation polyvalente"],
+    "Chirurgie générale":           ["Chirurgie viscérale", "Chirurgie générale"],
+    "Gynécologie-Obstétrique":      ["Gynécologie médicale", "Obstétrique"],
+    "Neurologie":                   ["Neurologie générale", "Neurovasculaire"],
+    "Pneumologie":                  ["Pneumologie générale", "Allergologie respiratoire"],
+    "Néphro-dialyse":               ["Néphrologie", "Dialyse péritonéale"],
+    "ORL-Ophtalmologie":            ["ORL", "Ophtalmologie"],
+}
+EXTRA_MEDECINS_PAR_SERVICE  = 3   # x11 services cliniques (hors Laboratoire) ≈ +33
+EXTRA_INFIRMIERS_PAR_SERVICE = 4  # x12 services (Laboratoire compris) ≈ +24
+
+usernames_pris = {e.user.username for e in employes}
+
+def username_libre(prefixe, nom):
+    base = f"{prefixe}.{nom.lower().replace(' ', '').replace('-', '')[:10]}"
+    candidat, n = base, 1
+    while candidat in usernames_pris:
+        n += 1
+        candidat = f"{base}{n}"
+    usernames_pris.add(candidat)
+    return candidat
+
+def creer_employe_genere(role, svc_nom, prefixe_username, password, specialite=""):
+    sexe = random.choice(['M', 'F'])
+    prenom, nom = prenom_nom(sexe)
+    username = username_libre(prefixe_username, nom)
+    age = random.randint(27, 56)
+    annee = date.today().year - age
+    dnaiss = date(annee, random.randint(1, 12), random.randint(1, 28))
+    type_contrat = random.choices(['cdi', 'cdd'], weights=[0.75, 0.25])[0]
+    date_debut = date.today() - timedelta(days=random.randint(180, 8 * 365))
+    date_fin = date(date_debut.year + 2, date_debut.month, date_debut.day) if type_contrat == 'cdd' else None
+
+    user = User.objects.create_user(
+        username=username, email=f"{username}@healthtracker.sn",
+        password=password, first_name=prenom, last_name=nom,
+    )
+    if role == 'medecin':
+        desc = f"Médecin en {svc_nom}. Consultations, suivi des patients hospitalisés et participation aux gardes du service."
+    else:
+        desc = f"Infirmier(ère) en {svc_nom}. Soins courants, surveillance des constantes, administration des traitements prescrits."
+
+    emp = Employe.objects.create(
+        user=user, nom=nom, prenom=prenom, date_naissance=dnaiss,
+        sexe=sexe, telephone=tel(),
+        adresse=f"{random.choice(QUARTIERS)}, Dakar",
+        role=role, specialite=specialite,
+        service=services.get(svc_nom) if svc_nom else None,
+        type_contrat=type_contrat,
+        date_debut_contrat=date_debut,
+        date_fin_contrat=date_fin,
+        description_poste=desc,
+    )
+    employes.append(emp)
+    return emp
+
+nb_medecins_generes, nb_infirmiers_generes = 0, 0
+for svc_nom in SERVICES_DATA:
+    svc_nom = svc_nom[0]
+    if svc_nom == "Laboratoire":
+        continue  # pas de médecin au laboratoire, cf. logique chef de service plus haut
+    specialites = SPECIALITES_PAR_SERVICE.get(svc_nom, [""])
+    for _ in range(EXTRA_MEDECINS_PAR_SERVICE):
+        creer_employe_genere('medecin', svc_nom, 'dr', 'medecin123', random.choice(specialites))
+        nb_medecins_generes += 1
+
+for svc_nom in SERVICES_DATA:
+    svc_nom = svc_nom[0]
+    for _ in range(EXTRA_INFIRMIERS_PAR_SERVICE):
+        creer_employe_genere('infirmier', svc_nom, 'inf', 'infirmier123')
+        nb_infirmiers_generes += 1
+
+print(f"✅ +{nb_medecins_generes} médecins, +{nb_infirmiers_generes} infirmiers "
+      f"(total : {sum(1 for e in employes if e.role == 'medecin')} médecins, "
+      f"{sum(1 for e in employes if e.role == 'infirmier')} infirmiers)\n")
 
 # ─── DISPONIBILITÉS ────────────────────────────────────────────────────────────
 # Sans ces créneaux récurrents, l'agenda de prise de rendez-vous est vide pour
@@ -1048,38 +1140,77 @@ DIAG_HOSP_SORTIE = [
     "Début de traitement antituberculeux RHZE bien toléré. BK en cours de négativation.",
 ]
 
-# ~25% des patients hospitalisés
-patients_a_hospitaliser = random.sample(patients_data, k=max(1, int(NB_PATIENTS * 0.25)))
-for patient, age, ant_str, profil_key in patients_a_hospitaliser:
-    # Certains profils peuvent avoir 2 hospitalisations
+# Répartition des patients par service pour garantir une couverture minimale
+# partout, plutôt que de laisser un tirage aléatoire risquer de laisser un
+# service sans aucune hospitalisation.
+patients_par_service = defaultdict(list)
+for pdata in patients_data:
+    if pdata[0].service_id:
+        patients_par_service[pdata[0].service_id].append(pdata)
+
+deja_hospitalises = set()
+
+def creer_hospitalisation(patient, svc_h, medecin_h, offset_jours=0):
+    global total_hosp
+    jours_ecoul = random.randint(5, JOURS_HISTORIQUE - 5)
+    d_admis = now - timedelta(days=max(jours_ecoul - offset_jours, 2))
+    duree = random.randint(3, 21)
+    est_terminee = (d_admis + timedelta(days=duree)) < now
+    hosp = Hospitalisation.objects.create(
+        patient=patient, service=svc_h, medecin_responsable=medecin_h,
+        chambre=random.choice(CHAMBRES), lit=random.choice(LITS),
+        motif_admission=random.choice(MOTIFS_HOSP),
+        diagnostic_entree=random.choice(DIAGNOSTICS),
+        date_admission=d_admis,
+        date_sortie_prevue=(d_admis + timedelta(days=duree)).date(),
+        statut=StatutHospitalisation.TERMINEE if est_terminee else StatutHospitalisation.EN_COURS,
+    )
+    if est_terminee:
+        hosp.date_sortie = d_admis + timedelta(days=duree)
+        hosp.diagnostic_sortie = random.choice(DIAG_HOSP_SORTIE)
+        hosp.save()
+    total_hosp += 1
+    deja_hospitalises.add(patient.id)
+    return hosp
+
+# Phase A — couverture garantie : au moins quelques hospitalisations dans
+# CHAQUE service clinique (le Laboratoire n'admet pas de patients, il n'a
+# pas de médecin donc pas de médecin_responsable possible).
+MIN_HOSP_PAR_SERVICE = 10
+for svc_nom, svc_obj in services.items():
+    if svc_nom == "Laboratoire":
+        continue
+    medecins_svc = [e for e in employes if e.role == 'medecin' and e.service_id == svc_obj.id]
+    if not medecins_svc:
+        continue  # sécurité, ne devrait plus arriver avec le renfort d'équipe
+    candidats = patients_par_service.get(svc_obj.id, [])
+    if not candidats:
+        # Filet de sécurité si, par tirage, aucun patient n'a ce service en
+        # service principal : on hospitalise quand même quelques patients
+        # au hasard dans ce service pour ne jamais le laisser vide.
+        candidats = random.sample(patients_data, k=min(MIN_HOSP_PAR_SERVICE, len(patients_data)))
+    n = min(MIN_HOSP_PAR_SERVICE, len(candidats))
+    for pdata in random.sample(candidats, k=n):
+        creer_hospitalisation(pdata[0], svc_obj, random.choice(medecins_svc))
+
+# Phase B — volume additionnel organique, réparti selon le médecin référent
+# du patient (peut cumuler 2 séjours pour les profils lourds).
+patients_restants = [pdata for pdata in patients_data if pdata[0].id not in deja_hospitalises]
+n_extra = max(0, int(NB_PATIENTS * 0.20) - len(deja_hospitalises))
+for pdata in random.sample(patients_restants, k=min(n_extra, len(patients_restants))):
+    patient, age, ant_str, profil_key = pdata
     nb_hosp = 2 if profil_key in ("drepanocytaire", "insuffisant_renal", "diabetique_t2_desequilibre") and random.random() < 0.4 else 1
     medecin_ref = patient.medecin_referent
     medecins_pool = medecins_list if medecins_list else [medecin_ref]
 
     for h in range(nb_hosp):
         medecin_h = medecin_ref or random.choice(medecins_pool)
-        svc_h = medecin_h.service if medecin_h else random.choice(list(services.values()))
-        jours_ecoul = random.randint(3, JOURS_HISTORIQUE - 5)
-        d_admis = now - timedelta(days=jours_ecoul + h * 45)
-        duree = random.randint(3, 21)
-        est_terminee = (d_admis + timedelta(days=duree)) < now
+        svc_h = medecin_h.service if (medecin_h and medecin_h.service) else random.choice(
+            [s for n, s in services.items() if n != "Laboratoire"])
+        creer_hospitalisation(patient, svc_h, medecin_h, offset_jours=h * 45)
 
-        hosp = Hospitalisation.objects.create(
-            patient=patient, service=svc_h, medecin_responsable=medecin_h,
-            chambre=random.choice(CHAMBRES), lit=random.choice(LITS),
-            motif_admission=random.choice(MOTIFS_HOSP),
-            diagnostic_entree=random.choice(DIAGNOSTICS),
-            date_admission=d_admis,
-            date_sortie_prevue=(d_admis + timedelta(days=duree)).date(),
-            statut=StatutHospitalisation.TERMINEE if est_terminee else StatutHospitalisation.EN_COURS,
-        )
-        if est_terminee:
-            hosp.date_sortie = d_admis + timedelta(days=duree)
-            hosp.diagnostic_sortie = random.choice(DIAG_HOSP_SORTIE)
-            hosp.save()
-        total_hosp += 1
-
-print(f"✅ {total_hosp} hospitalisations\n")
+print(f"✅ {total_hosp} hospitalisations, réparties dans les {len(services) - 1} services cliniques "
+      f"(Laboratoire exclu, pas de médecin)\n")
 
 # ─── URGENCES ─────────────────────────────────────────────────────────────────
 print("🚑 Urgences...")
@@ -1188,12 +1319,16 @@ for mode in list(ModeArrivee):
         total_urgences += 1
 
 # Chaque décision × 3 (décès × 2 — rare mais présent)
+deces_aux_urgences = []   # (passage, patient) — repris plus bas par l'app morgue
 for dec in list(DecisionSortie):
     nb = 2 if dec == DecisionSortie.DECES else 3
     for _ in range(nb):
         niv = random.choice([1, 2]) if dec == DecisionSortie.DECES else niveau_aleatoire()
-        creer_passage(random.choice(patients_list), niv, mode_aleatoire(),
-                      StatutUrgence.SORTI, dec, jours_max=JOURS_HISTORIQUE)
+        patient_choisi = random.choice(patients_list)
+        passage = creer_passage(patient_choisi, niv, mode_aleatoire(),
+                                StatutUrgence.SORTI, dec, jours_max=JOURS_HISTORIQUE)
+        if dec == DecisionSortie.DECES:
+            deces_aux_urgences.append((passage, patient_choisi))
         total_urgences += 1
 
 # ── 2. File d'attente en cours (patients présents maintenant) ─────────────────
@@ -1221,6 +1356,155 @@ while total_urgences < NB_URGENCES:
 
 print(f"✅ {total_urgences} passages aux urgences\n")
 
+# ─── ASSIGNATIONS INFIRMIER ↔ PATIENT (SHIFTS) ─────────────────────────────────
+# Qui s'occupe de quel patient hospitalisé, poste par poste. On se limite aux
+# hospitalisations actuellement en cours et aux derniers jours de chaque
+# séjour terminé récemment — un historique complet sur 6 mois × 3 shifts/jour
+# représenterait des centaines de milliers de lignes pour une donnée qui n'a
+# d'intérêt que récente (planning infirmier, pas archive médico-légale).
+print("🧑‍⚕️ Assignations infirmier ↔ patient (shifts)...")
+total_assignations = 0
+SHIFTS = list(Shift)
+
+hospitalisations_actives = list(Hospitalisation.objects.filter(statut=StatutHospitalisation.EN_COURS)
+                                .select_related('patient', 'service'))
+hospitalisations_recentes = list(
+    Hospitalisation.objects.filter(
+        statut=StatutHospitalisation.TERMINEE,
+        date_sortie__gte=now - timedelta(days=6),
+    ).select_related('patient', 'service')
+)
+
+infirmiers_par_service = defaultdict(list)
+for e in employes:
+    if e.role == 'infirmier' and e.service_id:
+        infirmiers_par_service[e.service_id].append(e)
+
+def assigner_shifts(hosp, jour_debut, jour_fin):
+    """Un infirmier par poste (matin/après-midi/nuit), chaque jour de la période,
+    parmi le personnel du service de l'hospitalisation."""
+    global total_assignations
+    equipe = infirmiers_par_service.get(hosp.service_id, [])
+    if not equipe:
+        return
+    jour = jour_debut
+    while jour <= jour_fin:
+        for shift in SHIFTS:
+            infirmier = random.choice(equipe)
+            try:
+                AssignationPatient.objects.create(
+                    infirmier=infirmier, patient=hosp.patient, service=hosp.service,
+                    date=jour, shift=shift,
+                )
+                total_assignations += 1
+            except Exception:
+                pass  # doublon (infirmier, patient, date, shift) déjà généré — sans conséquence
+        jour += timedelta(days=1)
+
+aujourdhui_date = timezone.localdate()
+for hosp in hospitalisations_actives:
+    debut_planning = max(hosp.date_admission.date(), aujourdhui_date - timedelta(days=4))
+    assigner_shifts(hosp, debut_planning, aujourdhui_date)
+
+for hosp in hospitalisations_recentes:
+    debut_planning = max(hosp.date_admission.date(), hosp.date_sortie.date() - timedelta(days=3))
+    assigner_shifts(hosp, debut_planning, hosp.date_sortie.date())
+
+print(f"✅ {total_assignations} assignations (matin/après-midi/nuit) sur "
+      f"{len(hospitalisations_actives)} hospitalisations en cours et "
+      f"{len(hospitalisations_recentes)} sorties récentes\n")
+
+# ─── MORGUE (DÉCÈS / AUTOPSIES) ─────────────────────────────────────────────────
+# Reproduit volontairement la logique de DecesViewSet.perform_create (seul
+# endroit habituel où Patient.statut_vital passe à 'decede') puisqu'on crée
+# les enregistrements directement en base, en contournant l'API.
+print("⚰️  Morgue (décès et autopsies)...")
+total_deces, total_autopsies = 0, 0
+
+CAUSES_DECES_URGENCE = [
+    "Arrêt cardio-respiratoire réfractaire à la réanimation",
+    "Choc hémorragique non contrôlé",
+    "Engagement cérébral sur AVC hémorragique massif",
+    "Défaillance multiviscérale sur sepsis sévère",
+]
+CAUSES_DECES_HOSPIT = [
+    "Défaillance cardiaque terminale sur cardiopathie évoluée",
+    "Insuffisance respiratoire réfractaire",
+    "Complication aiguë de drépanocytose (syndrome thoracique aigu)",
+    "Arrêt sur trouble du rythme réfractaire",
+    "Choc septique réfractaire",
+]
+MOTIFS_LIEN = ["Époux", "Épouse", "Fils", "Fille", "Frère", "Sœur", "Père", "Mère", "Neveu", "Nièce"]
+
+def enregistrer_deces(patient, d_deces, cause, lieu, medecin, necessite_autopsie):
+    global total_deces
+    statut_initial = StatutDeces.EN_ATTENTE_AUTOPSIE if necessite_autopsie else StatutDeces.DISPENSE_AUTOPSIE
+    deces = Deces.objects.create(
+        patient=patient, date_deces=d_deces, lieu_deces=lieu,
+        cause_presumee=cause, necessite_autopsie=necessite_autopsie,
+        statut=statut_initial, medecin_constatant=medecin,
+    )
+    # Réplique de perform_create : seule source de vérité pour statut_vital.
+    patient.statut_vital = patient.StatutVital.DECEDE
+    patient.actif = False
+    patient.save(update_fields=['statut_vital', 'actif'])
+    total_deces += 1
+    return deces
+
+# 1. Décès déjà générés côté urgences (cohérence : le patient est bien mort
+#    à l'hôpital, constaté par le médecin qui l'a examiné).
+for passage, patient in deces_aux_urgences:
+    deces = enregistrer_deces(
+        patient, passage.date_sortie or passage.date_arrivee,
+        random.choice(CAUSES_DECES_URGENCE), LieuDeces.HOPITAL,
+        passage.medecin_examinateur, necessite_autopsie=random.random() < 0.3,
+                 )
+
+# 2. Quelques décès supplémentaires en cours d'hospitalisation, pour ne pas
+#    dépendre uniquement des urgences (patients déjà admis qui se dégradent).
+candidats_hospit = [h for h in hospitalisations_recentes if h.patient.statut_vital != h.patient.StatutVital.DECEDE]
+for hosp in random.sample(candidats_hospit, k=min(4, len(candidats_hospit))):
+    d_deces = hosp.date_sortie or (hosp.date_admission + timedelta(days=random.randint(1, 10)))
+    deces = enregistrer_deces(
+        hosp.patient, d_deces, random.choice(CAUSES_DECES_HOSPIT), LieuDeces.HOPITAL,
+        hosp.medecin_responsable, necessite_autopsie=random.random() < 0.15,
+    )
+    hosp.statut = StatutHospitalisation.TERMINEE
+    hosp.date_sortie = d_deces
+    hosp.diagnostic_sortie = "Décès en cours de séjour — cf. dossier morgue."
+    hosp.save()
+
+# Autopsies pour les décès qui en nécessitaient une, + remise du corps pour
+# les décès les plus anciens (couvre les 4 statuts du cycle de vie du dossier).
+tous_les_deces = list(Deces.objects.select_related('patient').all())
+medecins_legistes = [e for e in medecins_list if 'légale' in (e.specialite or '').lower()] or medecins_list
+
+for deces in tous_les_deces:
+    if deces.necessite_autopsie and random.random() < 0.75:
+        Autopsie.objects.create(
+            deces=deces,
+            medecin_legiste=random.choice(medecins_legistes) if medecins_legistes else None,
+            type=random.choice(list(TypeAutopsie)),
+            date_autopsie=deces.date_deces + timedelta(days=random.randint(1, 4)),
+            cause_deces_determinee=random.choice(CAUSES_DECES_HOSPIT + CAUSES_DECES_URGENCE),
+            constatations="Constatations macroscopiques et prélèvements conformes au protocole médico-légal standard.",
+            rapport_valide=True,
+            date_validation=deces.date_deces + timedelta(days=random.randint(5, 10)),
+        )
+        deces.statut = StatutDeces.AUTOPSIE_TERMINEE
+        deces.save(update_fields=['statut'])
+        total_autopsies += 1
+    elif not deces.necessite_autopsie and random.random() < 0.5:
+        # Corps déjà remis à la famille pour une partie des décès anciens.
+        deces.reclamant_nom = f"{random.choice(PRENOMS_M + PRENOMS_F)} {random.choice(NOMS)}"
+        deces.reclamant_lien = random.choice(MOTIFS_LIEN)
+        deces.reclamant_telephone = tel()
+        deces.date_remise_corps = deces.date_deces + timedelta(days=random.randint(1, 5))
+        deces.statut = StatutDeces.CORPS_REMIS
+        deces.save()
+
+print(f"✅ {total_deces} décès enregistrés, {total_autopsies} autopsies\n")
+
 # ─── RÉSUMÉ ───────────────────────────────────────────────────────────────────
 print("═" * 55)
 print("🏥  SEED TERMINÉ — Résumé complet :")
@@ -1233,6 +1517,8 @@ print(f"   📅 Rendez-vous      : {total_rdv}")
 print(f"   🔬 Demandes d'analyse : {total_analyses}")
 print(f"   🛏️  Hospitalisations : {total_hosp}")
 print(f"   🚑 Passages urgences: {total_urgences}")
+print(f"   🧑‍⚕️ Assignations shifts : {total_assignations}")
+print(f"   ⚰️  Décès / autopsies : {total_deces} / {total_autopsies}")
 print(f"   🚨 Alertes          : {total_alertes} (dont {total_alertes_analyses} résultats d'analyse)")
 print("═" * 55)
 print("✅ Base de données peuplée avec succès !")

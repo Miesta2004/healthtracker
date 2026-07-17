@@ -67,9 +67,11 @@ class Employe(Personne):
     )
 
     def save(self, *args, **kwargs):
+        # vérification d'unicité en base avec retry avant assignation, plutôt qu'un tirage aléatoire
+        # à l'aveugle qui pouvait produire un doublon.
         if not self.matricule:
-            import random, string
-            self.matricule = 'E' + ''.join(random.choices(string.digits, k=5))
+            from healthtracker.identifiers import generer_identifiant_unique
+            self.matricule = generer_identifiant_unique(Employe, 'matricule', 'E', 5)
         super().save(*args, **kwargs)
 
     def __str__(self):

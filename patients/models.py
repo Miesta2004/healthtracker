@@ -80,12 +80,14 @@ class Patient(Personne):
     )
 
     def save(self, *args, **kwargs):
-        # Génère un numéro de dossier automatique
+        # Génère un numéro de dossier automatique, garanti unique (vérifié en
+        # base avant assignation, avec retry en cas de collision — corrige le
+        # tirage aléatoire précédent qui pouvait produire un doublon et faire
+        # planter le save() sur l'unique constraint sans aucune récupération).
         if not self.numero_dossier:
-            import random, string
-            self.numero_dossier = 'P' + ''.join(random.choices(string.digits, k=6))
+            from healthtracker.identifiers import generer_identifiant_unique
+            self.numero_dossier = generer_identifiant_unique(Patient, 'numero_dossier', 'P', 6)
         super().save(*args, **kwargs)
-
     class Meta:
         verbose_name = "Patient"
         verbose_name_plural = "Patients"

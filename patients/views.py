@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from django.db.models import Q
 from .models import Patient
 from .serializers import PatientSerializer, PatientListSerializer
-from comptes.permissions import IsInSameService, get_employe
+from comptes.permissions import get_employe
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -17,6 +17,9 @@ class PatientViewSet(viewsets.ModelViewSet):
         return PatientSerializer
 
     def get_queryset(self):
+        # NB : le scoping par service est fait ICI (pas via une permission
+        # has_object_permission séparée) car il conditionne aussi les
+        # listes, pas seulement l'accès à un objet précis.
         user = self.request.user
         base_qs = Patient.objects.select_related('service', 'medecin_referent')
 
@@ -60,7 +63,7 @@ class PatientViewSet(viewsets.ModelViewSet):
                 Q(numero_dossier__icontains=q) |
                 Q(telephone__icontains=q)
             )
-    
+
         return qs
 
     def get_permissions(self):

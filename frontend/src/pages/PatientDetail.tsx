@@ -1,30 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { getPatient, updatePatient, deletePatient, getSignesVitaux } from '../api/patients'
-import { getAntecedents, createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
+import { updatePatient, deletePatient } from '../api/patients'
+import { createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
 import { dateNaissanceDepuisAge } from '../utils/dateNaissance'
-import type { Patient, SignesVitaux, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Alerte, StatutAlerte } from '../types'
+import type { Patient, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Alerte, StatutAlerte } from '../types'
 import SignesVitauxCharts from '../components/SignesCharts'
 import Consultations from '../components/Consultations'
-import { getConsultations } from '../api/consultations'
-import { getAlertes, updateAlerteStatut } from '../api/alertes'
-import { getDemandesPatient, createDemande } from '../api/analyses'
+import { updateAlerteStatut } from '../api/alertes'
+import { createDemande } from '../api/analyses'
 import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
-import { getRendezVousPatient } from '../api/rendezvous'
-import { getUrgencesPatient } from '../api/urgences'
-import { getHospitalisations } from '../api/hospitalisations'
-import { getAssignations, createAssignation, deleteAssignation } from '../api/disponibilites'
-import { getEmployes } from '../api/comptes'
-import type { RendezVous, PassageUrgence, Hospitalisation, AssignationPatient, Employe, Shift } from '../types'
+import { createAssignation, deleteAssignation } from '../api/disponibilites'
+import type { RendezVous, PassageUrgence, Hospitalisation, AssignationPatient, Shift } from '../types'
 import { useAuth } from '../contexts/AuthContext'
-import { SkeletonDetailPage } from '../components/Skeleton'
+import { SkeletonDetailPage, SkeletonListRows } from '../components/Skeleton'
 import Sidebar from '../components/Sidebar.tsx'
 import GraviteBadge from '../components/GraviteBadge'
-import { computeGravite } from '../utils/gravite'
+import {computeGravite} from '../utils/gravite'
+import { usePatientDossier, usePatientAssignations, type PatientDossierSectionErrors } from '../hooks/usePatientDossier'
 import {
     Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight,
-    Phone, User, Stethoscope, AlertTriangle, Bell, Calendar, Check,
-    Droplet, Thermometer, Heart, FileText
+    User, Stethoscope, AlertTriangle, Bell, Calendar, Check,
+    Droplet, Thermometer, Heart, FileText, RefreshCw, type LucideIcon
 } from 'lucide-react'
 
 // ─── Config analyses ────────────────────────────────────────────────────────
@@ -64,16 +60,31 @@ const STATUT_URGENCE_CONFIG: Record<string, { label: string; badge: string }> = 
     sorti:           { label: 'Sorti',           badge: 'badge-muted' },
 }
 
+// Corrigé : les clés correspondent désormais au type StatutHospitalisation réel
+// ('terminee' / 'transferee'), pas aux anciennes clés 'sortie' / 'transfert'
+// qui ne matchaient jamais et retombaient silencieusement sur le badge gris générique.
 const STATUT_HOSPIT_CONFIG: Record<string, { label: string; badge: string }> = {
-    en_cours:  { label: 'En cours',         badge: 'badge-tint' },
-    sortie:    { label: 'Sortie effectuée', badge: 'badge-success' },
-    transfert: { label: 'Transféré',        badge: 'badge-warning' },
+    en_cours:   { label: 'En cours',         badge: 'badge-tint' },
+    terminee:   { label: 'Sortie effectuée', badge: 'badge-success' },
+    transferee: { label: 'Transféré',        badge: 'badge-warning' },
 }
 
 const SHIFT_LABELS: Record<Shift, string> = {
     matin:      'Matin (7h–15h)',
     apres_midi: 'Après-midi (15h–23h)',
     nuit:       'Nuit (23h–7h)',
+}
+
+// ─── Sections du dossier → libellés FR pour la bannière d'erreurs partielles ─
+const SECTION_LABELS: Record<keyof PatientDossierSectionErrors, string> = {
+    signes: 'signes vitaux',
+    antecedents: 'antécédents',
+    consultations: 'consultations',
+    demandes: 'analyses de laboratoire',
+    rdvs: 'rendez-vous',
+    urgences: 'passages aux urgences',
+    hospitalisations: 'hospitalisations',
+    alertes: 'alertes',
 }
 
 function StatutMini({ statut, config }: { statut: string; config: Record<string, { label: string; badge: string }> }) {
@@ -132,6 +143,27 @@ function InfoRow({ label, value, mono = false }: { label: string; value: string;
         <div className="ht-info-row flex-col items-start gap-0.5">
             <p className="ht-label mb-0">{label}</p>
             <p className={`text-sm font-semibold ${mono ? 'ht-mono' : ''}`} style={{ color: 'var(--ht-text)' }}>{value || '—'}</p>
+        </div>
+    )
+}
+
+// ─── Bannière d'erreurs partielles (sections en échec, patient chargé) ──────
+function SectionErrorsBanner({ errors, onRetry }: { errors: PatientDossierSectionErrors; onRetry: () => void }) {
+    const failedKeys = (Object.keys(errors) as (keyof PatientDossierSectionErrors)[]).filter(k => errors[k])
+    if (failedKeys.length === 0) return null
+
+    const labels = failedKeys.map(k => SECTION_LABELS[k]).join(', ')
+
+    return (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-xl"
+             style={{ backgroundColor: 'var(--ht-danger-bg-light)', border: '1px solid var(--ht-danger)' }}>
+            <p className="text-sm flex items-center gap-2" style={{ color: 'var(--ht-danger)' }}>
+                <AlertTriangle size={15} className="flex-shrink-0" />
+                Certaines sections n'ont pas pu être chargées : {labels}.
+            </p>
+            <button onClick={onRetry} className="btn btn-secondary btn-sm flex-shrink-0">
+                <RefreshCw size={12} /> Réessayer
+            </button>
         </div>
     )
 }
@@ -228,11 +260,12 @@ function AddAntecedentModal({ onSave, onCancel, loading }: {
 }
 
 // ─── Panneau Antécédents (liste + actions) ───────────────────────────────────
-function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
+function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loading }: {
     antecedents: Antecedent[]
     onAdd: () => void
     onToggleStatut: (a: Antecedent) => void
     onDelete: (a: Antecedent) => void
+    loading: boolean
 }) {
     const actifs = antecedents.filter(a => a.statut === 'actif')
 
@@ -241,7 +274,7 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
             <div className="ht-card-header !px-0 !pt-0 mb-4">
                 <h2 className="flex-1">Antécédents médicaux</h2>
                 <div className="flex items-center gap-2">
-                    {actifs.length > 0 && (
+                    {!loading && actifs.length > 0 && (
                         <span className="badge badge-tint">
                             {actifs.length} actif{actifs.length > 1 ? 's' : ''}
                         </span>
@@ -251,7 +284,9 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
                     </button>
                 </div>
             </div>
-            {antecedents.length === 0 ? (
+            {loading ? (
+                <SkeletonListRows rows={2} />
+            ) : antecedents.length === 0 ? (
                 <div className="ht-empty">Aucun antécédent renseigné</div>
             ) : (
                 <div className="space-y-2.5">
@@ -288,18 +323,19 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete }: {
 }
 
 // ─── Panel historique des analyses ────────────────────────────────────────────
-function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
+function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats, loading }: {
     demandes: DemandeAnalyse[]
     canRequest: boolean
     onRequest: () => void
     onVoirResultats: (d: DemandeAnalyse) => void
+    loading: boolean
 }) {
     return (
         <div className="ht-card ht-card-padded-sm">
             <div className="ht-card-header !px-0 !pt-0 mb-4">
                 <h2 className="flex-1">Analyses de laboratoire</h2>
                 <div className="flex items-center gap-2">
-                    {demandes.length > 0 && (
+                    {!loading && demandes.length > 0 && (
                         <span className="badge badge-muted">{demandes.length}</span>
                     )}
                     {canRequest && (
@@ -309,7 +345,9 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
                     )}
                 </div>
             </div>
-            {demandes.length === 0 ? (
+            {loading ? (
+                <SkeletonListRows rows={2} />
+            ) : demandes.length === 0 ? (
                 <div className="ht-empty">Aucune demande d'analyse</div>
             ) : (
                 <div className="space-y-2.5">
@@ -344,13 +382,14 @@ function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats }: {
 }
 
 // ─── Icônes par type d'alerte ─────────────────────────────────────────────────
-const ALERTE_TYPE_ICON: Record<string, any> = {
+const ALERTE_TYPE_ICON: Record<string, LucideIcon> = {
     tension: Activity, glycemie: Droplet, temperature: Thermometer,
     frequence: Heart, rdv: Calendar, resultat_analyse: FileText, autre: Bell,
 }
 
 // ─── Onglet Alertes ───────────────────────────────────────────────────────────
-function AlertesTab({ alertes, onUpdateStatut }: { alertes: Alerte[]; onUpdateStatut: (a: Alerte) => void }) {
+function AlertesTab({ alertes, onUpdateStatut, loading }: { alertes: Alerte[]; onUpdateStatut: (a: Alerte) => void; loading: boolean }) {
+    if (loading) return <SkeletonListRows rows={2} />
     if (alertes.length === 0) return <div className="ht-empty">Aucune alerte pour ce patient.</div>
     const tries = [...alertes].sort((a, b) => new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime())
     return (
@@ -389,21 +428,25 @@ function AlertesTab({ alertes, onUpdateStatut }: { alertes: Alerte[]; onUpdateSt
 type SuiviTab = 'alertes' | 'consultations' | 'rdv'
 
 function SuiviPatientTabs({
-                              alertes, onUpdateAlerteStatut, patientId, consultations, onConsultationsUpdate, rendezVous, onVoirAgenda,
+                              alertes, alertesLoading, onUpdateAlerteStatut, patientId,
+                              consultations, consultationsLoading, onConsultationsUpdate,
+                              rendezVous, rdvsLoading, onVoirAgenda,
                           }: {
     alertes: Alerte[]
+    alertesLoading: boolean
     onUpdateAlerteStatut: (a: Alerte) => void
     patientId: number
     consultations: Consultation[]
+    consultationsLoading: boolean
     onConsultationsUpdate: (c: Consultation[]) => void
     rendezVous: RendezVous[]
+    rdvsLoading: boolean
     onVoirAgenda: () => void
 }) {
     const [tab, setTab] = useState<SuiviTab>('alertes')
     const nonLues = alertes.filter(a => a.statut === 'non_lue').length
     const rdvTries = [...rendezVous].sort((a, b) => new Date(b.date_heure).getTime() - new Date(a.date_heure).getTime())
-
-    const TabButton = ({ value, icon: Icon, label, count, danger }: { value: SuiviTab; icon: any; label: string; count: number; danger?: boolean }) => (
+    const TabButton = ({ value, icon: Icon, label, count, danger }: { value: SuiviTab; icon: LucideIcon; label: string; count: number; danger?: boolean }) => (
         <button
             onClick={() => setTab(value)}
             className="flex items-center gap-1.5 px-4 py-2.5 text-xs font-semibold transition-colors"
@@ -429,15 +472,19 @@ function SuiviPatientTabs({
                 <TabButton value="rdv" icon={Calendar} label="Rendez-vous" count={rendezVous.length} />
             </div>
 
-            {tab === 'alertes' && <AlertesTab alertes={alertes} onUpdateStatut={onUpdateAlerteStatut} />}
+            {tab === 'alertes' && <AlertesTab alertes={alertes} onUpdateStatut={onUpdateAlerteStatut} loading={alertesLoading} />}
 
             {tab === 'consultations' && (
-                <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
+                consultationsLoading
+                    ? <SkeletonListRows rows={2} />
+                    : <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
             )}
 
             {tab === 'rdv' && (
                 <>
-                    {rdvTries.length === 0 ? (
+                    {rdvsLoading ? (
+                        <SkeletonListRows rows={2} />
+                    ) : rdvTries.length === 0 ? (
                         <div className="ht-empty">Aucun rendez-vous enregistré</div>
                     ) : (
                         <div className="space-y-2.5">
@@ -466,12 +513,14 @@ function SuiviPatientTabs({
 }
 
 // ─── Panel historique des passages aux urgences ──────────────────────────────
-function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
+function UrgencesPanel({ passages, loading }: { passages: PassageUrgence[]; loading: boolean }) {
     const tries = [...passages].sort((a, b) => new Date(b.date_arrivee).getTime() - new Date(a.date_arrivee).getTime())
     return (
         <div className="ht-card ht-card-padded-sm">
             <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Passages aux urgences</h2>
-            {tries.length === 0 ? (
+            {loading ? (
+                <SkeletonListRows rows={2} />
+            ) : tries.length === 0 ? (
                 <div className="ht-empty">Aucun passage aux urgences</div>
             ) : (
                 <div className="space-y-2.5">
@@ -495,7 +544,7 @@ function UrgencesPanel({ passages }: { passages: PassageUrgence[] }) {
 // ─── Panel assignation infirmier(ère) ↔ patient (chef de service) ───────────
 function AssignationsPanel({ assignations, infirmiers, onAssign, onDelete, loading }: {
     assignations: AssignationPatient[]
-    infirmiers: Employe[]
+    infirmiers: { id: number; prenom: string; nom: string }[]
     onAssign: (data: { infirmier: number; date: string; shift: Shift }) => void
     onDelete: (a: AssignationPatient) => void
     loading: boolean
@@ -583,12 +632,14 @@ function AssignationsPanel({ assignations, infirmiers, onAssign, onDelete, loadi
 }
 
 // ─── Panel historique des hospitalisations ───────────────────────────────────
-function HospitalisationsPanel({ hospitalisations }: { hospitalisations: Hospitalisation[] }) {
+function HospitalisationsPanel({ hospitalisations, loading }: { hospitalisations: Hospitalisation[]; loading: boolean }) {
     const tries = [...hospitalisations].sort((a, b) => new Date(b.date_admission).getTime() - new Date(a.date_admission).getTime())
     return (
         <div className="ht-card ht-card-padded-sm">
             <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Hospitalisations</h2>
-            {tries.length === 0 ? (
+            {loading ? (
+                <SkeletonListRows rows={2} />
+            ) : tries.length === 0 ? (
                 <div className="ht-empty">Aucune hospitalisation enregistrée</div>
             ) : (
                 <div className="space-y-2.5">
@@ -723,23 +774,30 @@ export default function PatientDetail() {
     const canRequestLab = hasRole('admin', 'medecin', 'infirmier')
     const canAssignInfirmier = hasRole('admin') || !!user?.est_major
 
-    const [patient, setPatient] = useState<Patient | null>(null)
-    const [signes, setSignes] = useState<SignesVitaux[]>([])
-    const [antecedents, setAntecedents] = useState<Antecedent[]>([])
-    const [consultations, setConsultations] = useState<Consultation[]>([])
-    const [demandes, setDemandes] = useState<DemandeAnalyse[]>([])
-    const [rdvs, setRdvs] = useState<RendezVous[]>([])
-    const [urgences, setUrgences] = useState<PassageUrgence[]>([])
-    const [hospitalisations, setHospitalisations] = useState<Hospitalisation[]>([])
-    const [alertes, setAlertes] = useState<Alerte[]>([])
+    const patientId = id ? Number(id) : undefined
 
-    // Assignation infirmier(ère) ↔ patient — chef de service uniquement
-    const [assignations, setAssignations] = useState<AssignationPatient[]>([])
-    const [infirmiersService, setInfirmiersService] = useState<Employe[]>([])
+    // ── Fetching centralisé (voir hooks/usePatientDossier.ts) ──
+    const {
+        patient, setPatient,
+        signes,
+        antecedents, setAntecedents,
+        consultations, setConsultations,
+        demandes, setDemandes,
+        rdvs,
+        urgences,
+        hospitalisations,
+        alertes, setAlertes,
+        patientLoading,
+        error,
+        sectionsLoading,
+        sectionErrors,
+        reload,
+    } = usePatientDossier(patientId)
+
+    const {
+        assignations, setAssignations, infirmiersService,
+    } = usePatientAssignations(patient, canAssignInfirmier)
     const [assignLoading, setAssignLoading] = useState(false)
-
-    const [loading, setLoading] = useState(true)
-    const [error, setError] = useState('')
 
     // Modales
     const [showDelete, setShowDelete] = useState(false)
@@ -755,51 +813,15 @@ export default function PatientDetail() {
     const [isEditing, setIsEditing] = useState(false)
     const [editForm, setEditForm] = useState<Partial<Patient>>({})
     const [updateLoading, setUpdateLoading] = useState(false)
-    const [updateError] = useState('')
+    const [updateError, setUpdateError] = useState('')
     const [services] = useState<{id: number; nom: string}[]>([])
     const [medecins] = useState<{id: number; nom: string; prenom: string}[]>([])
 
-    useEffect(() => {
-        if (!id) return
-        const patientId = Number(id)
-        setLoading(true)
-        Promise.all([
-            getPatient(patientId),
-            getSignesVitaux(patientId).catch(() => []),
-            getAntecedents(patientId).catch(() => []),
-            getConsultations(patientId).catch(() => []),
-            getDemandesPatient(patientId).catch(() => []),
-            getRendezVousPatient(patientId).catch(() => []),
-            getUrgencesPatient(patientId).catch(() => []),
-            getHospitalisations(patientId).catch(() => []),
-            getAlertes().catch(() => [])
-        ])
-            .then(([p, s, a, c, d, r, u, h, al]) => {
-                setPatient(p)
-                setEditForm(p)
-                setSignes(s)
-                setAntecedents(a)
-                setConsultations(c)
-                setDemandes(d)
-                setRdvs(r)
-                setUrgences(u)
-                setHospitalisations(h)
-                setAlertes(al.filter((x: Alerte) => x.patient === patientId))
-                setError('')
-            })
-            .catch(() => {
-                setError("Impossible de charger les données du patient.")
-            })
-            .finally(() => setLoading(false))
-    }, [id])
-
-    useEffect(() => {
-        if (!canAssignInfirmier || !patient) return
-        getAssignations({ patient: patient.id }).then(setAssignations).catch(() => setAssignations([]))
-        getEmployes()
-            .then(all => setInfirmiersService(all.filter(e => e.role === 'infirmier' && e.service === (patient as any).service)))
-            .catch(() => setInfirmiersService([]))
-    }, [canAssignInfirmier, patient])
+    // Corrigé : ces deux états étaient utilisés dans le JSX du mode édition
+    // (bascule "date connue" / "âge approximatif") sans jamais être déclarés,
+    // ce qui provoquait un crash (ReferenceError) dès l'ouverture du mode édition.
+    const [modeDateNaissanceEdit, setModeDateNaissanceEdit] = useState<'date' | 'age'>('date')
+    const [ageApproxEdit, setAgeApproxEdit] = useState('')
 
     const handleDelete = async () => {
         if (!id || !patient) return
@@ -815,22 +837,23 @@ export default function PatientDetail() {
         }
     }
 
-    const handleSaveProfile = async (e: React.FormEvent) => {
+    const handleSaveProfile = async (e: FormEvent) => {
         e.preventDefault()
         if (!id || !patient) return
         setUpdateLoading(true)
+        setUpdateError('')
         try {
             const updated = await updatePatient(Number(id), editForm)
             setPatient(updated)
             setIsEditing(false)
         } catch {
-            alert("Erreur lors de la mise à jour du profil.")
+            setUpdateError("Erreur lors de la mise à jour du profil.")
         } finally {
             setUpdateLoading(false)
         }
     }
 
-    const handleAddAntecedent = async (data: any) => {
+    const handleAddAntecedent = async (data: { libelle: string; type_antecedent: TypeAntecedent; observations: string; date_diagnostic: string }) => {
         if (!id) return
         setAntecedentLoading(true)
         try {
@@ -874,7 +897,7 @@ export default function PatientDetail() {
         }
     }
 
-    const handleCreateLabDemande = async (data: any) => {
+    const handleCreateLabDemande = async (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => {
         if (!id) return
         setLabLoading(true)
         setLabError('')
@@ -912,7 +935,7 @@ export default function PatientDetail() {
         }
     }
 
-    if (loading) return <SkeletonDetailPage/>
+    if (patientLoading) return <SkeletonDetailPage/>
     if (error || !patient) {
         return (
             <div className="ht-page">
@@ -929,7 +952,6 @@ export default function PatientDetail() {
     }
 
     const gravite = computeGravite(alertes)
-    const derniereFC = signes[0]?.frequence_cardiaque ?? null
     const hospitalisationActive = hospitalisations.find(h => h.statut === 'en_cours') ?? null
 
     return (
@@ -1051,7 +1073,7 @@ export default function PatientDetail() {
                                 </h3>
                                 <div className="ht-field">
                                     <label className="ht-label">Groupe sanguin</label>
-                                    <select className="ht-input" value={(editForm as any).groupe_sanguin || ''} onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}>
+                                    <select className="ht-input" value={editForm.groupe_sanguin || ''} onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}>
                                         <option value="">Inconnu</option>
                                         {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => (
                                             <option key={g} value={g}>{g}</option>
@@ -1060,25 +1082,25 @@ export default function PatientDetail() {
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Allergies (séparées par des virgules)</label>
-                                    <input className="ht-input" value={(editForm as any).allergies || ''} onChange={e => setEditForm({...editForm, allergies: e.target.value})} placeholder="Ex : Pénicilline, Arachide" />
+                                    <input className="ht-input" value={editForm.allergies || ''} onChange={e => setEditForm({...editForm, allergies: e.target.value})} placeholder="Ex : Pénicilline, Arachide" />
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Service</label>
-                                    <select className="ht-input" value={(editForm as any).service || ''} onChange={e => setEditForm({...editForm, service: e.target.value ? Number(e.target.value) : null})}>
+                                    <select className="ht-input" value={editForm.service ?? ''} onChange={e => setEditForm({...editForm, service: e.target.value ? Number(e.target.value) : null})}>
                                         <option value="">— Aucun service —</option>
-                                        {typeof services !== 'undefined' && services.map((s: any) => <option key={s.id} value={s.id}>{s.nom}</option>)}
+                                        {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                                     </select>
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Médecin référent</label>
-                                    <select className="ht-input" value={(editForm as any).medecin_referent || ''} onChange={e => setEditForm({...editForm, medecin_referent: e.target.value ? Number(e.target.value) : null})}>
+                                    <select className="ht-input" value={editForm.medecin_referent ?? ''} onChange={e => setEditForm({...editForm, medecin_referent: e.target.value ? Number(e.target.value) : null})}>
                                         <option value="">— Aucun —</option>
-                                        {typeof medecins !== 'undefined' && medecins.map((m: any) => <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom}</option>)}
+                                        {medecins.map(m => <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom}</option>)}
                                     </select>
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Statut du dossier</label>
-                                    <select className="ht-input" value={(editForm as any).actif ? '1' : '0'} onChange={e => setEditForm({...editForm, actif: e.target.value === '1'})}>
+                                    <select className="ht-input" value={editForm.actif ? '1' : '0'} onChange={e => setEditForm({...editForm, actif: e.target.value === '1'})}>
                                         <option value="1">Actif</option>
                                         <option value="0">Inactif</option>
                                     </select>
@@ -1106,6 +1128,9 @@ export default function PatientDetail() {
                 ) : (
                     /* ── MODE VUE COMPLÈTE DU DOSSIER (Flux vertical unique) ── */
                     <div className="space-y-6">
+
+                        <SectionErrorsBanner errors={sectionErrors} onRetry={reload} />
+
                         {/* ── Header patient (Bannière supérieure pleine largeur) ── */}
                         <div className="ht-card ht-card-padded">
                             <div className="flex flex-col md:flex-row items-start gap-5">
@@ -1128,7 +1153,7 @@ export default function PatientDetail() {
                                 <div className="flex-1 min-w-0 w-full">
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                         <div>
-                                            <h1 className="ht-serif text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
+                                            <h1 className="ht-serif text-2xl font-bold gap-3 flex items-center" style={{ color: 'var(--ht-text)' }}>
                                                 {patient.prenom} {patient.nom}
                                             </h1>
                                             <p className="ht-mono text-sm mt-1.5" style={{ color: 'var(--ht-text-secondary)' }}>
@@ -1142,33 +1167,39 @@ export default function PatientDetail() {
                                             </p>
                                         </div>
 
-                                        {!((patient as any).actif ?? true) && (
-                                            <span className="badge badge-muted flex-shrink-0 uppercase tracking-wide">○ Inactif</span>
-                                        )}
-                                    </div>
+                                        {/* Conteneur des Badges de Statut et de Gravité (Alignés côte à côte) */}
+                                        <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
+                    <span
+                        className="text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
+                        style={patient.statut_vital === 'decede'
+                            ? { backgroundColor: 'rgba(255,107,91,0.14)', color: 'var(--ht-coral)', border: '1px solid rgba(255,107,91,0.4)' }
+                            : (patient as any).actif ?? true
+                                ? { backgroundColor: 'rgba(111,215,196,0.14)', color: 'var(--ht-brand-tint)', border: '1px solid rgba(111,215,196,0.4)' }
+                                : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#8fada3' }
+                        }
+                    >
+                        {patient.statut_vital === 'decede'
+                            ? '✝ Décédé'
+                            : ((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
+                    </span>
 
-                                    <div className="mt-4">
-                                        <GraviteBadge gravite={gravite} />
+                                            {/* Le badge de gravité est maintenant sorti et placé juste à côté */}
+                                            <GraviteBadge gravite={gravite} />
+                                        </div>
                                     </div>
 
                                     {/* Badges de métadonnées */}
                                     <div className="flex flex-wrap gap-2 mt-3">
-                                        <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
-                                              style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
-                                            <Droplet size={12} style={{ color: 'var(--ht-text-muted)' }} />
-                                            {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin inconnu'}
-                                        </span>
+                <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
+                      style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
+                    <Droplet size={12} style={{ color: 'var(--ht-text-muted)' }} />
+                    {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin inconnu'}
+                </span>
                                         {patient.medecin_nom && (
                                             <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
                                                   style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
-                                                <Stethoscope size={12} style={{ color: 'var(--ht-text-muted)' }} /> Dr. {patient.medecin_nom}
-                                            </span>
-                                        )}
-                                        {(hospitalisationActive?.service_nom || patient.service_nom) && (
-                                            <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
-                                                  style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
-                                                <Phone size={12} style={{ color: 'var(--ht-text-muted)' }} /> Service {hospitalisationActive?.service_nom || patient.service_nom}
-                                            </span>
+                        <Stethoscope size={12} style={{ color: 'var(--ht-text-muted)' }} />{patient.medecin_nom}
+                    </span>
                                         )}
                                     </div>
 
@@ -1206,14 +1237,14 @@ export default function PatientDetail() {
                                 <InfoRow label="Date de naissance" value={`${formatDate(patient.date_naissance)}${patient.date_naissance_estimee ? ' (estimée)' : ''}`} />
                                 <InfoRow label="Âge" value={`${calcAge(patient.date_naissance)} ans`} />
                                 <InfoRow label="Sexe" value={patient.sexe === 'M' ? 'Masculin' : 'Féminin'} />
-                                <InfoRow label="Groupe sanguin" value={(patient as any).groupe_sanguin || 'Non renseigné'} />
+                                <InfoRow label="Groupe sanguin" value={patient.groupe_sanguin || 'Non renseigné'} />
                                 <InfoRow label="Allergies" value={patient.allergies?.trim() || 'Aucune connue'} />
                                 {patient.telephone && <InfoRow label="Téléphone" value={patient.telephone} />}
                                 {patient.adresse && <InfoRow label="Adresse" value={patient.adresse} />}
-                                <InfoRow label="Service" value={(patient as any).service_nom || 'Non assigné'} />
-                                <InfoRow label="Médecin référent" value={(patient as any).medecin_nom || 'Non assigné'} />
+                                <InfoRow label="Service" value={patient.service_nom || 'Non assigné'} />
+                                <InfoRow label="Médecin référent" value={patient.medecin_nom || 'Non assigné'} />
                                 <InfoRow label="ID dossier" value={`#${patient.id}`} mono />
-                                <InfoRow label="N° dossier" value={(patient as any).numero_dossier || '—'} mono />
+                                <InfoRow label="N° dossier" value={patient.numero_dossier || '—'} mono />
                                 <InfoRow label="Créé le" value={formatDate(patient.date_creation)} />
                             </div>
                         </div>
@@ -1234,17 +1265,26 @@ export default function PatientDetail() {
                                     </button>
                                 )}
                             </div>
-                            <SignesVitauxCharts data={signes}/>
+                            {sectionsLoading.signes ? (
+                                <div className="ht-card ht-card-padded-sm">
+                                    <SkeletonListRows rows={2} />
+                                </div>
+                            ) : (
+                                <SignesVitauxCharts data={signes}/>
+                            )}
                         </div>
 
                         {/* ─── BLOC 3 : Alertes / Consultations / Rendez-vous ─── */}
                         <SuiviPatientTabs
                             alertes={alertes}
+                            alertesLoading={sectionsLoading.alertes}
                             onUpdateAlerteStatut={handleUpdateAlerteStatut}
                             patientId={patient.id}
                             consultations={consultations}
+                            consultationsLoading={sectionsLoading.consultations}
                             onConsultationsUpdate={setConsultations}
                             rendezVous={rdvs}
+                            rdvsLoading={sectionsLoading.rdvs}
                             onVoirAgenda={() => navigate('/rendez_vous')}
                         />
 
@@ -1255,19 +1295,21 @@ export default function PatientDetail() {
                                 onAdd={() => setShowAddAntecedent(true)}
                                 onToggleStatut={handleToggleAntecedentStatut}
                                 onDelete={handleDeleteAntecedent}
+                                loading={sectionsLoading.antecedents}
                             />
                             <AnalysesPanel
                                 demandes={demandes}
                                 canRequest={canRequestLab}
                                 onRequest={() => setShowLabModal(true)}
                                 onVoirResultats={(d) => setSelectedAnalyse(d)}
+                                loading={sectionsLoading.demandes}
                             />
                         </div>
 
                         {/* ─── BLOC 5 : Urgences & Hospitalisations ─── */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <UrgencesPanel passages={urgences}/>
-                            <HospitalisationsPanel hospitalisations={hospitalisations}/>
+                            <UrgencesPanel passages={urgences} loading={sectionsLoading.urgences}/>
+                            <HospitalisationsPanel hospitalisations={hospitalisations} loading={sectionsLoading.hospitalisations}/>
                         </div>
 
                         {/* ─── BLOC 6 : Infirmiers assignés (chef de service) ─── */}
