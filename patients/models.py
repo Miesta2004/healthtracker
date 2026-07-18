@@ -88,6 +88,7 @@ class Patient(Personne):
             from healthtracker.identifiers import generer_identifiant_unique
             self.numero_dossier = generer_identifiant_unique(Patient, 'numero_dossier', 'P', 6)
         super().save(*args, **kwargs)
+
     class Meta:
         verbose_name = "Patient"
         verbose_name_plural = "Patients"

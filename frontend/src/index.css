@@ -117,6 +117,14 @@ body {
 .ht-input:focus { border-color: var(--ht-primary); box-shadow: var(--ht-shadow-focus); }
 .ht-input:disabled { background-color: var(--ht-bg); color: var(--ht-text-muted); cursor: not-allowed; }
 .ht-input::placeholder { color: var(--ht-text-muted); }
+
+/* À ajouter EN PLUS de la classe ht-input sur tout champ précédé/suivi d'une
+   icône positionnée en absolute. Déclarées après .ht-input : elles gagnent
+   sur son padding raccourci (même spécificité, ordre de déclaration), ce qui
+   évite que pl-9/pl-10/pr-10 de Tailwind soient silencieusement écrasés. */
+.ht-input-icon-l { padding-left: 2.5rem; }
+.ht-input-icon-r { padding-right: 2.5rem; }
+
 .ht-textarea { resize: vertical; min-height: 80px; }
 
 .ht-label {
@@ -254,13 +262,6 @@ body {
 }
 .ht-page.compact { padding-left: var(--sidebar-width-compact); }
 .ht-page-content { max-width: 72rem; margin: 0 auto; padding: 2rem 1.5rem; }
-
-/* Pages sans sidebar (formulaires plein écran, éditions, etc.) : pas de
-   padding-left réservé pour la sidebar, le contenu est centré via son
-   propre conteneur max-w-*. */
-.ht-page-standalone {
-    min-height: 100vh; background-color: var(--ht-bg);
-}
 
 .ht-avatar { border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--ht-primary-contrast); flex-shrink: 0; background-color: var(--ht-primary); }
 .ht-avatar-sm { width: 2rem; height: 2rem; font-size: 0.75rem; }

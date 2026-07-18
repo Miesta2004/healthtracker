@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'urgences',
     'disponibilites',
     'morgue',
+    'chirurgie',
 ]
 
 #Configuration DRF + JWT

@@ -154,11 +154,18 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
         let cancelled = false
         setLoadingMedecins(true)
         getMedecinsDisponibles(date)
-            .then(res => { if (!cancelled) setMedecinsDispo(res.medecins) })
+            .then(res => {
+                if (cancelled) return
+                // getMedecinsDisponibles interroge tout l'hôpital, sans notion
+                // de service — on ne garde que ceux déjà présents dans `medecins`
+                // (prop reçue du parent, elle-même filtrée par service).
+                const idsAutorises = new Set(medecins.map(m => m.id))
+                setMedecinsDispo(res.medecins.filter(m => idsAutorises.has(m.id)))
+            })
             .catch(() => { if (!cancelled) setMedecinsDispo([]) })
             .finally(() => { if (!cancelled) setLoadingMedecins(false) })
         return () => { cancelled = true }
-    }, [mode, date, medecinId])
+    }, [mode, date, medecinId, medecins])
 
     // Mode "Par médecin" : prochaines dates disponibles pour ce médecin
     useEffect(() => {
@@ -581,13 +588,13 @@ export default function RendezVousPage() {
                 const medecinsRole = e.filter(m => m.role === 'medecin')
                 // Une secrétaire (ou tout employé non-admin) ne doit voir que les médecins de son propre service.
                 // Si l'employé n'a pas de service renseigné, on ne filtre pas (mieux vaut tout montrer que rien).
-                const medecinsVisibles = (isAdmin || !user?.service_id)
+                const medecinsVisibles = (isAdmin || !user?.service)
                     ? medecinsRole
-                    : medecinsRole.filter(m => m.service === user.service_id)
+                    : medecinsRole.filter(m => m.service === user.service)
                 setMedecins(medecinsVisibles)
             })
             .finally(() => setLoading(false))
-    }, [isAdmin, user?.service_id])
+    }, [isAdmin, user?.service])
 
     const now = new Date()
 

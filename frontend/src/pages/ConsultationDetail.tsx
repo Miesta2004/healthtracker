@@ -5,6 +5,7 @@ import { getAntecedents, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
 import type { Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
+import PlanifierOperationModal from '../components/PlanifierOperationModal'
 import {
     Stethoscope,
     FlaskConical,
@@ -231,6 +232,7 @@ export default function ConsultationDetail() {
     const [savedConsultId, setSavedConsultId] = useState<number | null>(
         !isNew && consultId ? Number(consultId) : null
     )
+    const [showPlanifOp, setShowPlanifOp] = useState(false)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -298,7 +300,7 @@ export default function ConsultationDetail() {
     if (loading) return <SkeletonDetailPage />
 
     return (
-        <div className="ht-page-standalone">
+        <div className="ht-page">
             {showDelete && (
                 <DeleteModal onConfirm={handleDelete} onCancel={() => setShowDelete(false)} loading={deleteLoading} />
             )}
@@ -326,28 +328,35 @@ export default function ConsultationDetail() {
                 </div>
             )}
 
+            {showPlanifOp && savedConsultId && (
+                <PlanifierOperationModal
+                    patientId={patientId}
+                    consultationId={savedConsultId}
+                    onClose={() => setShowPlanifOp(false)}
+                    onCreated={() => navigate(`/patients/${patientId}`)}
+                />
+            )}
+
             {/* Topbar / Entête de navigation */}
-            <nav className="border-b px-4 sm:px-6 py-4 flex items-center gap-4 sticky top-0 z-10"
+            <nav className="border-b px-6 py-4 flex items-center gap-4 sticky top-0 z-10"
                  style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
-                <div className="max-w-7xl mx-auto w-full flex items-center gap-4">
-                    <button onClick={() => navigate(`/patients/${patientId}`)}
-                            className="text-sm flex items-center gap-1 transition-colors hover:scale-105" style={{ color: 'var(--ht-text-muted)' }}>
-                        <ChevronLeft size={16} /> Retour au dossier
+                <button onClick={() => navigate(`/patients/${patientId}`)}
+                        className="text-sm flex items-center gap-1 transition-colors hover:scale-105" style={{ color: 'var(--ht-text-muted)' }}>
+                    <ChevronLeft size={16} /> Retour au dossier
+                </button>
+                <span style={{ color: 'var(--ht-border)' }}>|</span>
+                <span className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
+                    {patient ? `${patient.prenom} ${patient.nom}` : '…'}
+                </span>
+                {!isNew && (
+                    <button onClick={() => setShowDelete(true)} className="btn btn-danger btn-sm gap-1.5 ml-auto">
+                        <Trash2 size={14} /> Supprimer
                     </button>
-                    <span style={{ color: 'var(--ht-border)' }}>|</span>
-                    <span className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
-                        {patient ? `${patient.prenom} ${patient.nom}` : '…'}
-                    </span>
-                    {!isNew && (
-                        <button onClick={() => setShowDelete(true)} className="btn btn-danger btn-sm gap-1.5 ml-auto">
-                            <Trash2 size={14} /> Supprimer
-                        </button>
-                    )}
-                </div>
+                )}
             </nav>
 
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
-                <div className="mb-6">
+            <div className="max-w-3xl mx-auto px-6 py-8 space-y-6">
+                <div>
                     <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
                         {isNew ? 'Nouvel événement médical' : "Modifier l'événement"}
                     </h1>
@@ -356,150 +365,137 @@ export default function ConsultationDetail() {
                     </p>
                 </div>
 
+                {/* Contexte médical : Antécédents existants */}
+                {patient && (
+                    <div className="ht-card ht-card-padded-sm">
+                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
+                            Antécédents médicaux connus
+                        </h2>
+                        {antecedents.length === 0 ? (
+                            <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Aucun antécédent renseigné</p>
+                        ) : (
+                            <div className="flex flex-wrap gap-2">
+                                {antecedents.map(a => (
+                                    <span key={a.id} className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${TYPE_ANTECEDENT_COLORS[a.type_antecedent]}`}
+                                          style={{ opacity: a.statut === 'resolu' ? 0.5 : 1 }}
+                                          title={a.statut === 'resolu' ? 'Résolu' : 'Actif'}>
+                                        {a.libelle}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+                        {patient.allergies && (
+                            <p className="text-xs font-semibold mt-3 flex items-center gap-1.5" style={{ color: 'var(--ht-danger)' }}>
+                                <AlertTriangle size={14} /> Allergies : {patient.allergies}
+                            </p>
+                        )}
+                    </div>
+                )}
+
                 {error && (
-                    <div className="ht-alert ht-alert-danger mb-6">
+                    <div className="ht-alert ht-alert-danger">
                         {error}
                     </div>
                 )}
 
-                <form onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-
-                        {/* ── Colonne principale (2/3) : informations de l'événement ── */}
-                        <div className="lg:col-span-2 space-y-6">
-                            {/* Type d'événement */}
-                            <div className="ht-card ht-card-padded-sm">
-                                <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
-                                    Type d'événement
-                                </h2>
-                                <TypeSelector value={form.type_evenement} onChange={t => setForm(prev => ({ ...prev, type_evenement: t }))} />
-                            </div>
-
-                            {/* Motif */}
-                            <div className="ht-card ht-card-padded-sm">
-                                <div className="ht-field">
-                                    <FieldLabel>Motif <span style={{ color: 'var(--ht-danger)' }}>*</span></FieldLabel>
-                                    <input type="text" name="motif" value={form.motif} onChange={handleChange}
-                                           placeholder="Ex : Douleurs abdominales, Échographie de contrôle, Appendicectomie…"
-                                           className="ht-input" />
-                                </div>
-                            </div>
-
-                            {/* Observations cliniques */}
-                            <div className="ht-card ht-card-padded-sm space-y-4">
-                                <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
-                                    Observations cliniques
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="ht-field">
-                                        <FieldLabel>Symptômes observés</FieldLabel>
-                                        <textarea name="symptomes" value={form.symptomes} onChange={handleChange} rows={4}
-                                                  placeholder="Fièvre, douleur, fatigue…" className="ht-input ht-textarea" />
-                                    </div>
-                                    <div className="ht-field">
-                                        <FieldLabel>Examens réalisés</FieldLabel>
-                                        <textarea name="examens_realises" value={form.examens_realises} onChange={handleChange} rows={4}
-                                                  placeholder="Bilan sanguin, radiographie, échographie…" className="ht-input ht-textarea" />
-                                    </div>
-                                </div>
-                                <div className="ht-field">
-                                    <FieldLabel>Diagnostic</FieldLabel>
-                                    <textarea name="diagnostic" value={form.diagnostic} onChange={handleChange} rows={3}
-                                              placeholder="Diagnostic posé…" className="ht-input ht-textarea" />
-                                    <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
-                                        Si rempli et que le statut est "Terminée", on vous proposera de l'ajouter aux antécédents du patient.
-                                    </p>
-                                </div>
-                            </div>
-
-                            {/* Suivi */}
-                            <div className="ht-card ht-card-padded-sm space-y-4">
-                                <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
-                                    Suivi
-                                </h2>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <div className="ht-field">
-                                        <FieldLabel>Ordonnance</FieldLabel>
-                                        <textarea name="ordonnance" value={form.ordonnance} onChange={handleChange} rows={3}
-                                                  placeholder="Médicaments, posologie…" className="ht-input ht-textarea" />
-                                    </div>
-                                    <div className="ht-field">
-                                        <FieldLabel>Notes</FieldLabel>
-                                        <textarea name="notes" value={form.notes} onChange={handleChange} rows={3}
-                                                  placeholder="Observations complémentaires…" className="ht-input ht-textarea" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Actions (mobile / repli sous le formulaire) */}
-                            <div className="flex gap-3 justify-end items-center pt-2 lg:hidden">
-                                <button type="button" onClick={() => navigate(`/patients/${patientId}`)} className="btn btn-secondary">
-                                    Annuler
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Type d'événement */}
+                    <div className="ht-card ht-card-padded-sm">
+                        <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
+                            Type d'événement
+                        </h2>
+                        <TypeSelector value={form.type_evenement} onChange={t => setForm(prev => ({ ...prev, type_evenement: t }))} />
+                        {form.type_evenement === 'operation' && (
+                            savedConsultId ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPlanifOp(true)}
+                                    className="btn btn-primary btn-sm mt-3"
+                                >
+                                    <Stethoscope size={13} /> Planifier l'opération
                                 </button>
-                                <button type="submit" disabled={saving} className="btn btn-primary gap-1.5">
-                                    <Check size={16} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
-                                </button>
+                            ) : (
+                                <p className="text-xs mt-3" style={{ color: 'var(--ht-text-muted)' }}>
+                                    Enregistre d'abord la consultation pour pouvoir planifier l'opération.
+                                </p>
+                            )
+                        )}
+                    </div>
+
+                    {/* Informations générales */}
+                    <div className="ht-card ht-card-padded-sm space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="ht-field">
+                                <FieldLabel>Date et heure</FieldLabel>
+                                <input type="datetime-local" name="date" value={form.date} onChange={handleChange} className="ht-input" />
+                            </div>
+                            <div className="ht-field">
+                                <FieldLabel>Statut</FieldLabel>
+                                <select name="statut" value={form.statut} onChange={handleChange} className="ht-input">
+                                    {(Object.entries(STATUT_LABELS) as [ConsultationStatut, string][]).map(([k, label]) => (
+                                        <option key={k} value={k}>{label}</option>
+                                    ))}
+                                </select>
                             </div>
                         </div>
-
-                        {/* ── Colonne latérale (1/3) : métadonnées & contexte patient ── */}
-                        <div className="lg:col-span-1 space-y-6 lg:sticky lg:top-24">
-                            {/* Date, heure & statut */}
-                            <div className="ht-card ht-card-padded-sm space-y-4">
-                                <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
-                                    Planification
-                                </h2>
-                                <div className="ht-field">
-                                    <FieldLabel>Date et heure</FieldLabel>
-                                    <input type="datetime-local" name="date" value={form.date} onChange={handleChange} className="ht-input" />
-                                </div>
-                                <div className="ht-field">
-                                    <FieldLabel>Statut</FieldLabel>
-                                    <select name="statut" value={form.statut} onChange={handleChange} className="ht-input">
-                                        {(Object.entries(STATUT_LABELS) as [ConsultationStatut, string][]).map(([k, label]) => (
-                                            <option key={k} value={k}>{label}</option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-
-                            {/* Contexte médical : Antécédents existants */}
-                            {patient && (
-                                <div className="ht-card ht-card-padded-sm">
-                                    <h2 className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
-                                        Antécédents médicaux connus
-                                    </h2>
-                                    {antecedents.length === 0 ? (
-                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Aucun antécédent renseigné</p>
-                                    ) : (
-                                        <div className="flex flex-wrap gap-2">
-                                            {antecedents.map(a => (
-                                                <span key={a.id} className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${TYPE_ANTECEDENT_COLORS[a.type_antecedent]}`}
-                                                      style={{ opacity: a.statut === 'resolu' ? 0.5 : 1 }}
-                                                      title={a.statut === 'resolu' ? 'Résolu' : 'Actif'}>
-                                                    {a.libelle}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    )}
-                                    {patient.allergies && (
-                                        <p className="text-xs font-semibold mt-3 flex items-center gap-1.5" style={{ color: 'var(--ht-danger)' }}>
-                                            <AlertTriangle size={14} /> Allergies : {patient.allergies}
-                                        </p>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Actions de validation (desktop, toujours visibles grâce au sticky) */}
-                            <div className="ht-card ht-card-padded-sm hidden lg:flex flex-col gap-2">
-                                <button type="submit" disabled={saving} className="btn btn-primary gap-1.5 w-full justify-center">
-                                    <Check size={16} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
-                                </button>
-                                <button type="button" onClick={() => navigate(`/patients/${patientId}`)} className="btn btn-secondary w-full justify-center">
-                                    Annuler
-                                </button>
-                            </div>
+                        <div className="ht-field">
+                            <FieldLabel>Motif <span style={{ color: 'var(--ht-danger)' }}>*</span></FieldLabel>
+                            <input type="text" name="motif" value={form.motif} onChange={handleChange}
+                                   placeholder="Ex : Douleurs abdominales, Échographie de contrôle, Appendicectomie…"
+                                   className="ht-input" />
                         </div>
+                    </div>
+
+                    {/* Observations cliniques */}
+                    <div className="ht-card ht-card-padded-sm space-y-4">
+                        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
+                            Observations cliniques
+                        </h2>
+                        <div className="ht-field">
+                            <FieldLabel>Symptômes observés</FieldLabel>
+                            <textarea name="symptomes" value={form.symptomes} onChange={handleChange} rows={3}
+                                      placeholder="Fièvre, douleur, fatigue…" className="ht-input ht-textarea" />
+                        </div>
+                        <div className="ht-field">
+                            <FieldLabel>Examens réalisés</FieldLabel>
+                            <textarea name="examens_realises" value={form.examens_realises} onChange={handleChange} rows={3}
+                                      placeholder="Bilan sanguin, radiographie, échographie…" className="ht-input ht-textarea" />
+                        </div>
+                        <div className="ht-field">
+                            <FieldLabel>Diagnostic</FieldLabel>
+                            <textarea name="diagnostic" value={form.diagnostic} onChange={handleChange} rows={2}
+                                      placeholder="Diagnostic posé…" className="ht-input ht-textarea" />
+                            <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                                Si rempli et que le statut est "Terminée", on vous proposera de l'ajouter aux antécédents du patient.
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Suivi */}
+                    <div className="ht-card ht-card-padded-sm space-y-4">
+                        <h2 className="text-xs font-bold uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>
+                            Suivi
+                        </h2>
+                        <div className="ht-field">
+                            <FieldLabel>Ordonnance</FieldLabel>
+                            <textarea name="ordonnance" value={form.ordonnance} onChange={handleChange} rows={2}
+                                      placeholder="Médicaments, posologie…" className="ht-input ht-textarea" />
+                        </div>
+                        <div className="ht-field">
+                            <FieldLabel>Notes</FieldLabel>
+                            <textarea name="notes" value={form.notes} onChange={handleChange} rows={2}
+                                      placeholder="Observations complémentaires…" className="ht-input ht-textarea" />
+                        </div>
+                    </div>
+
+                    {/* Actions de validation */}
+                    <div className="flex gap-3 justify-end items-center pt-2">
+                        <button type="button" onClick={() => navigate(`/patients/${patientId}`)} className="btn btn-secondary">
+                            Annuler
+                        </button>
+                        <button type="submit" disabled={saving} className="btn btn-primary gap-1.5">
+                            <Check size={16} /> {saving ? 'Enregistrement…' : 'Enregistrer'}
+                        </button>
                     </div>
                 </form>
             </div>

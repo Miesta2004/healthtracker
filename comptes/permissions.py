@@ -143,6 +143,25 @@ class IsLaborantin(IsAuthenticated):
         return emp is not None and emp.role == 'laborantin'
 
 
+class PeutCreerPatient(IsAuthenticated):
+    """
+    Création d'un dossier patient : secrétaire, médecin ou chef de service
+    uniquement. Corrige un écart entre le commentaire de PatientViewSet
+    ("l'infirmier et le laborantin ne peuvent pas créer") et le code réel,
+    qui ne restreignait jusqu'ici que la suppression.
+    """
+
+    ROLES = {'admin', 'medecin', 'secretaire'}
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        return emp is not None and emp.role in self.ROLES
+
+
 class IsLectureAutorisee(IsAuthenticated):
     """Tous les rôles médicaux sauf secrétaire."""
 

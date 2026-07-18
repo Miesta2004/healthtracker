@@ -17,6 +17,29 @@ class TypeContrat(models.TextChoices):
     BENEVOLAT = 'benevolat', 'Bénévolat'
 
 
+class Specialite(models.Model):
+    """
+    Référentiel des spécialités médicales. Remplace progressivement le champ
+    texte libre Employe.specialite_libre — permet des requêtes fiables
+    (ex. "tous les chirurgiens cardiaques") impossibles à faire correctement
+    sur un simple CharField non structuré.
+    """
+    nom = models.CharField(max_length=100, unique=True)
+    est_chirurgicale = models.BooleanField(
+        default=False,
+        help_text="Coché si cette spécialité pratique des actes chirurgicaux "
+                  "(conditionne l'affichage dans les listes de chirurgiens)."
+    )
+
+    class Meta:
+        ordering = ['nom']
+        verbose_name = "Spécialité"
+        verbose_name_plural = "Spécialités"
+
+    def __str__(self):
+        return self.nom
+
+
 class Employe(Personne):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE,
@@ -28,6 +51,13 @@ class Employe(Personne):
         default=Role.INFIRMIER
     )
     specialite  = models.CharField(max_length=100, blank=True)
+    specialite_principale = models.ForeignKey(
+        Specialite, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='employes',
+        help_text="Version structurée de `specialite` (texte libre, conservé "
+                  "pour compatibilité). À terme, migrer les valeurs de "
+                  "`specialite` vers ce champ puis déprécier l'ancien."
+    )
     matricule   = models.CharField(max_length=20, unique=True, blank=True)
     actif       = models.BooleanField(default=True)
     service    = models.ForeignKey(
@@ -67,7 +97,8 @@ class Employe(Personne):
     )
 
     def save(self, *args, **kwargs):
-        # vérification d'unicité en base avec retry avant assignation, plutôt qu'un tirage aléatoire
+        # Même correctif que Patient.numero_dossier : vérification d'unicité
+        # en base avec retry avant assignation, plutôt qu'un tirage aléatoire
         # à l'aveugle qui pouvait produire un doublon.
         if not self.matricule:
             from healthtracker.identifiers import generer_identifiant_unique
@@ -95,3 +126,37 @@ class Employe(Personne):
                 name='employe_est_major_seulement_infirmier',
             )
         ]
+
+
+class HabilitationService(models.Model):
+    """
+    Autorise un employé (typiquement un chirurgien) à intervenir dans un
+    service qui n'est PAS son service de rattachement principal
+    (Employe.service), sans modifier ce dernier — qui reste la référence
+    pour tout le scoping de permissions existant (PatientViewSet,
+    SignesVitauxViewSet, etc.).
+
+    Utilisée uniquement pour élargir, au cas par cas, la liste des
+    chirurgiens éligibles à opérer dans un service donné (voir
+    Operation.clean() dans l'app `chirurgie`).
+    """
+    employe = models.ForeignKey(
+        Employe, on_delete=models.CASCADE,
+        related_name='habilitations_services'
+    )
+    service = models.ForeignKey(
+        'services.Service', on_delete=models.CASCADE,
+        related_name='chirurgiens_habilites'
+    )
+    date_debut = models.DateField(null=True, blank=True)
+    date_fin = models.DateField(null=True, blank=True)  # null = sans limite dans le temps
+    actif = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('employe', 'service')
+        verbose_name = "Habilitation à opérer dans un service"
+        verbose_name_plural = "Habilitations à opérer dans un service"
+
+    def __str__(self):
+        return f"{self.employe} → {self.service}"

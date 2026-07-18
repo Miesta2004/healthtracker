@@ -4,6 +4,7 @@ from datetime import datetime, timedelta
 from rest_framework import viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from django.utils import timezone as dj_timezone
 
@@ -176,6 +177,33 @@ class RdvViewSet(viewsets.ModelViewSet):
         if self.action == 'destroy':
             return [IsAdminRole()]
         return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        """
+        Empêche la création d'un rendez-vous reliant un patient et/ou un
+        médecin d'un service différent de celui de l'employé connecté.
+        Le superuser (admin général) n'est pas concerné par cette
+        restriction, à l'image de IsAdminRole/same_service ailleurs dans
+        l'app — seul le chef de service (rôle 'admin') reste limité à SON
+        service, comme les autres rôles.
+        """
+        user = self.request.user
+        if not user.is_superuser:
+            emp = get_employe(user)
+            if emp is not None and emp.service_id is not None:
+                patient = serializer.validated_data.get('patient')
+                medecin = serializer.validated_data.get('medecin')
+
+                if patient is not None and patient.service_id != emp.service_id:
+                    raise ValidationError({
+                        'patient': "Ce patient n'appartient pas à votre service."
+                    })
+                if medecin is not None and medecin.service_id != emp.service_id:
+                    raise ValidationError({
+                        'medecin': "Ce médecin n'appartient pas à votre service."
+                    })
+
+        serializer.save()
 
     @action(detail=False, methods=['get'], url_path='creneaux_disponibles',
             permission_classes=[PeutVoirRendezVous])

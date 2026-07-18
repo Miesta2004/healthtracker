@@ -21,6 +21,7 @@ export interface Patient {
     medecin_referent?: number | null
     medecin_nom?: string | null
 }
+
 // ─── Rendez-vous ────────────────────────────────────────────────────────────
 export type StatutRendezVous = 'planifie' | 'confirme' | 'annule' | 'termine'
 
@@ -77,6 +78,11 @@ export interface DateDisponible {
 export interface DatesDisponiblesResponse {
     medecin: number
     dates: DateDisponible[]
+}
+
+export interface AuthTokens {
+    access: string
+    refresh: string
 }
 
 export interface LoginCredentials {
@@ -400,4 +406,43 @@ export interface MesPatientsAssignesResponse {
     shift: Shift
     shift_label: string
     assignations: AssignationPatient[]
+}
+
+// ─── Chirurgie / Opérations ──────────────────────────────────────────────────
+export type StatutOperation = 'planifiee' | 'confirmee' | 'en_cours' | 'terminee' | 'complication' | 'reportee' | 'annulee'
+
+export interface SalleBloc {
+    id: number
+    nom: string
+    service: number
+    service_nom?: string
+    actif: boolean
+}
+
+export interface Operation {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_prenom?: string
+    consultation_indication: number | null
+    hospitalisation: number | null
+    service_chirurgie: number
+    service_chirurgie_nom?: string
+    salle: number | null
+    salle_nom?: string | null
+    chirurgien_principal: number
+    chirurgien_nom?: string
+    chirurgien_prenom?: string
+    equipe: number[]
+    type_intervention: string
+    date_heure_prevue: string
+    duree_estimee_min: number
+    date_debut_reelle: string | null
+    date_fin_reelle: string | null
+    statut: StatutOperation
+    statut_label: string
+    compte_rendu_operatoire: string
+    complications: string
+    date_creation: string
+    date_modification: string
 }
