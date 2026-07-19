@@ -10,6 +10,7 @@ from django.middleware.csrf import get_token
 from .models import Employe, HabilitationService
 from .serializers import EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer
 from .permissions import IsAdminRole, PeutGererHabilitations, get_employe
+from .analytics import stats_medecin
 from .capacites import Capacite
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
@@ -95,6 +96,21 @@ class EmployeViewSet(viewsets.ModelViewSet):
         employe.user.save(update_fields=['is_active'])
         employe.save(update_fields=['actif'])
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def performance(self, request, pk=None):
+        """
+        Statistiques d'activité d'un médecin, indépendamment d'un service —
+        même logique que celle utilisée dans ServiceStats, réutilisée ici
+        (voir comptes/analytics.py) pour éviter de la dupliquer.
+        """
+        medecin = self.get_object()
+        if medecin.role != 'medecin':
+            return Response(
+                {'detail': "Ces statistiques ne concernent que les médecins."},
+                status=400,
+            )
+        return Response(stats_medecin(medecin))
 
     @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
     def me(self, request):

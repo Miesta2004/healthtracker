@@ -1,5 +1,5 @@
 import api from './client.ts'
-import type { Employe, CurrentUser } from '../types'
+import type { Employe, CurrentUser, MedecinPerf } from '../types'
 
 export const getEmployes = async (): Promise<Employe[]> => {
     const response = await api.get('/employes/')
@@ -27,5 +27,10 @@ export const deleteEmploye = async (id: number): Promise<void> => {
 
 export const getMe = async (): Promise<CurrentUser> => {
     const response = await api.get('/employes/me/')
+    return response.data
+}
+
+export const getPerformanceMedecin = async (id: number): Promise<MedecinPerf> => {
+    const response = await api.get(`/employes/${id}/performance/`)
     return response.data
 }

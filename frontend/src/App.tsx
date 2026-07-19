@@ -12,6 +12,7 @@ import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
 import Services from './pages/Services'
 import ServiceDetail from './pages/ServiceDetail'
+import Analytics from './pages/Analytics'
 import AddSignesVitaux from './pages/AddSignesVitaux'
 import AddHospitalisation from './pages/AddHospitalisation'
 import Urgences from './pages/Urgences'
@@ -116,6 +117,11 @@ function App() {
                 <Route path="/services/:id" element={
                     <ProtectedRoute roles={['admin']}>
                         <ServiceDetail />
+                    </ProtectedRoute>
+                } />
+                <Route path="/analytics" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <Analytics />
                     </ProtectedRoute>
                 } />
                 <Route path="/conges" element={

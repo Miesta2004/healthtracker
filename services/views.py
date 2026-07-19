@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -8,6 +10,7 @@ from django.utils import timezone
 from .models import Service
 from .serializers import ServiceSerializer
 from comptes.permissions import IsAdminRole, IsSuperUser
+from comptes.analytics import stats_medecin
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -62,7 +65,6 @@ class ServiceViewSet(viewsets.ModelViewSet):
         patients suivis par le médecin, pas uniquement les actes qu'il a
         personnellement réalisés).
         """
-        from consultations.models import Consultation
         from comptes.models import Employe, Role
         from comptes.capacites import roles_avec_capacite, Capacite
 
@@ -92,18 +94,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
         }
 
         medecins_qs = employes_qs.filter(role__in=roles_avec_capacite(Capacite.ACTES_MEDICAUX_GERER))
-        medecins_perf = []
-        for medecin in medecins_qs:
-            patients_medecin = patients_qs.filter(medecin_referent=medecin)
-            consult_qs = Consultation.objects.filter(patient__in=patients_medecin)
-            medecins_perf.append({
-                'id': medecin.id,
-                'nom': f"{medecin.prenom} {medecin.nom}",
-                'specialite': medecin.specialite,
-                'nb_patients': patients_medecin.count(),
-                'nb_consultations': consult_qs.filter(type_evenement='consultation').count(),
-                'nb_operations': consult_qs.filter(type_evenement='operation').count(),
-            })
+        medecins_perf = [stats_medecin(m) for m in medecins_qs]
         medecins_perf.sort(key=lambda m: m['nb_patients'], reverse=True)
 
         return Response({
@@ -112,3 +103,67 @@ class ServiceViewSet(viewsets.ModelViewSet):
             'employes': employes_stats,
             'medecins': medecins_perf,
         })
+
+    @action(detail=False, methods=['get'], url_path='vue-ensemble')
+    def vue_ensemble(self, request):
+        """
+        Agrège patients/employés sur tous les services visibles par
+        l'utilisateur connecté (déjà scopé par get_queryset : un seul
+        service pour un chef, tous pour le superuser).
+        """
+        from patients.models import Patient
+        from comptes.models import Employe, Role
+
+        services = self.get_queryset()
+        now = timezone.now()
+        patients_qs = Patient.objects.filter(service__in=services)
+        employes_qs = Employe.objects.filter(service__in=services, actif=True)
+
+        return Response({
+            'nb_services': services.count(),
+            'patients': {
+                'total': patients_qs.count(),
+                'actifs': patients_qs.filter(actif=True).count(),
+                'nouveaux_mois': patients_qs.filter(
+                    date_creation__year=now.year, date_creation__month=now.month
+                ).count(),
+            },
+            'employes': {
+                'total': employes_qs.count(),
+                'par_role': {
+                    role.value: employes_qs.filter(role=role.value).count()
+                    for role in Role
+                },
+            },
+            'par_service': [
+                {
+                    'id': s.id, 'nom': s.nom,
+                    'nb_patients': s.nb_patients, 'nb_employes': s.nb_employes,
+                }
+                for s in services
+            ],
+        })
+
+    @action(detail=True, methods=['get'], url_path='activite')
+    def activite(self, request, pk=None):
+        """
+        Volume quotidien de nouveaux patients sur une fenêtre glissante
+        (30 jours par défaut, 90 max) — alimente un graphique de tendance.
+        """
+        from django.db.models.functions import TruncDate
+
+        service = self.get_object()
+        try:
+            jours = min(int(request.query_params.get('jours', 30)), 90)
+        except ValueError:
+            jours = 30
+        depuis = timezone.now().date() - timedelta(days=jours)
+
+        par_jour = (
+            service.patients.filter(date_creation__date__gte=depuis)
+            .annotate(jour=TruncDate('date_creation'))
+            .values('jour')
+            .annotate(nb=Count('id'))
+            .order_by('jour')
+        )
+        return Response(list(par_jour))

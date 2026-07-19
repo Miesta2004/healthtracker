@@ -17,6 +17,7 @@ import {
     FlaskConical,
     TriangleAlert,
     Building2,
+    BarChart3,
     UserCog,
     Bell,
     ChevronLeft,
@@ -312,6 +313,13 @@ export default function Sidebar() {
                             label="Services"
                             active={isActive("/services")}
                             onClick={() => navigate("/services")}
+                            collapsed={collapsed}
+                        />
+                        <SidebarItem
+                            icon={BarChart3}
+                            label="Analytics"
+                            active={isActive("/analytics")}
+                            onClick={() => navigate("/analytics")}
                             collapsed={collapsed}
                         />
                         <SidebarItem

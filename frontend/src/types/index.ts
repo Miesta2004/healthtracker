@@ -192,6 +192,32 @@ export interface ServiceStats {
     medecins: MedecinPerf[]
 }
 
+export interface VueEnsembleService {
+    id: number
+    nom: string
+    nb_patients: number
+    nb_employes: number
+}
+
+export interface VueEnsemble {
+    nb_services: number
+    patients: {
+        total: number
+        actifs: number
+        nouveaux_mois: number
+    }
+    employes: {
+        total: number
+        par_role: Record<RoleEmploye, number>
+    }
+    par_service: VueEnsembleService[]
+}
+
+export interface ActiviteJour {
+    jour: string
+    nb: number
+}
+
 // Réponse de /employes/me/ : soit un Employe complet, soit un fallback minimal
 // pour un superuser Django sans fiche Employe associée.
 export interface CurrentUser {
