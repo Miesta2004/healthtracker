@@ -11,6 +11,7 @@ import { getDemandesEnAttente } from "../api/analyses";
 import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
+import MedecinPlanning from "../components/planning/MedecinPlanning.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
 import {
@@ -119,6 +120,7 @@ export default function Dashboard() {
     const canSeeConsult  = hasRole("admin", "medecin", "infirmier");
     const canSeeRdv      = hasRole("admin", "medecin", "secretaire");
     const isAdmin        = hasRole("admin");
+    const isMedecin      = hasRole("medecin");
     const isNurse        = hasRole("infirmier");
     const isSecretaire   = hasRole("secretaire");
 
@@ -309,6 +311,9 @@ export default function Dashboard() {
                     </div>
                 )}
 
+                {/* ── Calendrier interactif du médecin (remplace le widget-liste RDV) ── */}
+                {isMedecin && <MedecinPlanning />}
+
                 {/* ── Section Widgets ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -389,7 +394,7 @@ export default function Dashboard() {
                         </WidgetCard>
                     )}
 
-                    {canSeeRdv && (
+                    {canSeeRdv && !isMedecin && (
                         <WidgetCard
                             title="Rendez-vous du jour"
                             count={rdvAujourdhui.length}
@@ -415,7 +420,7 @@ export default function Dashboard() {
                         </WidgetCard>
                     )}
 
-                    {canSeeRdv && (
+                    {canSeeRdv && !isMedecin && (
                         <WidgetCard
                             title="Cette semaine"
                             count={rdvCetteSemaine.length}

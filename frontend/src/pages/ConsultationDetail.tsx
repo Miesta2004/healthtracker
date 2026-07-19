@@ -1,8 +1,9 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getPatient } from '../api/patients'
 import { getAntecedents, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
+import { updateRendezVous } from '../api/rendezvous'
 import type { Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import PlanifierOperationModal from '../components/PlanifierOperationModal'
@@ -157,8 +158,16 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
 export default function ConsultationDetail() {
     const { id, consultId } = useParams<{ id: string; consultId?: string }>()
     const navigate = useNavigate()
+    const location = useLocation()
     const patientId = Number(id)
     const isNew = !consultId || consultId === 'new'
+
+    // Pré-remplissage depuis le calendrier du médecin (§3.1b de la spec
+    // planning) : un clic sur "Démarrer la consultation" depuis un
+    // rendez-vous navigue ici avec `location.state` plutôt que de faire
+    // ressaisir le motif. `rendezVousId` sert ensuite à relier la
+    // consultation créée au RDV d'origine (cf. handleSubmit ci-dessous).
+    const etatNavigation = location.state as { motif?: string; rendezVousId?: number } | null
 
     const [patient, setPatient] = useState<Patient | null>(null)
     const [antecedents, setAntecedents] = useState<Antecedent[]>([])
@@ -181,7 +190,7 @@ export default function ConsultationDetail() {
     const [form, setForm] = useState({
         type_evenement: 'consultation' as TypeEvenement,
         date: defaultDate,
-        motif: '',
+        motif: etatNavigation?.motif ?? '',
         symptomes: '',
         examens_realises: '',
         diagnostic: '',
@@ -245,6 +254,14 @@ export default function ConsultationDetail() {
             if (isNew) {
                 const created = await createConsultation(payload)
                 savedId = created.id
+                // Relie la consultation au RDV d'origine si on vient du
+                // calendrier — c'est ce qui rend `consultation_id` fiable
+                // dans la réponse de mon_planning pour les prochains
+                // chargements (bouton "Reprendre" plutôt que "Démarrer").
+                if (etatNavigation?.rendezVousId) {
+                    updateRendezVous(etatNavigation.rendezVousId, { consultation_liee: savedId })
+                        .catch(() => {})
+                }
             } else {
                 const updated = await updateConsultation(Number(consultId), payload)
                 savedId = updated.id

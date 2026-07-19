@@ -35,10 +35,12 @@ export interface RendezVous {
     medecin_nom?: string | null
     medecin_prenom?: string | null
     date_heure: string
+    duree_minutes?: number
     motif: string
     statut: StatutRendezVous
     statut_label?: string
     notes?: string
+    consultation_liee?: number | null
     date_creation: string
 }
 
@@ -78,6 +80,39 @@ export interface DateDisponible {
 export interface DatesDisponiblesResponse {
     medecin: number
     dates: DateDisponible[]
+}
+
+// ─── Planning calendrier du médecin (dashboard) ──────────────────────────────
+export interface EvenementPlanning {
+    id: number
+    start_time: string
+    end_time: string
+    statut: StatutRendezVous
+    statut_label: string
+    motif: string
+    patient: {
+        id: number
+        nom_complet: string
+        numero_dossier: string
+        age: number
+    }
+    a_alerte_critique: boolean
+    consultation_id: number | null
+}
+
+export interface IndisponibilitePlanning {
+    type: string
+    type_label: string
+    date_debut: string
+    date_fin: string
+    motif: string
+}
+
+export interface PlanningResponse {
+    debut: string
+    fin: string
+    evenements: EvenementPlanning[]
+    indisponibilites: IndisponibilitePlanning[]
 }
 
 export interface AuthTokens {

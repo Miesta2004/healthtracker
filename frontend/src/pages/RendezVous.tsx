@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import { getEmployes } from '../api/comptes'
 import {
@@ -570,6 +570,15 @@ type Filtre = 'aujourdhui' | 'venir' | 'passes' | 'tous'
 export default function RendezVousPage() {
     const { hasRole, user } = useAuth()
     const isAdmin = hasRole('admin')
+    const navigate = useNavigate()
+    const location = useLocation()
+
+    // Deep-link : arrivée depuis le calendrier médecin (MedecinPlanning →
+    // "Modifier l'horaire") avec `{ rdvId }` dans location.state, pour
+    // ouvrir directement la modale d'édition de ce RDV plutôt que de
+    // laisser l'utilisateur le rechercher dans la liste.
+    const rdvIdCible = (location.state as { rdvId?: number } | null)?.rdvId
+    const deepLinkTraite = useRef(false)
 
     const [rdvs, setRdvs] = useState<RendezVous[]>([])
     const [patients, setPatients] = useState<Patient[]>([])
@@ -592,8 +601,21 @@ export default function RendezVousPage() {
                     ? medecinsRole
                     : medecinsRole.filter(m => m.service === user.service)
                 setMedecins(medecinsVisibles)
+
+                if (rdvIdCible && !deepLinkTraite.current) {
+                    deepLinkTraite.current = true
+                    const cible = r.find(x => x.id === rdvIdCible)
+                    if (cible) {
+                        setEditTarget(cible)
+                        setShowModal(true)
+                    }
+                    // Nettoie location.state pour qu'un rechargement ou un
+                    // retour arrière du navigateur ne rouvre pas la modale.
+                    navigate(location.pathname, { replace: true })
+                }
             })
             .finally(() => setLoading(false))
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin, user?.service])
 
     const now = new Date()

@@ -1,5 +1,5 @@
 import api from './client.ts'
-import type { RendezVous, CreneauxDisponiblesResponse, MedecinsDisponiblesResponse, DatesDisponiblesResponse } from '../types'
+import type { RendezVous, CreneauxDisponiblesResponse, MedecinsDisponiblesResponse, DatesDisponiblesResponse, PlanningResponse } from '../types'
 
 export const getRendezVous = async (): Promise<RendezVous[]> => {
     const response = await api.get('/rendez_vous/')
@@ -56,5 +56,20 @@ export const getDatesDisponibles = async (
     if (options?.jours) params.set('jours', String(options.jours))
     if (options?.duree) params.set('duree', String(options.duree))
     const response = await api.get(`/rendez_vous/dates_disponibles/?${params.toString()}`)
+    return response.data
+}
+
+/**
+ * Planning calendrier du médecin connecté (dashboard). Contrairement aux
+ * autres fonctions de ce fichier, ignore tout id de médecin — le backend
+ * résout systématiquement l'employé connecté et renvoie 403 si ce n'est
+ * pas un médecin.
+ */
+export const getMonPlanning = async (debut?: string, fin?: string): Promise<PlanningResponse> => {
+    const params = new URLSearchParams()
+    if (debut) params.set('debut', debut)
+    if (fin) params.set('fin', fin)
+    const qs = params.toString()
+    const response = await api.get(`/rendez_vous/mon_planning/${qs ? `?${qs}` : ''}`)
     return response.data
 }
