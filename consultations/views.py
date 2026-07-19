@@ -1,6 +1,7 @@
 from datetime import date as date_cls
 from datetime import datetime, timedelta
 
+from django.db.models import Exists, OuterRef
 from rest_framework import viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.decorators import action
@@ -11,8 +12,12 @@ from django.utils import timezone as dj_timezone
 from comptes.models import Employe
 from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, PeutVoirRendezVous, get_employe
 from disponibilites.models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
+from alertes.models import Alerte
 from .models import Consultation, RendezVous
-from .serializers import ConsultSerializer, RdvSerializer
+from .serializers import (
+    ConsultSerializer, RdvSerializer,
+    RdvPlanningSerializer, IndisponibiliteSerializer,
+)
 from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
 from antecedents.serializers import AntecedentSerializer
 
@@ -141,6 +146,40 @@ def _parse_duree(request):
     except ValueError:
         duree = 30
     return max(5, duree)
+
+
+def _resoudre_bornes(request):
+    """
+    Résout les bornes (debut, fin) du planning à partir des query params
+    `debut`/`fin` (AAAA-MM-JJ), ou par défaut la semaine courante
+    (lundi → dimanche). `vue` n'influence pas ce calcul par défaut — elle
+    n'est utile que si le frontend a besoin d'un indice pour de futures
+    évolutions (ex. bornes par défaut différentes en vue 'jour').
+    """
+    debut_str = request.query_params.get('debut')
+    fin_str   = request.query_params.get('fin')
+
+    if debut_str:
+        try:
+            debut = date_cls.fromisoformat(debut_str)
+        except ValueError:
+            raise ValidationError({'debut': "Date invalide (format attendu : AAAA-MM-JJ)."})
+    else:
+        aujourdhui = dj_timezone.localdate()
+        debut = aujourdhui - timedelta(days=aujourdhui.weekday())  # lundi de la semaine
+
+    if fin_str:
+        try:
+            fin = date_cls.fromisoformat(fin_str)
+        except ValueError:
+            raise ValidationError({'fin': "Date invalide (format attendu : AAAA-MM-JJ)."})
+    else:
+        fin = debut + timedelta(days=6)  # dimanche de la même semaine
+
+    if fin < debut:
+        raise ValidationError({'fin': "La date de fin doit être postérieure à la date de début."})
+
+    return debut, fin
 
 
 class RdvViewSet(viewsets.ModelViewSet):
@@ -399,3 +438,56 @@ class RdvViewSet(viewsets.ModelViewSet):
             cur += timedelta(days=1)
 
         return Response({'medecin': int(medecin_id), 'dates': dates_dispo})
+
+    @action(detail=False, methods=['get'], url_path='mon_planning',
+            permission_classes=[IsAuthenticated])
+    def mon_planning(self, request):
+        """
+        Planning calendrier du médecin connecté (dashboard). Contrairement à
+        `?medecin=<id>` sur la liste standard (usage admin/secrétariat), cette
+        action ignore tout `medecin_id` passé en paramètre et résout
+        systématiquement l'employé connecté — un médecin ne peut voir que
+        son propre planning via cette route.
+
+        Query params :
+          - debut (AAAA-MM-JJ, optionnel, défaut lundi de la semaine courante)
+          - fin   (AAAA-MM-JJ, optionnel, défaut dimanche de la semaine courante)
+          - vue   (jour|semaine|mois, optionnel, informatif uniquement)
+        """
+        employe = get_employe(request.user)
+        if employe is None or employe.role != 'medecin':
+            return Response(
+                {'detail': "Cette vue est réservée aux médecins."},
+                status=403
+            )
+
+        debut, fin = _resoudre_bornes(request)
+
+        rendez_vous = (
+            RendezVous.objects
+            .filter(medecin=employe, date_heure__date__range=(debut, fin))
+            .select_related('patient', 'consultation_liee')
+            .annotate(
+                _a_alerte_critique=Exists(
+                    Alerte.objects.filter(
+                        patient_id=OuterRef('patient_id'),
+                        statut='non_lue',
+                    )
+                )
+            )
+            .order_by('date_heure')
+        )
+
+        exceptions = ExceptionDisponibilite.objects.filter(
+            employe=employe,
+            statut=StatutException.VALIDE,
+            date_debut__lte=fin,
+            date_fin__gte=debut,
+        )
+
+        return Response({
+            'debut': debut.isoformat(),
+            'fin': fin.isoformat(),
+            'evenements': RdvPlanningSerializer(rendez_vous, many=True).data,
+            'indisponibilites': IndisponibiliteSerializer(exceptions, many=True).data,
+        })

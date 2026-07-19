@@ -1,4 +1,12 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+
+from comptes.capacites import roles_avec_capacite, Capacite
+
+
+def _roles_actes_medicaux():
+    """Callable limit_choices_to — mêmes rôles que chirurgie.models, DRY."""
+    return {'role__in': roles_avec_capacite(Capacite.ACTES_MEDICAUX_GERER)}
 
 
 class LieuDeces(models.TextChoices):
@@ -34,9 +42,20 @@ class Deces(models.Model):
     )
     statut = models.CharField(max_length=25, choices=StatutDeces.choices, default=StatutDeces.DISPENSE_AUTOPSIE)
 
+    operation_liee = models.ForeignKey(
+        'chirurgie.Operation', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='deces_lies',
+        help_text=(
+            "À renseigner si le décès fait suite à une complication chirurgicale "
+            "péri-opératoire. Conditionne qui peut valider le rapport d'autopsie "
+            "(voir Capacite.AUTOPSIE_VALIDER_PERIOP) : le Chef de Chirurgie si "
+            "renseigné, n'importe quel médecin sinon."
+        ),
+    )
+
     medecin_constatant = models.ForeignKey(
         'comptes.Employe', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='deces_constates', limit_choices_to={'role': 'medecin'},
+        related_name='deces_constates', limit_choices_to=_roles_actes_medicaux,
         help_text="Médecin ayant constaté le décès.",
     )
 
@@ -49,6 +68,13 @@ class Deces(models.Model):
 
     date_creation     = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
+
+    def clean(self):
+        if self.operation_liee_id and self.patient_id:
+            if self.operation_liee.patient_id != self.patient_id:
+                raise ValidationError(
+                    {'operation_liee': "Cette opération ne concerne pas le patient de ce décès."}
+                )
 
     def __str__(self):
         return f"Décès — {self.patient} ({self.date_deces.strftime('%d/%m/%Y')})"
@@ -77,7 +103,7 @@ class Autopsie(models.Model):
 
     medecin_legiste = models.ForeignKey(
         'comptes.Employe', on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='autopsies_realisees', limit_choices_to={'role': 'medecin'},
+        related_name='autopsies_realisees', limit_choices_to=_roles_actes_medicaux,
     )
     type = models.CharField(max_length=12, choices=TypeAutopsie.choices, default=TypeAutopsie.MEDICALE)
     date_autopsie = models.DateTimeField()

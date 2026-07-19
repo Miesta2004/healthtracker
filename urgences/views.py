@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from comptes.permissions import IsLectureAutorisee, IsMedecinOuInfirmier, get_employe
+from comptes.capacites import Capacite
 from .models import PassageUrgence, StatutUrgence, DecisionSortie
 from .serializers import PassageUrgenceSerializer
 
@@ -74,7 +75,7 @@ class PassageUrgenceViewSet(viewsets.ModelViewSet):
         medecin_id = request.data.get('medecin_examinateur')
         if medecin_id:
             passage.medecin_examinateur_id = medecin_id
-        elif emp and emp.role == 'medecin':
+        elif emp and emp.a_la_capacite(Capacite.ACTES_MEDICAUX_GERER):
             passage.medecin_examinateur = emp
         passage.statut = StatutUrgence.EN_CONSULTATION
         passage.save()

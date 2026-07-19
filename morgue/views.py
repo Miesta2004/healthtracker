@@ -1,12 +1,13 @@
 from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 
 from comptes.permissions import IsMedecinOuAdmin, get_employe
 from .models import Deces, Autopsie, StatutDeces
 from .serializers import DecesSerializer, AutopsieSerializer
-from .permissions import PeutVoirMorgue
+from .permissions import PeutVoirMorgue, PeutValiderAutopsiePerioperatoire
 
 
 class DecesViewSet(viewsets.ModelViewSet):
@@ -56,6 +57,12 @@ class AutopsieViewSet(viewsets.ModelViewSet):
     """
     Acte d'autopsie, lié à un décès. Réservé aux médecins/admin. La création
     fait automatiquement passer le décès associé au statut 'autopsie_terminee'.
+
+    Cas particulier de la VALIDATION du rapport (`rapport_valide`) : si le
+    décès est péri-opératoire (`deces.operation_liee` renseigné), seul le
+    Chef de Chirurgie (capacité AUTOPSIE_VALIDER_PERIOP) peut faire passer
+    `rapport_valide` à True — n'importe quel médecin/admin le peut sinon,
+    comme avant.
     """
     queryset = Autopsie.objects.select_related('deces', 'deces__patient', 'medecin_legiste')
     serializer_class = AutopsieSerializer
@@ -64,6 +71,25 @@ class AutopsieViewSet(viewsets.ModelViewSet):
         if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
             return [PeutVoirMorgue()]
         return [IsMedecinOuAdmin()]
+
+    def perform_update(self, serializer):
+        instance = self.get_object()
+        validation_demandee = (
+                serializer.validated_data.get('rapport_valide') is True
+                and not instance.rapport_valide
+        )
+
+        if validation_demandee and instance.deces.operation_liee_id:
+            if not PeutValiderAutopsiePerioperatoire().has_permission(self.request, self):
+                raise PermissionDenied(
+                    "Ce décès est lié à une opération : seul le Chef de Chirurgie "
+                    "peut valider ce rapport d'autopsie."
+                )
+
+        if validation_demandee:
+            serializer.save(date_validation=timezone.now())
+        else:
+            serializer.save()
 
     def perform_create(self, serializer):
         autopsie = serializer.save()

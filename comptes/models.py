@@ -3,11 +3,12 @@ from django.contrib.auth.models import User
 from patients.models import Personne
 
 class Role(models.TextChoices):
-    ADMIN      = 'admin',      'Administrateur'
-    MEDECIN    = 'medecin',    'Médecin'
-    INFIRMIER  = 'infirmier',  'Infirmier(ère)'
-    SECRETAIRE = 'secretaire', 'Secrétaire'
-    LABORANTIN = 'laborantin', 'Laborantin'
+    ADMIN          = 'admin',          'Administrateur'
+    MEDECIN        = 'medecin',        'Médecin'
+    INFIRMIER      = 'infirmier',      'Infirmier(ère)'
+    SECRETAIRE     = 'secretaire',     'Secrétaire'
+    LABORANTIN     = 'laborantin',     'Laborantin'
+    CHEF_CHIRURGIE = 'chef_chirurgie', 'Chef de Chirurgie'
 
 class TypeContrat(models.TextChoices):
     CDI       = 'cdi',       'CDI'
@@ -107,6 +108,14 @@ class Employe(Personne):
 
     def __str__(self):
         return f"{self.prenom} {self.nom} — {self.get_role_display()}"
+
+    @property
+    def capacites(self) -> set:
+        from .capacites import capacites_du_role
+        return capacites_du_role(self.role)
+
+    def a_la_capacite(self, capacite: str) -> bool:
+        return capacite in self.capacites
 
     class Meta:
         verbose_name = "Employé"

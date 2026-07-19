@@ -3,6 +3,17 @@ from datetime import timedelta
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from comptes.capacites import roles_avec_capacite, Capacite
+
+
+def _roles_actes_medicaux():
+    """
+    Callable limit_choices_to — rôles pouvant être chirurgien principal
+    d'une opération. Passe par la couche de capacités plutôt qu'une liste en
+    dur : un futur rôle héritant de médecin y apparaît automatiquement.
+    """
+    return {'role__in': roles_avec_capacite(Capacite.ACTES_MEDICAUX_GERER)}
+
 
 class StatutOperation(models.TextChoices):
     PLANIFIEE    = 'planifiee',    'Planifiée'
@@ -75,7 +86,7 @@ class Operation(models.Model):
     chirurgien_principal = models.ForeignKey(
         'comptes.Employe', on_delete=models.PROTECT,
         related_name='operations_dirigees',
-        limit_choices_to={'role': 'medecin'}
+        limit_choices_to=_roles_actes_medicaux
     )
     equipe = models.ManyToManyField(
         'comptes.Employe', related_name='operations_assistees', blank=True,
@@ -109,19 +120,32 @@ class Operation(models.Model):
     def clean(self):
         # Le chirurgien principal doit être habilité sur le service de
         # l'opération : soit c'est son service de rattachement (Employe.service),
-        # soit il a une HabilitationService active dessus.
+        # soit il a une HabilitationService active ET valide à la date de
+        # l'opération (les bornes date_debut/date_fin, si renseignées,
+        # n'étaient jusqu'ici jamais vérifiées — corrigé ici).
         if self.chirurgien_principal_id and self.service_chirurgie_id:
             from comptes.models import HabilitationService
 
             meme_service = self.chirurgien_principal.service_id == self.service_chirurgie_id
-            habilite = HabilitationService.objects.filter(
+
+            habilitations = HabilitationService.objects.filter(
                 employe=self.chirurgien_principal,
                 service=self.service_chirurgie,
                 actif=True,
-            ).exists()
+            )
+            date_ref = self.date_heure_prevue.date() if self.date_heure_prevue else None
+            if date_ref:
+                habilitations = habilitations.filter(
+                    models.Q(date_debut__isnull=True) | models.Q(date_debut__lte=date_ref)
+                ).filter(
+                    models.Q(date_fin__isnull=True) | models.Q(date_fin__gte=date_ref)
+                )
+            habilite = habilitations.exists()
+
             if not (meme_service or habilite):
                 raise ValidationError(
-                    "Ce médecin n'est ni rattaché ni habilité sur le service de cette opération."
+                    "Ce médecin n'est ni rattaché ni habilité sur le service de cette opération "
+                    "(ou son habilitation n'est plus valide à cette date)."
                 )
 
         # Pas de double réservation de salle sur un créneau qui chevauche.

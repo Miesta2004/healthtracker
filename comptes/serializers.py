@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
-from .models import Employe
+from django.utils import timezone
+from .models import Employe, HabilitationService, Role
 from services.models import Service
 
 
@@ -63,9 +64,7 @@ class CreateEmployeSerializer(serializers.Serializer):
     username       = serializers.CharField()
     email          = serializers.EmailField()
     password       = serializers.CharField(write_only=True)
-    role           = serializers.ChoiceField(
-        choices=['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin']
-    )
+    role           = serializers.ChoiceField(choices=Role.choices)
     specialite     = serializers.CharField(required=False, allow_blank=True)
     service        = serializers.PrimaryKeyRelatedField(
         queryset=Service.objects.all(), required=False, allow_null=True
@@ -98,3 +97,44 @@ class CreateEmployeSerializer(serializers.Serializer):
             service=validated_data.get('service'),
         )
         return employe
+
+
+class HabilitationServiceSerializer(serializers.ModelSerializer):
+    employe_nom    = serializers.CharField(source='employe.nom', read_only=True)
+    employe_prenom = serializers.CharField(source='employe.prenom', read_only=True)
+    employe_role_label = serializers.CharField(source='employe.get_role_display', read_only=True)
+    service_nom    = serializers.CharField(source='service.nom', read_only=True)
+
+    class Meta:
+        model = HabilitationService
+        fields = [
+            'id', 'employe', 'employe_nom', 'employe_prenom', 'employe_role_label',
+            'service', 'service_nom',
+            'date_debut', 'date_fin', 'actif', 'date_creation',
+        ]
+        read_only_fields = ['date_creation']
+
+    def validate_employe(self, employe):
+        """
+        Une habilitation n'a de sens que pour un profil pouvant opérer
+        (capacité ACTES_MEDICAUX_GERER) — cf. Operation.chirurgien_principal,
+        qui utilise exactement le même filtre. On réutilise la capacité
+        plutôt qu'un rôle en dur pour rester cohérent si de nouveaux rôles
+        héritant de médecin apparaissent plus tard.
+        """
+        from .capacites import Capacite
+        if not employe.a_la_capacite(Capacite.ACTES_MEDICAUX_GERER):
+            raise serializers.ValidationError(
+                "Seul un employé pouvant exercer des actes médicaux (médecin ou "
+                "rôle en héritant) peut être habilité à opérer dans un service."
+            )
+        return employe
+
+    def validate(self, data):
+        date_debut = data.get('date_debut', getattr(self.instance, 'date_debut', None))
+        date_fin = data.get('date_fin', getattr(self.instance, 'date_fin', None))
+        if date_debut and date_fin and date_fin < date_debut:
+            raise serializers.ValidationError(
+                {'date_fin': "La date de fin ne peut pas être antérieure à la date de début."}
+            )
+        return data

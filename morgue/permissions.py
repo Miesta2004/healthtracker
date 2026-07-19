@@ -1,19 +1,25 @@
-from rest_framework.permissions import IsAuthenticated
-from comptes.permissions import get_employe
+from comptes.permissions import RequiertCapacite
+from comptes.capacites import Capacite
 
 
-class PeutVoirMorgue(IsAuthenticated):
+class PeutVoirMorgue(RequiertCapacite):
     """
     Lecture des dossiers de décès/autopsie : équipe médicale + secrétariat
     (coordination avec la famille pour la remise du corps). Le laborantin
     n'a pas de raison d'y accéder.
     """
-    ROLES = {'admin', 'medecin', 'infirmier', 'secretaire'}
+    capacite = Capacite.MORGUE_LIRE
 
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+
+class PeutValiderAutopsiePerioperatoire(RequiertCapacite):
+    """
+    Validation du rapport d'autopsie (`rapport_valide`) lorsque le décès fait
+    suite à une complication chirurgicale. Exclusif au Chef de Chirurgie (+
+    superuser). Distinct de PeutVoirMorgue : voir un dossier et le valider
+    sont deux capacités différentes.
+
+    NB : ne s'applique qu'aux autopsies liées à une opération — une autopsie
+    sans lien chirurgical reste validable par n'importe quel médecin via le
+    comportement par défaut (voir morgue/views.py).
+    """
+    capacite = Capacite.AUTOPSIE_VALIDER_PERIOP

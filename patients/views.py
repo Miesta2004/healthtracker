@@ -6,6 +6,7 @@ from django.db.models import Q
 from .models import Patient
 from .serializers import PatientSerializer, PatientListSerializer
 from comptes.permissions import get_employe, PeutCreerPatient
+from comptes.capacites import Capacite
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -84,7 +85,7 @@ class PatientViewSet(viewsets.ModelViewSet):
         if emp is not None:
             if not serializer.validated_data.get('service'):
                 extra['service'] = emp.service
-            if emp.role == 'medecin' and not serializer.validated_data.get('medecin_referent'):
+            if emp.a_la_capacite(Capacite.ACTES_MEDICAUX_GERER) and not serializer.validated_data.get('medecin_referent'):
                 extra['medecin_referent'] = emp
         serializer.save(**extra)
 

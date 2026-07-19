@@ -1,27 +1,23 @@
-from rest_framework.permissions import IsAuthenticated
-from comptes.permissions import get_employe
+from comptes.permissions import get_employe, RequiertCapacite
+from comptes.capacites import Capacite
 
 
-class PeutGererOperation(IsAuthenticated):
+class PeutGererOperation(RequiertCapacite):
     """
-    Création/modification d'une Operation : médecin ou chef de service
-    (rôle 'admin'), superuser sans restriction.
+    Création/modification d'une Operation : médecin, chef de service, ou tout
+    rôle héritant de médecin (ex. chef de chirurgie) ; superuser sans
+    restriction.
 
-    Au niveau objet, un médecin qui n'est ni le chirurgien principal ni
-    membre de l'équipe ne peut modifier l'opération que s'il est chef de
-    service (admin) du service où elle a lieu — un médecin d'un autre
-    service ne doit pas pouvoir modifier une opération qui ne le concerne pas.
+    Au niveau objet :
+    - le Chef de Chirurgie (capacité BLOC_GERER) agit de façon transversale,
+      indépendamment de son propre service — c'est la seule dérogation au
+      principe same_service utilisé partout ailleurs dans le projet ;
+    - un chef de service (admin) reste limité à SON service ;
+    - un médecin ne peut agir que sur les opérations où il est chirurgien
+      principal ou membre de l'équipe.
     """
 
-    ROLES = {'medecin', 'admin'}
-
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+    capacite = Capacite.ACTES_MEDICAUX_GERER
 
     def has_object_permission(self, request, view, obj):
         if request.user.is_superuser:
@@ -29,6 +25,9 @@ class PeutGererOperation(IsAuthenticated):
         emp = get_employe(request.user)
         if emp is None:
             return False
+
+        if emp.a_la_capacite(Capacite.BLOC_GERER):
+            return True
 
         if emp.role == 'admin':
             return emp.service_id == obj.service_chirurgie_id

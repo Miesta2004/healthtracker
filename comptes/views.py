@@ -7,9 +7,9 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.conf import settings
 from django.middleware.csrf import get_token
-from .models import Employe
-from .serializers import EmployeSerializer, CreateEmployeSerializer
-from .permissions import IsAdminRole, get_employe
+from .models import Employe, HabilitationService
+from .serializers import EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer
+from .permissions import IsAdminRole, PeutGererHabilitations, get_employe
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
 from django.contrib.auth.hashers import check_password
@@ -312,3 +312,33 @@ class LogoutView(APIView):
         response = Response({'detail': 'Déconnecté.'}, status=status.HTTP_200_OK)
         _clear_auth_cookies(response)
         return response
+
+
+class HabilitationServiceViewSet(viewsets.ModelViewSet):
+    """
+    CRUD des habilitations à opérer dans un service qui n'est pas le sien.
+    Lecture ouverte à tout employé authentifié (utile pour qu'un chirurgien
+    consulte ses propres habilitations, ou qu'un chef de service voie qui
+    est habilité chez lui) ; écriture exclusive au Chef de Chirurgie (+
+    superuser) via PeutGererHabilitations — volontairement transversale,
+    sans restriction de service.
+    """
+    serializer_class = HabilitationServiceSerializer
+
+    def get_queryset(self):
+        qs = HabilitationService.objects.select_related('employe', 'service')
+        service_id = self.request.query_params.get('service')
+        employe_id = self.request.query_params.get('employe')
+        actif = self.request.query_params.get('actif')
+        if service_id:
+            qs = qs.filter(service_id=service_id)
+        if employe_id:
+            qs = qs.filter(employe_id=employe_id)
+        if actif is not None:
+            qs = qs.filter(actif=actif.lower() in ('1', 'true'))
+        return qs.order_by('-date_creation')
+
+    def get_permissions(self):
+        if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
+            return [IsAuthenticated()]
+        return [PeutGererHabilitations()]

@@ -64,6 +64,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
         """
         from consultations.models import Consultation
         from comptes.models import Employe, Role
+        from comptes.capacites import roles_avec_capacite, Capacite
 
         service = self.get_object()
         now = timezone.now()
@@ -90,7 +91,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
             },
         }
 
-        medecins_qs = employes_qs.filter(role=Role.MEDECIN)
+        medecins_qs = employes_qs.filter(role__in=roles_avec_capacite(Capacite.ACTES_MEDICAUX_GERER))
         medecins_perf = []
         for medecin in medecins_qs:
             patients_medecin = patients_qs.filter(medecin_referent=medecin)

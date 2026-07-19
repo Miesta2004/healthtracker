@@ -87,9 +87,23 @@ class RendezVous(models.Model):
         help_text="Médecin avec qui le rendez-vous est pris (optionnel)"
     )
     date_heure = models.DateTimeField()
+    duree_minutes = models.PositiveIntegerField(
+        default=30,
+        help_text="Durée du rendez-vous en minutes, utilisée pour calculer "
+                  "l'heure de fin dans le planning (start/end du calendrier)."
+    )
     motif = models.CharField(max_length=255)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='planifie')
     notes = models.TextField(blank=True)
+    consultation_liee = models.ForeignKey(
+        Consultation,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='rendez_vous_origine',
+        help_text="Consultation créée à partir de ce rendez-vous, une fois "
+                  "que le médecin l'a démarrée. Permet au planning de "
+                  "proposer 'Démarrer' ou 'Reprendre' la consultation."
+    )
     date_creation = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

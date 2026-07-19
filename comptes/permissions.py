@@ -1,4 +1,5 @@
 from rest_framework.permissions import IsAuthenticated
+from .capacites import Capacite
 
 
 def get_employe(user):
@@ -7,6 +8,31 @@ def get_employe(user):
         return user.employe
     except Exception:
         return None
+
+
+class RequiertCapacite(IsAuthenticated):
+    """
+    Permission générique paramétrée par une capacité (voir comptes/capacites.py).
+    Ne teste jamais un nom de rôle en dur : c'est `Employe.a_la_capacite()` qui
+    résout, héritage entre rôles compris. Sert de base à toutes les permissions
+    « médecin/admin/etc. » ci-dessous, qui ne sont donc plus que des alias
+    nommés d'une capacité — plus jamais besoin d'y toucher pour un changement
+    de rôle, seul comptes/capacites.py évolue.
+    """
+    capacite = None
+
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        return emp is not None and emp.a_la_capacite(self.capacite)
+
+
+def requiert(capacite: str):
+    """Factory — fabrique une classe RequiertCapacite pour une capacité donnée."""
+    return type(f'Requiert_{capacite}', (RequiertCapacite,), {'capacite': capacite})
 
 
 def same_service(emp, obj):
@@ -103,32 +129,14 @@ class IsAdminOuMajor(IsAuthenticated):
         return False
 
 
-class IsMedecinOuAdmin(IsAuthenticated):
-    """Médecin ou chef de service."""
-
-    ROLES = {'medecin', 'admin'}
-
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+class IsMedecinOuAdmin(RequiertCapacite):
+    """Médecin, chef de service, ou tout rôle héritant de médecin (ex. chef de chirurgie)."""
+    capacite = Capacite.ACTES_MEDICAUX_GERER
 
 
-class IsMedecinOuInfirmier(IsAuthenticated):
-    """Médecins et infirmiers — saisie et lecture des signes vitaux."""
-
-    ROLES = {'medecin', 'infirmier', 'admin'}
-
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+class IsMedecinOuInfirmier(RequiertCapacite):
+    """Médecins et infirmiers (+ rôles en héritant) — saisie et lecture des signes vitaux."""
+    capacite = Capacite.SIGNES_VITAUX_SAISIR
 
 
 class IsLaborantin(IsAuthenticated):
@@ -143,54 +151,40 @@ class IsLaborantin(IsAuthenticated):
         return emp is not None and emp.role == 'laborantin'
 
 
-class PeutCreerPatient(IsAuthenticated):
+class PeutCreerPatient(RequiertCapacite):
     """
-    Création d'un dossier patient : secrétaire, médecin ou chef de service
-    uniquement. Corrige un écart entre le commentaire de PatientViewSet
-    ("l'infirmier et le laborantin ne peuvent pas créer") et le code réel,
-    qui ne restreignait jusqu'ici que la suppression.
+    Création d'un dossier patient : secrétaire, médecin, chef de service (ou
+    tout rôle héritant de médecin/secrétaire) uniquement. Corrige un écart
+    entre le commentaire de PatientViewSet ("l'infirmier et le laborantin ne
+    peuvent pas créer") et le code réel, qui ne restreignait jusqu'ici que la
+    suppression.
     """
-
-    ROLES = {'admin', 'medecin', 'secretaire'}
-
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+    capacite = Capacite.PATIENTS_CREER
 
 
-class IsLectureAutorisee(IsAuthenticated):
+class IsLectureAutorisee(RequiertCapacite):
     """Tous les rôles médicaux sauf secrétaire."""
-
-    ROLES = {'admin', 'medecin', 'infirmier', 'laborantin'}
-
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+    capacite = Capacite.DOSSIER_MEDICAL_LIRE
 
 
-class PeutVoirRendezVous(IsAuthenticated):
+class PeutVoirRendezVous(RequiertCapacite):
     """
     Lecture des rendez-vous : équipe médicale + secrétaire (qui les gère au
     quotidien). Le laborantin n'a pas besoin d'y accéder.
     """
+    capacite = Capacite.RDV_LIRE
 
-    ROLES = {'admin', 'medecin', 'infirmier', 'secretaire'}
 
-    def has_permission(self, request, view):
-        if not super().has_permission(request, view):
-            return False
-        if request.user.is_superuser:
-            return True
-        emp = get_employe(request.user)
-        return emp is not None and emp.role in self.ROLES
+class PeutGererHabilitations(RequiertCapacite):
+    """
+    Création/modification/suppression d'une HabilitationService. Exclusif au
+    Chef de Chirurgie (+ superuser). Volontairement SANS restriction
+    same_service : une habilitation concerne par nature un chirurgien
+    d'un service tiers qui demande à opérer ailleurs — la contraindre au
+    service du demandeur ou du service ciblé n'aurait pas de sens ici,
+    contrairement à IsAdminRole.
+    """
+    capacite = Capacite.HABILITATIONS_GERER
 
 
 class IsInSameService(IsAuthenticated):
