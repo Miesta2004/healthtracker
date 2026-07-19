@@ -37,10 +37,11 @@ export interface RendezVous {
     date_heure: string
     duree_minutes?: number
     motif: string
+    type_evenement: TypeEvenementRdv
+    type_evenement_label?: string
     statut: StatutRendezVous
     statut_label?: string
     notes?: string
-    consultation_liee?: number | null
     date_creation: string
 }
 
@@ -82,39 +83,6 @@ export interface DatesDisponiblesResponse {
     dates: DateDisponible[]
 }
 
-// ─── Planning calendrier du médecin (dashboard) ──────────────────────────────
-export interface EvenementPlanning {
-    id: number
-    start_time: string
-    end_time: string
-    statut: StatutRendezVous
-    statut_label: string
-    motif: string
-    patient: {
-        id: number
-        nom_complet: string
-        numero_dossier: string
-        age: number
-    }
-    a_alerte_critique: boolean
-    consultation_id: number | null
-}
-
-export interface IndisponibilitePlanning {
-    type: string
-    type_label: string
-    date_debut: string
-    date_fin: string
-    motif: string
-}
-
-export interface PlanningResponse {
-    debut: string
-    fin: string
-    evenements: EvenementPlanning[]
-    indisponibilites: IndisponibilitePlanning[]
-}
-
 export interface AuthTokens {
     access: string
     refresh: string
@@ -141,7 +109,7 @@ export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annule
 export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
 
 // ─── Comptes / Employés ─────────────────────────────────────────────────────
-export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie'
+export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin'
 
 export type TypeContrat = 'cdi' | 'cdd' | 'stage' | 'vacation' | 'benevolat' | ''
 
@@ -173,7 +141,6 @@ export interface Employe {
     date_creation: string
     signature_medicale?: string
     preferences?: Record<string, unknown>
-    capacites?: string[]
 }
 
 export interface Service {
@@ -184,20 +151,6 @@ export interface Service {
     chef_nom?: string
     nb_employes: number
     nb_patients: number
-    actif: boolean
-    date_creation: string
-}
-
-export interface HabilitationService {
-    id: number
-    employe: number
-    employe_nom: string
-    employe_prenom: string
-    employe_role_label: string
-    service: number
-    service_nom: string
-    date_debut?: string | null
-    date_fin?: string | null
     actif: boolean
     date_creation: string
 }
@@ -227,32 +180,6 @@ export interface ServiceStats {
     medecins: MedecinPerf[]
 }
 
-export interface VueEnsembleService {
-    id: number
-    nom: string
-    nb_patients: number
-    nb_employes: number
-}
-
-export interface VueEnsemble {
-    nb_services: number
-    patients: {
-        total: number
-        actifs: number
-        nouveaux_mois: number
-    }
-    employes: {
-        total: number
-        par_role: Record<RoleEmploye, number>
-    }
-    par_service: VueEnsembleService[]
-}
-
-export interface ActiviteJour {
-    jour: string
-    nb: number
-}
-
 // Réponse de /employes/me/ : soit un Employe complet, soit un fallback minimal
 // pour un superuser Django sans fiche Employe associée.
 export interface CurrentUser {
@@ -266,7 +193,6 @@ export interface CurrentUser {
     service?: number | null
     service_nom?: string | null
     est_major?: boolean
-    capacites?: string[]
 }
 
 // ─── Antécédents ──────────────────────────────────────────────────────────────
@@ -522,4 +448,42 @@ export interface Operation {
     complications: string
     date_creation: string
     date_modification: string
+}
+
+export type TypeEvenementRdv = 'consultation' | 'intervention' | 'reunion' | 'garde' | 'visite_postoperatoire' | 'autre'
+
+// ─── Planning médecin (calendrier Dashboard) ─────────────────────────────────
+export interface EvenementPlanning {
+    id: number
+    start_time: string
+    end_time: string
+    statut: StatutRendezVous
+    statut_label: string
+    type_evenement: TypeEvenementRdv
+    type_evenement_label: string
+    motif: string
+    notes: string
+    patient: {
+        id: number
+        nom_complet: string
+        numero_dossier: string
+        age: number
+    }
+    a_alerte_critique: boolean
+    consultation_id: number | null
+}
+
+export interface IndisponibilitePlanning {
+    type: string
+    type_label: string
+    date_debut: string
+    date_fin: string
+    motif: string
+}
+
+export interface PlanningResponse {
+    debut: string
+    fin: string
+    evenements: EvenementPlanning[]
+    indisponibilites: IndisponibilitePlanning[]
 }

@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { getPatients } from '../api/patients'
 import { getEmployes } from '../api/comptes'
 import {
     getRendezVous, createRendezVous, updateRendezVous, deleteRendezVous,
     getCreneauxDisponibles, getMedecinsDisponibles, getDatesDisponibles,
 } from '../api/rendezvous'
-import type { Patient, RendezVous, StatutRendezVous, Employe, CreneauDisponible, MedecinDisponible, DateDisponible } from '../types'
+import type { Patient, RendezVous, StatutRendezVous, TypeEvenementRdv, Employe, CreneauDisponible, MedecinDisponible, DateDisponible } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import PageHeader from '../components/PageHeader.tsx'
 import { useAuth } from '../contexts/AuthContext'
@@ -116,6 +116,7 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
     const [date, setDate] = useState(rdv ? rdv.date_heure.slice(0, 10) : '')
     const [heure, setHeure] = useState(rdv ? rdv.date_heure.slice(11, 16) : '09:00')
     const [motif, setMotif] = useState(rdv?.motif ?? '')
+    const [typeEvenement, setTypeEvenement] = useState<TypeEvenementRdv>(rdv?.type_evenement ?? 'consultation')
     const [notes, setNotes] = useState(rdv?.notes ?? '')
     const [submitting, setSubmitting] = useState(false)
     const [erreur, setErreur] = useState('')
@@ -216,6 +217,7 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
                 patient: patientId,
                 medecin: mode === 'sans_medecin' ? null : medecinId,
                 date_heure: new Date(`${date}T${heure}`).toISOString(),
+                type_evenement: typeEvenement,
                 motif: motif.trim(),
                 notes,
             }
@@ -451,6 +453,18 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
                     )}
 
                     <div className="ht-field">
+                        <label className="ht-label">Type d'événement</label>
+                        <select value={typeEvenement} onChange={e => setTypeEvenement(e.target.value as TypeEvenementRdv)} className="ht-input">
+                            <option value="consultation">Consultation</option>
+                            <option value="intervention">Intervention</option>
+                            <option value="reunion">Réunion</option>
+                            <option value="garde">Garde</option>
+                            <option value="visite_postoperatoire">Visite postopératoire</option>
+                            <option value="autre">Autre</option>
+                        </select>
+                    </div>
+
+                    <div className="ht-field">
                         <label className="ht-label">Motif</label>
                         <input value={motif} onChange={e => setMotif(e.target.value)} placeholder="Ex : Consultation de suivi" className="ht-input" />
                     </div>
@@ -570,15 +584,6 @@ type Filtre = 'aujourdhui' | 'venir' | 'passes' | 'tous'
 export default function RendezVousPage() {
     const { hasRole, user } = useAuth()
     const isAdmin = hasRole('admin')
-    const navigate = useNavigate()
-    const location = useLocation()
-
-    // Deep-link : arrivée depuis le calendrier médecin (MedecinPlanning →
-    // "Modifier l'horaire") avec `{ rdvId }` dans location.state, pour
-    // ouvrir directement la modale d'édition de ce RDV plutôt que de
-    // laisser l'utilisateur le rechercher dans la liste.
-    const rdvIdCible = (location.state as { rdvId?: number } | null)?.rdvId
-    const deepLinkTraite = useRef(false)
 
     const [rdvs, setRdvs] = useState<RendezVous[]>([])
     const [patients, setPatients] = useState<Patient[]>([])
@@ -601,21 +606,8 @@ export default function RendezVousPage() {
                     ? medecinsRole
                     : medecinsRole.filter(m => m.service === user.service)
                 setMedecins(medecinsVisibles)
-
-                if (rdvIdCible && !deepLinkTraite.current) {
-                    deepLinkTraite.current = true
-                    const cible = r.find(x => x.id === rdvIdCible)
-                    if (cible) {
-                        setEditTarget(cible)
-                        setShowModal(true)
-                    }
-                    // Nettoie location.state pour qu'un rechargement ou un
-                    // retour arrière du navigateur ne rouvre pas la modale.
-                    navigate(location.pathname, { replace: true })
-                }
             })
             .finally(() => setLoading(false))
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin, user?.service])
 
     const now = new Date()

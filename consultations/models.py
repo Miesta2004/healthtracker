@@ -73,6 +73,15 @@ class RendezVous(models.Model):
         ('termine', 'Terminé'),
     ]
 
+    TYPE_EVENEMENT_CHOICES = [
+        ('consultation',        'Consultation'),
+        ('intervention',        'Intervention'),
+        ('reunion',             'Réunion'),
+        ('garde',               'Garde'),
+        ('visite_postoperatoire', 'Visite postopératoire'),
+        ('autre',               'Autre'),
+    ]
+
     patient = models.ForeignKey(
         Patient,
         on_delete=models.CASCADE,
@@ -89,20 +98,22 @@ class RendezVous(models.Model):
     date_heure = models.DateTimeField()
     duree_minutes = models.PositiveIntegerField(
         default=30,
-        help_text="Durée du rendez-vous en minutes, utilisée pour calculer "
-                  "l'heure de fin dans le planning (start/end du calendrier)."
+        help_text="Durée prévue en minutes — utilisée pour calculer end_time côté planning."
     )
     motif = models.CharField(max_length=255)
+    type_evenement = models.CharField(
+        max_length=25, choices=TYPE_EVENEMENT_CHOICES, default='consultation',
+        help_text="Catégorie affichée dans le planning médecin (couleur/icône) — "
+                  "distincte de Consultation.type_evenement, propre au calendrier."
+    )
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='planifie')
     notes = models.TextField(blank=True)
     consultation_liee = models.ForeignKey(
-        Consultation,
-        on_delete=models.SET_NULL,
-        null=True, blank=True,
+        Consultation, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='rendez_vous_origine',
-        help_text="Consultation créée à partir de ce rendez-vous, une fois "
-                  "que le médecin l'a démarrée. Permet au planning de "
-                  "proposer 'Démarrer' ou 'Reprendre' la consultation."
+        help_text="Renseigné une fois qu'une Consultation a été créée depuis ce RDV "
+                  "(cf. mon_planning) — permet au frontend de proposer 'Reprendre' "
+                  "plutôt que 'Démarrer' la consultation."
     )
     date_creation = models.DateTimeField(auto_now_add=True)
 

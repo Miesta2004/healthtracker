@@ -6,6 +6,11 @@ export const getPatients = async (q?: string): Promise<Patient[]> => {
     return response.data
 }
 
+export const getMesPatientsSuivis = async (): Promise<Patient[]> => {
+    const response = await api.get('/patients/', { params: { mine: 'true' } })
+    return response.data
+}
+
 export const getPatient = async (id: number): Promise<Patient> => {
     const response = await api.get(`/patients/${id}/`)
     return response.data

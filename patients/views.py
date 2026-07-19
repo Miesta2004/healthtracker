@@ -6,7 +6,6 @@ from django.db.models import Q
 from .models import Patient
 from .serializers import PatientSerializer, PatientListSerializer
 from comptes.permissions import get_employe, PeutCreerPatient
-from comptes.capacites import Capacite
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -51,18 +50,17 @@ class PatientViewSet(viewsets.ModelViewSet):
             return base_qs.filter(id__in=patient_ids)
 
         # ── Secrétaire, médecin, admin ──
-        qs = base_qs.filter(service=emp.service) if emp.service else base_qs.all()
-
-        # Chef de Chirurgie (capacité BLOC_GERER, transversale) : en plus des
-        # patients de son propre service, il doit voir tout patient ayant une
-        # Operation quelque part dans l'hôpital — y compris hors de son
-        # service, et sans filtrer par statut : une opération TERMINEE ou
-        # COMPLICATION reste pertinente (ex. dossier lié à une autopsie
-        # péri-opératoire), pas seulement les opérations encore PLANIFIEE.
-        if emp.a_la_capacite(Capacite.BLOC_GERER):
-            from chirurgie.models import Operation
-            patients_operes_ids = Operation.objects.values_list('patient_id', flat=True).distinct()
-            qs = (qs | base_qs.filter(id__in=patients_operes_ids)).distinct()
+        # Visible si le patient est administrativement dans mon service, OU
+        # s'il a une opération/hospitalisation active rattachée à mon service
+        # (sans que Patient.service ait besoin de changer — voir chirurgie/models.py).
+        if emp.service:
+            qs = base_qs.filter(
+                Q(service=emp.service) |
+                Q(operations__service_chirurgie=emp.service, operations__statut__in=['planifiee', 'confirmee', 'en_cours']) |
+                Q(hospitalisations__service=emp.service, hospitalisations__statut='en_cours')
+            ).distinct()
+        else:
+            qs = base_qs.all()
 
         # Filtrage par recherche si paramètre q présent
         if q:
@@ -72,6 +70,12 @@ class PatientViewSet(viewsets.ModelViewSet):
                 Q(numero_dossier__icontains=q) |
                 Q(telephone__icontains=q)
             )
+
+        # ?mine=true : uniquement les patients dont JE suis le médecin
+        # référent — utilisé par le KPI "Patients suivis" du planning médecin,
+        # plus précis que "tous les patients de mon service".
+        if self.request.query_params.get('mine') == 'true':
+            qs = qs.filter(medecin_referent=emp, actif=True)
 
         return qs
 
@@ -96,7 +100,7 @@ class PatientViewSet(viewsets.ModelViewSet):
         if emp is not None:
             if not serializer.validated_data.get('service'):
                 extra['service'] = emp.service
-            if emp.a_la_capacite(Capacite.ACTES_MEDICAUX_GERER) and not serializer.validated_data.get('medecin_referent'):
+            if emp.role == 'medecin' and not serializer.validated_data.get('medecin_referent'):
                 extra['medecin_referent'] = emp
         serializer.save(**extra)
 

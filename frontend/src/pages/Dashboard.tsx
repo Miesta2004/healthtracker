@@ -11,9 +11,9 @@ import { getDemandesEnAttente } from "../api/analyses";
 import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
-import MedecinPlanning from "../components/planning/MedecinPlanning.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
+import MedecinPlanning from "../components/planning/MedecinPlanning";
 import {
     Users,
     BedDouble,
@@ -120,9 +120,9 @@ export default function Dashboard() {
     const canSeeConsult  = hasRole("admin", "medecin", "infirmier");
     const canSeeRdv      = hasRole("admin", "medecin", "secretaire");
     const isAdmin        = hasRole("admin");
-    const isMedecin      = hasRole("medecin");
-    const isNurse        = hasRole("infirmier");
+    const isNurse         = hasRole("infirmier");
     const isSecretaire   = hasRole("secretaire");
+    const isMedecin      = hasRole("medecin");
 
     const [patients, setPatients] = useState<Patient[] | null>(null);
     const [urgences, setUrgences] = useState<PassageUrgence[] | null>(null);
@@ -311,8 +311,10 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* ── Calendrier interactif du médecin (remplace le widget-liste RDV) ── */}
-                {isMedecin && <MedecinPlanning />}
+                {/* ── Calendrier interactif (médecin uniquement — remplace les widgets RDV en liste) ── */}
+                {isMedecin && (
+                    <MedecinPlanning />
+                )}
 
                 {/* ── Section Widgets ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

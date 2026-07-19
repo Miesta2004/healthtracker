@@ -1,197 +1,142 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X, Check, Ban, ArrowRight, Folder, AlertTriangle } from 'lucide-react'
+import { X, AlertTriangle } from 'lucide-react'
 import { getSignesVitaux } from '../../api/patients'
-import type { SignesVitaux, StatutRendezVous } from '../../types'
-import type { PlanningBlock } from './usePlanning'
-import { STATUT_BLOCK_BG, STATUT_BLOCK_TEXT, STATUT_LABEL_COURT, formatHeure } from '../../utils/planningUtils.ts'
+import type { EvenementPlanning, SignesVitaux, StatutRendezVous } from '../../types'
+import { STATUT_BLOCK_BG, STATUT_BLOCK_TEXT } from './PlanningEventBlock'
 
-// Mêmes seuils que components/SignesCharts.tsx — on ne réinvente pas de
-// nouvelles bornes cliniques, on réutilise celles déjà validées ailleurs
-// dans l'app pour rester cohérent.
-const SEUILS = {
-    tensionSystolique: { min: 90, max: 140 },
-    tensionDiastolique: { min: 60, max: 90 },
-    temperature: { min: 36.1, max: 38.0 },
-    glycemie: { min: 3.9, max: 7.8 },
-    frequenceCardiaque: { min: 50, max: 100 },
+function formatHeure(iso: string) {
+    return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
-function horsSeuil(valeur: number | null, bornes: { min: number; max: number }): boolean {
-    return valeur !== null && (valeur < bornes.min || valeur > bornes.max)
+// Seuils simples pour signaler une constante hors norme dans l'aperçu rapide
+// (pas un diagnostic — juste un repère visuel, cohérent avec l'esprit "le
+// calendrier signale, la fiche patient explique" de la spec).
+function horsSeuil(signe: SignesVitaux) {
+    return {
+        tension: (signe.tension_systolique != null && (signe.tension_systolique > 140 || signe.tension_systolique < 90))
+            || (signe.tension_diastolique != null && (signe.tension_diastolique > 90 || signe.tension_diastolique < 60)),
+        temperature: signe.temperature != null && (Number(signe.temperature) > 38 || Number(signe.temperature) < 36),
+        glycemie: signe.glycemie != null && (Number(signe.glycemie) > 7 || Number(signe.glycemie) < 3.9),
+        frequence: signe.frequence_cardiaque != null && (signe.frequence_cardiaque > 100 || signe.frequence_cardiaque < 60),
+    }
 }
 
-function ValeurConstante({ label, valeur, unite, alerte }: { label: string; valeur: string; unite: string; alerte: boolean }) {
-    return (
-        <div>
-            <p className="text-[10px] uppercase tracking-wider" style={{ color: 'var(--ht-text-muted)' }}>{label}</p>
-            <p className="text-sm font-semibold flex items-center gap-1" style={{ color: alerte ? 'var(--ht-danger)' : 'var(--ht-text)' }}>
-                {valeur} <span className="text-xs font-normal" style={{ color: 'var(--ht-text-muted)' }}>{unite}</span>
-                {alerte && <AlertTriangle size={12} />}
-            </p>
-        </div>
-    )
-}
-
-export default function PlanningEventPreviewModal({
-                                                      bloc, onClose, onChangerStatut, onDemarrerConsultation,
-                                                  }: {
-    bloc: PlanningBlock
+interface Props {
+    evenement: EvenementPlanning
     onClose: () => void
-    onChangerStatut: (id: number, statut: StatutRendezVous) => void
-    onDemarrerConsultation: (bloc: PlanningBlock) => void
-}) {
+    onStatutChange: (id: number, statut: StatutRendezVous) => void
+}
+
+export default function PlanningEventPreviewModal({ evenement, onClose, onStatutChange }: Props) {
     const navigate = useNavigate()
-    const [dernieresConstantes, setDernieresConstantes] = useState<SignesVitaux | null | undefined>(undefined)
+    const [dernierSigne, setDernierSigne] = useState<SignesVitaux | null>(null)
+    const [loadingSignes, setLoadingSignes] = useState(true)
 
     useEffect(() => {
-        // Chargement différé : uniquement à l'ouverture de la modale, jamais
-        // préchargé pour tous les événements de la semaine (§3.1a). Pas de
-        // reset synchrone ici : la modale est remontée à chaque nouveau
-        // `bloc` (le parent la conditionne sur `previewBloc`), donc l'état
-        // initial `undefined` sert déjà d'indicateur de chargement.
-        getSignesVitaux(bloc.patientId)
-            .then((liste: SignesVitaux[]) => {
-                if (!liste || liste.length === 0) { setDernieresConstantes(null); return }
-                const triees = [...liste].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-                setDernieresConstantes(triees[0])
-            })
-            .catch(() => setDernieresConstantes(null))
-    }, [bloc.patientId])
+        let cancelled = false
+        getSignesVitaux(evenement.patient.id)
+            .then((liste: SignesVitaux[]) => { if (!cancelled) setDernierSigne(liste[0] ?? null) })
+            .catch(() => { if (!cancelled) setDernierSigne(null) })
+            .finally(() => { if (!cancelled) setLoadingSignes(false) })
+        return () => { cancelled = true }
+    }, [evenement.patient.id])
 
-    const estUrgence = bloc.kind === 'urgence'
-    const bg = estUrgence ? 'var(--ht-danger-bg-light)' : STATUT_BLOCK_BG[bloc.statut]
-    const texte = estUrgence ? 'var(--ht-danger)' : STATUT_BLOCK_TEXT[bloc.statut]
+    const alertesSeuil = dernierSigne ? horsSeuil(dernierSigne) : null
+
+    const handleConsultation = () => {
+        if (evenement.consultation_id) {
+            navigate(`/patients/${evenement.patient.id}/consultations/${evenement.consultation_id}`)
+        } else {
+            navigate(`/patients/${evenement.patient.id}/consultations/new`, {
+                state: { motif: evenement.motif, rdvOrigine: evenement.id },
+            })
+        }
+    }
 
     return (
         <div className="ht-modal-overlay" onClick={onClose}>
             <div className="ht-modal ht-modal-md" onClick={e => e.stopPropagation()}>
-
-                {/* En-tête */}
-                <div className="pb-4 border-b flex items-start justify-between gap-3" style={{ borderColor: 'var(--ht-border)' }}>
+                <div className="flex items-start justify-between mb-3">
                     <div>
-                        <h3 className="text-base font-bold flex items-center gap-2 flex-wrap" style={{ color: 'var(--ht-text)' }}>
-                            {bloc.patientNom}
-                            {typeof bloc.patientAge === 'number' && (
-                                <span className="text-sm font-normal" style={{ color: 'var(--ht-text-secondary)' }}>· {bloc.patientAge} ans</span>
-                            )}
+                        <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>
+                            {evenement.patient.nom_complet} · {evenement.patient.age} ans
                         </h3>
-                        <p className="text-xs mt-1 flex items-center gap-1.5" style={{ color: 'var(--ht-text-secondary)' }}>
-                            {formatHeure(bloc.start)} – {formatHeure(bloc.end)}
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                            {formatHeure(evenement.start_time)} – {formatHeure(evenement.end_time)}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="badge" style={{ backgroundColor: bg, color: texte }}>
-                            {estUrgence ? bloc.statutLabel : STATUT_LABEL_COURT[bloc.statut as StatutRendezVous]}
+                    <div className="flex items-center gap-2">
+                        <span className="badge" style={{ backgroundColor: STATUT_BLOCK_BG[evenement.statut], color: STATUT_BLOCK_TEXT[evenement.statut] }}>
+                            {evenement.statut_label}
                         </span>
                         <button onClick={onClose} className="btn btn-ghost btn-sm !p-1.5">
-                            <X size={18} />
+                            <X size={16} />
                         </button>
                     </div>
                 </div>
 
-                <div className="mt-4 space-y-5">
-                    {/* Lien dossier */}
-                    <div className="flex items-center justify-between px-3 py-2 rounded-xl border"
-                         style={{ backgroundColor: 'var(--ht-primary-tint-bg)', borderColor: 'var(--ht-primary-tint)' }}>
-                        <span className="text-xs flex items-center gap-1.5" style={{ color: 'var(--ht-primary-tint-text)' }}>
-                            <Folder size={14} /> Dossier {bloc.patientDossier ? `#${bloc.patientDossier}` : 'existant'}
-                        </span>
-                        <button
-                            onClick={() => navigate(`/patients/${bloc.patientId}`)}
-                            className="text-xs font-semibold flex items-center gap-0.5 hover:underline"
-                            style={{ color: 'var(--ht-primary-tint-text)' }}
-                        >
-                            Dossier complet <ArrowRight size={12} />
-                        </button>
-                    </div>
+                <div className="space-y-3 py-2" style={{ borderTop: '1px solid var(--ht-border)', borderBottom: '1px solid var(--ht-border)' }}>
+                    <p className="text-sm pt-2" style={{ color: 'var(--ht-text)' }}>
+                        <span className="font-semibold">Motif :</span> {evenement.motif}
+                    </p>
 
-                    {/* Motif */}
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-wider mb-1" style={{ color: 'var(--ht-text-muted)' }}>Motif</p>
-                        <p className="text-sm" style={{ color: 'var(--ht-text)' }}>{bloc.motif}</p>
-                    </div>
-
-                    {/* Dernières constantes */}
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: 'var(--ht-text-muted)' }}>
-                            Dernières constantes
-                            {dernieresConstantes && ` (${new Date(dernieresConstantes.date).toLocaleDateString('fr-FR')})`}
-                        </p>
-                        {dernieresConstantes === undefined ? (
+                        <p className="ht-label mb-1.5">Dernières constantes</p>
+                        {loadingSignes ? (
                             <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Chargement…</p>
-                        ) : dernieresConstantes === null ? (
-                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Aucune constante enregistrée</p>
+                        ) : !dernierSigne ? (
+                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Aucune mesure enregistrée.</p>
                         ) : (
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 rounded-xl p-3 border" style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border)' }}>
-                                {dernieresConstantes.tension_systolique !== null && dernieresConstantes.tension_diastolique !== null && (
-                                    <ValeurConstante
-                                        label="Tension"
-                                        valeur={`${dernieresConstantes.tension_systolique}/${dernieresConstantes.tension_diastolique}`}
-                                        unite="mmHg"
-                                        alerte={
-                                            horsSeuil(dernieresConstantes.tension_systolique, SEUILS.tensionSystolique) ||
-                                            horsSeuil(dernieresConstantes.tension_diastolique, SEUILS.tensionDiastolique)
-                                        }
-                                    />
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                                {dernierSigne.tension_systolique != null && (
+                                    <span style={{ color: alertesSeuil?.tension ? 'var(--ht-danger)' : 'var(--ht-text)' }}>
+                                        Tension {dernierSigne.tension_systolique}/{dernierSigne.tension_diastolique}
+                                        {alertesSeuil?.tension && ' ⚠'}
+                                    </span>
                                 )}
-                                {dernieresConstantes.temperature !== null && (
-                                    <ValeurConstante
-                                        label="Température"
-                                        valeur={String(dernieresConstantes.temperature)}
-                                        unite="°C"
-                                        alerte={horsSeuil(dernieresConstantes.temperature, SEUILS.temperature)}
-                                    />
+                                {dernierSigne.temperature != null && (
+                                    <span style={{ color: alertesSeuil?.temperature ? 'var(--ht-danger)' : 'var(--ht-text)' }}>
+                                        Temp {dernierSigne.temperature}°{alertesSeuil?.temperature && ' ⚠'}
+                                    </span>
                                 )}
-                                {dernieresConstantes.glycemie !== null && (
-                                    <ValeurConstante
-                                        label="Glycémie"
-                                        valeur={String(dernieresConstantes.glycemie)}
-                                        unite="mmol/L"
-                                        alerte={horsSeuil(dernieresConstantes.glycemie, SEUILS.glycemie)}
-                                    />
+                                {dernierSigne.glycemie != null && (
+                                    <span style={{ color: alertesSeuil?.glycemie ? 'var(--ht-danger)' : 'var(--ht-text)' }}>
+                                        Glyc {dernierSigne.glycemie}{alertesSeuil?.glycemie && ' ⚠'}
+                                    </span>
                                 )}
-                                {dernieresConstantes.frequence_cardiaque !== null && (
-                                    <ValeurConstante
-                                        label="Fréq. cardiaque"
-                                        valeur={String(dernieresConstantes.frequence_cardiaque)}
-                                        unite="bpm"
-                                        alerte={horsSeuil(dernieresConstantes.frequence_cardiaque, SEUILS.frequenceCardiaque)}
-                                    />
+                                {dernierSigne.frequence_cardiaque != null && (
+                                    <span style={{ color: alertesSeuil?.frequence ? 'var(--ht-danger)' : 'var(--ht-text)' }}>
+                                        FC {dernierSigne.frequence_cardiaque}{alertesSeuil?.frequence && ' ⚠'}
+                                    </span>
                                 )}
                             </div>
                         )}
                     </div>
 
-                    {/* Actions */}
-                    {bloc.kind === 'rdv' && (
-                        <div className="space-y-2 pt-1">
-                            <div className="flex gap-2">
-                                {bloc.statut === 'planifie' && (
-                                    <button
-                                        onClick={() => { onChangerStatut(bloc.id, 'confirme'); onClose() }}
-                                        className="btn btn-primary btn-sm flex-1 gap-1.5"
-                                    >
-                                        <Check size={14} /> Confirmer
-                                    </button>
-                                )}
-                                {(bloc.statut === 'planifie' || bloc.statut === 'confirme') && (
-                                    <button
-                                        onClick={() => { onChangerStatut(bloc.id, 'annule'); onClose() }}
-                                        className="btn btn-danger btn-sm flex-1 gap-1.5"
-                                    >
-                                        <Ban size={14} /> Annuler
-                                    </button>
-                                )}
-                            </div>
-                            <button
-                                onClick={() => onDemarrerConsultation(bloc)}
-                                className="btn btn-success btn-full gap-1.5"
-                            >
-                                {bloc.consultationId ? 'Reprendre la consultation' : 'Démarrer la consultation'} <ArrowRight size={14} />
-                            </button>
+                    {evenement.a_alerte_critique && (
+                        <div className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--ht-danger)' }}>
+                            <AlertTriangle size={13} /> Ce patient a une alerte non lue.
                         </div>
                     )}
+                </div>
+
+                <div className="flex flex-col gap-2 pt-3">
+                    <div className="flex gap-2">
+                        {evenement.statut === 'planifie' && (
+                            <button onClick={() => onStatutChange(evenement.id, 'confirme')} className="btn btn-secondary btn-sm flex-1 justify-center">
+                                Confirmer
+                            </button>
+                        )}
+                        {(evenement.statut === 'planifie' || evenement.statut === 'confirme') && (
+                            <button onClick={() => onStatutChange(evenement.id, 'annule')} className="btn btn-danger btn-sm flex-1 justify-center">
+                                Annuler
+                            </button>
+                        )}
+                    </div>
+                    <button onClick={handleConsultation} className="btn btn-primary justify-center">
+                        {evenement.consultation_id ? 'Reprendre la consultation →' : 'Démarrer la consultation →'}
+                    </button>
                 </div>
             </div>
         </div>

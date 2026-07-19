@@ -59,17 +59,10 @@ export const getDatesDisponibles = async (
     return response.data
 }
 
-/**
- * Planning calendrier du médecin connecté (dashboard). Contrairement aux
- * autres fonctions de ce fichier, ignore tout id de médecin — le backend
- * résout systématiquement l'employé connecté et renvoie 403 si ce n'est
- * pas un médecin.
- */
 export const getMonPlanning = async (debut?: string, fin?: string): Promise<PlanningResponse> => {
     const params = new URLSearchParams()
     if (debut) params.set('debut', debut)
     if (fin) params.set('fin', fin)
-    const qs = params.toString()
-    const response = await api.get(`/rendez_vous/mon_planning/${qs ? `?${qs}` : ''}`)
+    const response = await api.get(`/rendez_vous/mon_planning/?${params.toString()}`)
     return response.data
 }

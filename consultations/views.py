@@ -14,10 +14,7 @@ from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmi
 from disponibilites.models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
 from alertes.models import Alerte
 from .models import Consultation, RendezVous
-from .serializers import (
-    ConsultSerializer, RdvSerializer,
-    RdvPlanningSerializer, IndisponibiliteSerializer,
-)
+from .serializers import ConsultSerializer, RdvSerializer, RdvPlanningSerializer, IndisponibiliteSerializer
 from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
 from antecedents.serializers import AntecedentSerializer
 
@@ -53,6 +50,20 @@ class ConsultViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsMedecinOuAdmin()]
         return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        """
+        Si la consultation est créée depuis le flux "Démarrer la consultation"
+        du planning médecin (cf. mon_planning, spec calendrier §3.1.b), le
+        frontend envoie 'rdv_origine' = id du RendezVous à l'origine. On
+        rattache alors ce RDV à la consultation nouvellement créée
+        (RendezVous.consultation_liee), pour que mon_planning sache ensuite
+        proposer "Reprendre" plutôt que "Démarrer".
+        """
+        consultation = serializer.save()
+        rdv_id = self.request.data.get('rdv_origine')
+        if rdv_id:
+            RendezVous.objects.filter(pk=rdv_id).update(consultation_liee=consultation)
 
     @action(detail=True, methods=['post'], url_path='promouvoir_antecedent')
     def promouvoir_antecedent(self, request, pk=None):
@@ -146,40 +157,6 @@ def _parse_duree(request):
     except ValueError:
         duree = 30
     return max(5, duree)
-
-
-def _resoudre_bornes(request):
-    """
-    Résout les bornes (debut, fin) du planning à partir des query params
-    `debut`/`fin` (AAAA-MM-JJ), ou par défaut la semaine courante
-    (lundi → dimanche). `vue` n'influence pas ce calcul par défaut — elle
-    n'est utile que si le frontend a besoin d'un indice pour de futures
-    évolutions (ex. bornes par défaut différentes en vue 'jour').
-    """
-    debut_str = request.query_params.get('debut')
-    fin_str   = request.query_params.get('fin')
-
-    if debut_str:
-        try:
-            debut = date_cls.fromisoformat(debut_str)
-        except ValueError:
-            raise ValidationError({'debut': "Date invalide (format attendu : AAAA-MM-JJ)."})
-    else:
-        aujourdhui = dj_timezone.localdate()
-        debut = aujourdhui - timedelta(days=aujourdhui.weekday())  # lundi de la semaine
-
-    if fin_str:
-        try:
-            fin = date_cls.fromisoformat(fin_str)
-        except ValueError:
-            raise ValidationError({'fin': "Date invalide (format attendu : AAAA-MM-JJ)."})
-    else:
-        fin = debut + timedelta(days=6)  # dimanche de la même semaine
-
-    if fin < debut:
-        raise ValidationError({'fin': "La date de fin doit être postérieure à la date de début."})
-
-    return debut, fin
 
 
 class RdvViewSet(viewsets.ModelViewSet):
@@ -439,20 +416,41 @@ class RdvViewSet(viewsets.ModelViewSet):
 
         return Response({'medecin': int(medecin_id), 'dates': dates_dispo})
 
-    @action(detail=False, methods=['get'], url_path='mon_planning',
-            permission_classes=[IsAuthenticated])
+    def _resoudre_bornes(self, request):
+        """
+        Détermine (debut, fin) à partir des query params 'debut'/'fin', ou à
+        défaut la semaine courante (lundi → dimanche). Le paramètre 'vue' est
+        volontairement ignoré ici : il ne sert qu'à documenter l'intention côté
+        frontend, le calcul des bornes par défaut reste toujours "semaine
+        courante" quel que soit son contenu, tant que debut/fin ne sont pas
+        fournis explicitement.
+        """
+        debut_str = request.query_params.get('debut')
+        fin_str = request.query_params.get('fin')
+
+        if debut_str and fin_str:
+            try:
+                return date_cls.fromisoformat(debut_str), date_cls.fromisoformat(fin_str)
+            except ValueError:
+                raise ValidationError({'detail': "Dates 'debut'/'fin' invalides (format AAAA-MM-JJ)."})
+
+        aujourdhui = dj_timezone.localdate()
+        lundi = aujourdhui - timedelta(days=aujourdhui.weekday())
+        dimanche = lundi + timedelta(days=6)
+        return lundi, dimanche
+
+    @action(detail=False, methods=['get'], url_path='mon_planning')
     def mon_planning(self, request):
         """
-        Planning calendrier du médecin connecté (dashboard). Contrairement à
-        `?medecin=<id>` sur la liste standard (usage admin/secrétariat), cette
-        action ignore tout `medecin_id` passé en paramètre et résout
-        systématiquement l'employé connecté — un médecin ne peut voir que
-        son propre planning via cette route.
+        Planning de l'employé connecté (médecin uniquement). Résout toujours
+        l'utilisateur courant — ignore tout ?medecin= éventuel, contrairement
+        aux autres actions de ce ViewSet qui restent utilisables par le
+        secrétariat pour n'importe quel médecin.
 
-        Query params :
-          - debut (AAAA-MM-JJ, optionnel, défaut lundi de la semaine courante)
-          - fin   (AAAA-MM-JJ, optionnel, défaut dimanche de la semaine courante)
-          - vue   (jour|semaine|mois, optionnel, informatif uniquement)
+        NB permission : cette action passe par get_permissions() du ViewSet
+        (branche SAFE_METHODS → PeutVoirRendezVous), pas par un
+        permission_classes déclaré ici — le contrôle de rôle 'medecin' ci-
+        dessous referme l'accès aux autres rôles malgré tout.
         """
         employe = get_employe(request.user)
         if employe is None or employe.role != 'medecin':
@@ -461,7 +459,7 @@ class RdvViewSet(viewsets.ModelViewSet):
                 status=403
             )
 
-        debut, fin = _resoudre_bornes(request)
+        debut, fin = self._resoudre_bornes(request)
 
         rendez_vous = (
             RendezVous.objects

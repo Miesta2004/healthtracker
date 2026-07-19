@@ -1,84 +1,66 @@
-import { AlertTriangle } from 'lucide-react'
-import type { PlanningBlock } from './usePlanning'
-import { estAujourdhui, estMemeJour } from '../../utils/planningUtils.ts'
+import type { EvenementPlanning } from '../../types'
 
-const JOURS_SEMAINE = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const JOURS_LABEL = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-function ajouterJours(d: Date, n: number): Date {
-    const copie = new Date(d)
-    copie.setDate(copie.getDate() + n)
-    return copie
-}
-
-function lundiDeLaSemaine(d: Date): Date {
-    const copie = new Date(d)
-    const jour = copie.getDay()
-    const decalage = jour === 0 ? -6 : 1 - jour
-    copie.setDate(copie.getDate() + decalage)
-    copie.setHours(0, 0, 0, 0)
-    return copie
-}
-
-export default function PlanningMonthView({
-                                              mois, blocs, onSelectJour,
-                                          }: {
-    mois: Date
-    blocs: PlanningBlock[]
+interface Props {
+    dateReference: Date
+    evenements: EvenementPlanning[]
     onSelectJour: (jour: Date) => void
-}) {
-    const premierJourMois = new Date(mois.getFullYear(), mois.getMonth(), 1)
-    const dernierJourMois = new Date(mois.getFullYear(), mois.getMonth() + 1, 0)
-    const debutGrille = lundiDeLaSemaine(premierJourMois)
+}
 
-    const nbSemaines = Math.ceil(
-        (Math.round((dernierJourMois.getTime() - debutGrille.getTime()) / 86400000) + 1) / 7
-    )
-    const jours = Array.from({ length: nbSemaines * 7 }, (_, i) => ajouterJours(debutGrille, i))
+export default function PlanningMonthView({ dateReference, evenements, onSelectJour }: Props) {
+    const annee = dateReference.getFullYear()
+    const mois = dateReference.getMonth()
+    const premierJourMois = new Date(annee, mois, 1)
+    const decalage = (premierJourMois.getDay() + 6) % 7 // lundi = 0
+    const debutGrille = new Date(premierJourMois)
+    debutGrille.setDate(premierJourMois.getDate() - decalage)
+
+    const jours = Array.from({ length: 42 }, (_, i) => {
+        const d = new Date(debutGrille)
+        d.setDate(debutGrille.getDate() + i)
+        return d
+    })
+
+    const comptageParJour = (d: Date) => {
+        const iso = d.toISOString().slice(0, 10)
+        return evenements.filter(e => e.start_time.slice(0, 10) === iso).length
+    }
+
+    const aujourdhuiISO = new Date().toISOString().slice(0, 10)
 
     return (
-        <div>
-            <div className="grid grid-cols-7 mb-1">
-                {JOURS_SEMAINE.map(j => (
-                    <div key={j} className="text-center text-[11px] font-semibold uppercase tracking-wider py-1.5" style={{ color: 'var(--ht-text-muted)' }}>
+        <div className="ht-card overflow-hidden">
+            <div className="grid grid-cols-7">
+                {JOURS_LABEL.map(j => (
+                    <div key={j} className="text-center text-[10px] uppercase font-semibold py-2 border-b" style={{ color: 'var(--ht-text-muted)', borderColor: 'var(--ht-border)' }}>
                         {j}
                     </div>
                 ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-                {jours.map(jour => {
-                    const horsMois = jour.getMonth() !== mois.getMonth()
-                    const blocsDuJour = blocs.filter(b => estMemeJour(b.start, jour))
-                    const nbCritiques = blocsDuJour.filter(b => b.aAlerteCritique).length
-
+                {jours.map((jour, idx) => {
+                    const iso = jour.toISOString().slice(0, 10)
+                    const horsMois = jour.getMonth() !== mois
+                    const nb = comptageParJour(jour)
                     return (
                         <button
-                            key={jour.toISOString()}
+                            key={idx}
                             onClick={() => onSelectJour(jour)}
-                            className="aspect-square rounded-lg p-1.5 flex flex-col items-start gap-1 text-left transition-colors hover:bg-[var(--ht-bg)]"
+                            className="min-h-20 p-2 flex flex-col items-start gap-1 border-b border-r text-left"
                             style={{
-                                border: estAujourdhui(jour) ? '1.5px solid var(--ht-primary-tint)' : '1px solid var(--ht-border)',
+                                borderColor: 'var(--ht-border)',
                                 opacity: horsMois ? 0.4 : 1,
-                                backgroundColor: 'var(--ht-card-bg)',
                             }}
                         >
                             <span
-                                className="text-xs font-semibold"
-                                style={{ color: estAujourdhui(jour) ? 'var(--ht-primary-tint-text)' : 'var(--ht-text)' }}
+                                className="text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center"
+                                style={iso === aujourdhuiISO ? { backgroundColor: 'var(--ht-primary)', color: 'white' } : { color: 'var(--ht-text)' }}
                             >
                                 {jour.getDate()}
                             </span>
-                            {blocsDuJour.length > 0 && (
-                                <div className="flex items-center gap-1 flex-wrap">
-                                    <span
-                                        className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                                        style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }}
-                                    >
-                                        {blocsDuJour.length}
-                                    </span>
-                                    {nbCritiques > 0 && (
-                                        <AlertTriangle size={11} style={{ color: 'var(--ht-danger)' }} />
-                                    )}
-                                </div>
+                            {nb > 0 && (
+                                <span className="badge badge-tint text-[10px]">
+                                    {nb} RDV
+                                </span>
                             )}
                         </button>
                     )

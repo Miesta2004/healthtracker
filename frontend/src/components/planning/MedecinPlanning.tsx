@@ -1,190 +1,128 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { X } from 'lucide-react'
-import { usePlanning, type PlanningBlock } from './usePlanning'
+import { usePlanning, type VuePlanning } from './usePlanning'
 import PlanningToolbar from './PlanningToolbar'
 import PlanningWeekView from './PlanningWeekView'
 import PlanningDayView from './PlanningDayView'
 import PlanningMonthView from './PlanningMonthView'
-import PlanningEventBlock from './PlanningEventBlock'
+import PlanningDayDetailPanel from './PlanningDayDetailPanel'
 import PlanningEventPreviewModal from './PlanningEventPreviewModal'
-import { formatHeure, formatJourLong } from '../../utils/planningUtils.ts'
-import type { StatutRendezVous } from '../../types'
+import PlanningKpiCards from './PlanningKpiCards'
+import PlanningMiniCalendar from './PlanningMiniCalendar'
+import PlanningUpcomingList from './PlanningUpcomingList'
+import PlanningReminders from './PlanningReminders'
+import PlanningMonthStatsPanel from './PlanningMonthStatsPanel'
+import { SkeletonSimpleList } from '../Skeleton'
+import type { EvenementPlanning } from '../../types'
 
 function lundiDeLaSemaine(d: Date): Date {
-    const copie = new Date(d)
-    const jour = copie.getDay()
+    const jour = d.getDay()
     const decalage = jour === 0 ? -6 : 1 - jour
-    copie.setDate(copie.getDate() + decalage)
-    copie.setHours(0, 0, 0, 0)
-    return copie
-}
-
-/** Popover listant les événements masqués derrière un badge "+N" (§3.2). */
-function DebordementPopover({ jour, blocs, onClose, onSelect }: {
-    jour: Date
-    blocs: PlanningBlock[]
-    onClose: () => void
-    onSelect: (bloc: PlanningBlock) => void
-}) {
-    return (
-        <div className="ht-modal-overlay" onClick={onClose}>
-            <div className="ht-modal ht-modal-sm" onClick={e => e.stopPropagation()}>
-                <div className="flex items-center justify-between pb-3 border-b" style={{ borderColor: 'var(--ht-border)' }}>
-                    <h3 className="ht-modal-title capitalize">{formatJourLong(jour)}</h3>
-                    <button onClick={onClose} className="btn btn-ghost btn-sm !p-1.5">
-                        <X size={16} />
-                    </button>
-                </div>
-                <div className="mt-3 space-y-2">
-                    {blocs
-                        .sort((a, b) => a.start.getTime() - b.start.getTime())
-                        .map(bloc => (
-                            <button
-                                key={`${bloc.kind}-${bloc.id}`}
-                                onClick={() => { onSelect(bloc); onClose() }}
-                                className="w-full text-left px-3 py-2 rounded-lg border flex items-center gap-3 transition-colors hover:bg-[var(--ht-bg)]"
-                                style={{ borderColor: 'var(--ht-border)' }}
-                            >
-                                <span className="text-xs font-semibold flex-shrink-0" style={{ color: 'var(--ht-text)' }}>
-                                    {formatHeure(bloc.start)}
-                                </span>
-                                <div className="min-w-0 flex-1">
-                                    <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>{bloc.patientNom}</p>
-                                    <p className="text-xs truncate" style={{ color: 'var(--ht-text-muted)' }}>{bloc.motif}</p>
-                                </div>
-                            </button>
-                        ))}
-                </div>
-            </div>
-        </div>
-    )
+    const lundi = new Date(d)
+    lundi.setDate(d.getDate() + decalage)
+    lundi.setHours(0, 0, 0, 0)
+    return lundi
 }
 
 export default function MedecinPlanning() {
     const navigate = useNavigate()
-    const {
-        vue, setVue, ancre, debut, fin, blocs, indisponibilites,
-        loading, error, alerteNouveaute,
-        goAujourdhui, goPrecedent, goSuivant, goToJour, changerStatut, recharger,
-    } = usePlanning()
+    const [vue, setVue] = useState<VuePlanning>('semaine')
+    const [dateReference, setDateReference] = useState(new Date())
+    const [evenementSelectionne, setEvenementSelectionne] = useState<EvenementPlanning | null>(null)
 
-    const [previewBloc, setPreviewBloc] = useState<PlanningBlock | null>(null)
-    const [debordement, setDebordement] = useState<{ jour: Date; blocs: PlanningBlock[] } | null>(null)
+    const { evenements, indisponibilites, loading, erreur, changerStatut } = usePlanning(vue, dateReference)
 
-    const handleChangerStatut = (id: number, statut: StatutRendezVous) => {
-        changerStatut(id, statut).catch(() => {
-            // L'erreur est déjà gérée par un rechargement dans le hook ;
-            // ici on pourrait ajouter un toast si le système en propose un.
-        })
+    const naviguer = (direction: -1 | 0 | 1) => {
+        if (direction === 0) { setDateReference(new Date()); return }
+        const nouvelle = new Date(dateReference)
+        if (vue === 'jour') nouvelle.setDate(nouvelle.getDate() + direction)
+        else if (vue === 'mois') nouvelle.setMonth(nouvelle.getMonth() + direction)
+        else nouvelle.setDate(nouvelle.getDate() + direction * 7)
+        setDateReference(nouvelle)
     }
 
-    const handleDemarrerConsultation = (bloc: PlanningBlock) => {
-        setPreviewBloc(null)
-        if (bloc.consultationId) {
-            navigate(`/patients/${bloc.patientId}/consultations/${bloc.consultationId}`)
-        } else {
-            navigate(`/patients/${bloc.patientId}/consultations/new`, {
-                state: { motif: bloc.motif, rendezVousId: bloc.id },
-            })
-        }
+    const changerVue = (v: VuePlanning) => {
+        setVue(v)
+        setEvenementSelectionne(null)
     }
 
-    // Renvoie vers la page de gestion complète des rendez-vous, en lui
-    // passant l'id du RDV via location.state pour qu'elle ouvre directement
-    // sa modale d'édition (cf. RendezVousPage.tsx) plutôt que de laisser
-    // l'utilisateur le rechercher dans la liste.
-    const handleModifierHoraire = (bloc: PlanningBlock) => {
-        if (bloc.kind !== 'rdv') return
-        navigate('/rendez_vous', { state: { rdvId: bloc.id } })
+    const gererChangementStatut = (id: number, statut: EvenementPlanning['statut']) => {
+        changerStatut(id, statut)
+        setEvenementSelectionne(prev => prev ? { ...prev, statut } : prev)
     }
-
-    const jourAffiche = vue === 'jour' ? ancre : undefined
-    const lundiAffiche = vue === 'semaine' ? lundiDeLaSemaine(ancre) : undefined
 
     return (
-        <div className="ht-card ht-card-padded-sm space-y-4">
+        <div className="space-y-4">
+            <PlanningKpiCards />
+
             <PlanningToolbar
                 vue={vue}
-                setVue={setVue}
-                debut={debut}
-                fin={fin}
-                alerteNouveaute={alerteNouveaute}
-                onAujourdhui={goAujourdhui}
-                onPrecedent={goPrecedent}
-                onSuivant={goSuivant}
+                onVueChange={changerVue}
+                dateReference={dateReference}
+                onNavigate={naviguer}
                 onNouveau={() => navigate('/rendez_vous')}
             />
 
-            {error && (
-                <div className="ht-alert ht-alert-danger flex items-center justify-between gap-3">
-                    <span>{error}</span>
-                    <button onClick={recharger} className="text-xs font-semibold underline flex-shrink-0">Réessayer</button>
-                </div>
-            )}
-
             {loading ? (
-                <div className="py-16 text-center text-sm" style={{ color: 'var(--ht-text-muted)' }}>
-                    Chargement du planning…
+                <SkeletonSimpleList rows={3} />
+            ) : erreur ? (
+                <div className="ht-alert ht-alert-danger">{erreur}</div>
+            ) : vue === 'jour' ? (
+                // Vue Jour : calendrier + panneau de détail latéral persistant
+                // (pas de modale) — cf. maquette "Vue par jour".
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-4 items-start">
+                    <PlanningDayView
+                        jour={dateReference}
+                        evenements={evenements}
+                        indisponibilites={indisponibilites}
+                        evenementSelectionneId={evenementSelectionne?.id ?? null}
+                        onSelectEvenement={setEvenementSelectionne}
+                    />
+                    <PlanningDayDetailPanel
+                        evenement={evenementSelectionne}
+                        onStatutChange={gererChangementStatut}
+                    />
+                </div>
+            ) : vue === 'mois' ? (
+                <div className="grid grid-cols-1 lg:grid-cols-[1fr_280px] gap-4 items-start">
+                    <PlanningMonthView
+                        dateReference={dateReference}
+                        evenements={evenements}
+                        onSelectJour={(jour) => { setDateReference(jour); setVue('jour') }}
+                    />
+                    <PlanningMonthStatsPanel
+                        evenements={evenements}
+                        onSelectJour={(jour) => { setDateReference(jour); setVue('jour') }}
+                    />
                 </div>
             ) : (
                 <>
-                    {vue === 'jour' && jourAffiche && (
-                        <PlanningDayView
-                            jour={jourAffiche}
-                            blocs={blocs}
-                            indisponibilites={indisponibilites}
-                            onOpenPreview={setPreviewBloc}
-                            onChangerStatut={handleChangerStatut}
-                            onModifierHoraire={handleModifierHoraire}
-                            onVoirDebordement={(blocsCaches, jour) => setDebordement({ jour, blocs: blocsCaches })}
-                        />
-                    )}
-                    {vue === 'semaine' && lundiAffiche && (
-                        <PlanningWeekView
-                            lundi={lundiAffiche}
-                            blocs={blocs}
-                            indisponibilites={indisponibilites}
-                            onOpenPreview={setPreviewBloc}
-                            onChangerStatut={handleChangerStatut}
-                            onModifierHoraire={handleModifierHoraire}
-                            onVoirDebordement={(blocsCaches, jour) => setDebordement({ jour, blocs: blocsCaches })}
-                        />
-                    )}
-                    {vue === 'mois' && (
-                        <PlanningMonthView
-                            mois={ancre}
-                            blocs={blocs}
-                            onSelectJour={goToJour}
-                        />
-                    )}
+                    <PlanningWeekView
+                        lundi={lundiDeLaSemaine(dateReference)}
+                        evenements={evenements}
+                        indisponibilites={indisponibilites}
+                        onSelectEvenement={setEvenementSelectionne}
+                    />
 
-                    {!loading && blocs.length === 0 && vue !== 'mois' && (
-                        <div className="ht-empty">Aucun rendez-vous sur cette période</div>
+                    {/* ── Bandeau bas : événements du jour / rappels / mini-calendrier ── */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                        <PlanningUpcomingList evenements={evenements} />
+                        <PlanningReminders />
+                        <PlanningMiniCalendar
+                            dateSelectionnee={dateReference}
+                            onSelectDate={(d) => { setDateReference(d); setVue('jour') }}
+                        />
+                    </div>
+
+                    {evenementSelectionne && (
+                        <PlanningEventPreviewModal
+                            evenement={evenementSelectionne}
+                            onClose={() => setEvenementSelectionne(null)}
+                            onStatutChange={gererChangementStatut}
+                        />
                     )}
                 </>
-            )}
-
-            {previewBloc && (
-                <PlanningEventPreviewModal
-                    bloc={previewBloc}
-                    onClose={() => setPreviewBloc(null)}
-                    onChangerStatut={handleChangerStatut}
-                    onDemarrerConsultation={handleDemarrerConsultation}
-                />
-            )}
-
-            {debordement && (
-                <DebordementPopover
-                    jour={debordement.jour}
-                    blocs={debordement.blocs}
-                    onClose={() => setDebordement(null)}
-                    onSelect={setPreviewBloc}
-                />
             )}
         </div>
     )
 }
-
-// Ré-export pour un usage direct dans PlanningEventBlock si besoin ailleurs
-export { PlanningEventBlock }

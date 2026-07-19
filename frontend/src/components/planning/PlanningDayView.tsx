@@ -1,148 +1,71 @@
-import type { PlanningBlock, VuePlanning } from './usePlanning'
-import type { IndisponibilitePlanning, StatutRendezVous } from '../../types'
+import type { EvenementPlanning, IndisponibilitePlanning } from '../../types'
 import PlanningEventBlock from './PlanningEventBlock'
-import { disposerBlocsJournee } from '../../utils/planningLayout'
-import {
-    HEURE_DEBUT_GRILLE, HEURE_FIN_GRILLE, HAUTEUR_HEURE_PX,
-    positionVerticale, hauteurBloc, estMemeJour,
-} from '../../utils/planningUtils.ts'
+import { HEURE_DEBUT, HEURE_FIN, HAUTEUR_HEURE, disposerEvenements, offsetMinutes } from './PlanningWeekView'
 
-const HEURES = Array.from(
-    { length: HEURE_FIN_GRILLE - HEURE_DEBUT_GRILLE + 1 },
-    (_, i) => HEURE_DEBUT_GRILLE + i
-)
-
-/** Colonne d'un seul jour, réutilisée à l'identique par la vue Semaine. */
-export function ColonneJour({
-                                jour, blocs, indisponibilites, onOpenPreview, onChangerStatut, onModifierHoraire, onVoirDebordement,
-                            }: {
+interface Props {
     jour: Date
-    blocs: PlanningBlock[]
+    evenements: EvenementPlanning[]
     indisponibilites: IndisponibilitePlanning[]
-    onOpenPreview: (bloc: PlanningBlock) => void
-    onChangerStatut: (id: number, statut: StatutRendezVous) => void
-    onModifierHoraire: (bloc: PlanningBlock) => void
-    onVoirDebordement: (blocs: PlanningBlock[], jour: Date) => void
-}) {
-    const blocsDuJour = blocs.filter(b => estMemeJour(b.start, jour))
-    const { positionnes, debordements } = disposerBlocsJournee(blocsDuJour)
+    evenementSelectionneId?: number | null
+    onSelectEvenement: (e: EvenementPlanning) => void
+}
 
-    const indispoDuJour = indisponibilites.find(ind => {
-        const debut = new Date(ind.date_debut)
-        const fin = new Date(ind.date_fin)
-        fin.setHours(23, 59, 59, 999)
-        return jour >= debut && jour <= fin
-    })
+export default function PlanningDayView({ jour, evenements, indisponibilites, evenementSelectionneId, onSelectEvenement }: Props) {
+    const heures = Array.from({ length: HEURE_FIN - HEURE_DEBUT }, (_, i) => HEURE_DEBUT + i)
+    const hauteurTotale = (HEURE_FIN - HEURE_DEBUT) * HAUTEUR_HEURE
+    const iso = jour.toISOString().slice(0, 10)
+    const evenementsJour = evenements.filter(e => e.start_time.slice(0, 10) === iso)
+    const positionnes = disposerEvenements(evenementsJour)
+    const indispo = indisponibilites.find(i => i.date_debut <= iso && i.date_fin >= iso)
 
     return (
-        <div
-            className="relative border-l"
-            style={{ height: (HEURE_FIN_GRILLE - HEURE_DEBUT_GRILLE) * HAUTEUR_HEURE_PX, borderColor: 'var(--ht-border)' }}
-        >
-            {/* Lignes horaires de fond */}
-            {HEURES.map(h => (
-                <div key={h} className="absolute left-0 right-0 border-t" style={{ top: (h - HEURE_DEBUT_GRILLE) * HAUTEUR_HEURE_PX, borderColor: 'var(--ht-border)', opacity: 0.5 }} />
-            ))}
-
-            {/* Bandeau hachuré d'indisponibilité (§3.2) */}
-            {indispoDuJour && (
-                <div
-                    className="absolute inset-0 z-[1] pointer-events-none rounded"
-                    style={{
-                        backgroundImage: 'repeating-linear-gradient(135deg, var(--ht-danger-bg) 0, var(--ht-danger-bg) 6px, transparent 6px, transparent 12px)',
-                        opacity: 0.5,
-                    }}
-                    title={`${indispoDuJour.type_label} — ${indispoDuJour.motif}`}
-                />
-            )}
-
-            {/* Blocs positionnés */}
-            {positionnes.map(({ bloc, colIndex, colCount }) => (
-                <div
-                    key={`${bloc.kind}-${bloc.id}`}
-                    className="absolute px-0.5"
-                    style={{
-                        top: positionVerticale(bloc.start),
-                        height: hauteurBloc(bloc.start, bloc.end),
-                        left: `${(colIndex / colCount) * 100}%`,
-                        width: `${(1 / colCount) * 100}%`,
-                        zIndex: 2,
-                    }}
-                >
-                    <PlanningEventBlock
-                        bloc={bloc}
-                        compact={colCount > 2}
-                        onOpenPreview={onOpenPreview}
-                        onChangerStatut={onChangerStatut}
-                        onModifierHoraire={onModifierHoraire}
-                    />
+        <div className="ht-card overflow-x-auto">
+            <div className="flex min-w-[420px]">
+                <div className="flex-shrink-0 w-14 border-r" style={{ borderColor: 'var(--ht-border)' }}>
+                    {heures.map(h => (
+                        <div key={h} style={{ height: HAUTEUR_HEURE }} className="text-right pr-2 -mt-2.5">
+                            <span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{h}h</span>
+                        </div>
+                    ))}
                 </div>
-            ))}
 
-            {/* Badges de débordement "+N" (>4 chevauchements) */}
-            {debordements.map((d, i) => (
-                <button
-                    key={i}
-                    onClick={() => onVoirDebordement(d.blocs, jour)}
-                    className="absolute px-0.5 z-[3]"
-                    style={{
-                        top: positionVerticale(d.start),
-                        height: Math.max(hauteurBloc(d.start, d.end), 22),
-                        left: `${(d.colIndex / d.colCount) * 100}%`,
-                        width: `${(1 / d.colCount) * 100}%`,
-                    }}
-                >
-                    <div
-                        className="w-full h-full rounded-lg flex items-center justify-center text-xs font-bold transition-transform hover:scale-105"
-                        style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}
-                        title={`${d.blocs.length} événement(s) supplémentaire(s)`}
-                    >
-                        +{d.blocs.length}
-                    </div>
-                </button>
-            ))}
-        </div>
-    )
-}
-
-export default function PlanningDayView({
-                                            jour, blocs, indisponibilites, onOpenPreview, onChangerStatut, onModifierHoraire, onVoirDebordement,
-                                        }: {
-    jour: Date
-    blocs: PlanningBlock[]
-    indisponibilites: IndisponibilitePlanning[]
-    onOpenPreview: (bloc: PlanningBlock) => void
-    onChangerStatut: (id: number, statut: StatutRendezVous) => void
-    onModifierHoraire: (bloc: PlanningBlock) => void
-    onVoirDebordement: (blocs: PlanningBlock[], jour: Date) => void
-}) {
-    return (
-        <div className="flex overflow-x-auto">
-            {/* Rail des heures */}
-            <div className="flex-shrink-0 w-14 relative" style={{ height: (HEURE_FIN_GRILLE - HEURE_DEBUT_GRILLE) * HAUTEUR_HEURE_PX }}>
-                {HEURES.map(h => (
-                    <div
-                        key={h}
-                        className="absolute right-2 -translate-y-1/2 text-[11px]"
-                        style={{ top: (h - HEURE_DEBUT_GRILLE) * HAUTEUR_HEURE_PX, color: 'var(--ht-text-muted)' }}
-                    >
-                        {String(h).padStart(2, '0')}:00
-                    </div>
-                ))}
-            </div>
-            <div className="flex-1 min-w-0">
-                <ColonneJour
-                    jour={jour}
-                    blocs={blocs}
-                    indisponibilites={indisponibilites}
-                    onOpenPreview={onOpenPreview}
-                    onChangerStatut={onChangerStatut}
-                    onModifierHoraire={onModifierHoraire}
-                    onVoirDebordement={onVoirDebordement}
-                />
+                <div className="flex-1 relative" style={{ height: hauteurTotale }} title={indispo?.motif}>
+                    {indispo && (
+                        <div
+                            className="absolute inset-0 z-0"
+                            style={{
+                                backgroundImage: 'repeating-linear-gradient(45deg, var(--ht-muted-bg), var(--ht-muted-bg) 6px, var(--ht-border) 6px, var(--ht-border) 12px)',
+                            }}
+                        />
+                    )}
+                    {positionnes.length === 0 && !indispo && (
+                        <p className="absolute inset-0 flex items-center justify-center text-sm" style={{ color: 'var(--ht-text-muted)' }}>
+                            Aucun rendez-vous ce jour-là.
+                        </p>
+                    )}
+                    {positionnes.map(({ evenement, colonne, nbColonnes }) => {
+                        const top = (offsetMinutes(evenement.start_time) / 60) * HAUTEUR_HEURE
+                        const hauteur = Math.max(
+                            ((offsetMinutes(evenement.end_time) - offsetMinutes(evenement.start_time)) / 60) * HAUTEUR_HEURE,
+                            28
+                        )
+                        const largeur = 100 / nbColonnes
+                        return (
+                            <div
+                                key={evenement.id}
+                                className="absolute px-1"
+                                style={{ top, height: hauteur, left: `${colonne * largeur}%`, width: `${largeur}%` }}
+                            >
+                                <PlanningEventBlock
+                                    evenement={evenement}
+                                    onClick={() => onSelectEvenement(evenement)}
+                                    selectionne={evenement.id === evenementSelectionneId}
+                                />
+                            </div>
+                        )
+                    })}
+                </div>
             </div>
         </div>
     )
 }
-
-export const _vueJourType: VuePlanning = 'jour'
