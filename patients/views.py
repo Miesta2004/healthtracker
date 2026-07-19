@@ -53,6 +53,17 @@ class PatientViewSet(viewsets.ModelViewSet):
         # ── Secrétaire, médecin, admin ──
         qs = base_qs.filter(service=emp.service) if emp.service else base_qs.all()
 
+        # Chef de Chirurgie (capacité BLOC_GERER, transversale) : en plus des
+        # patients de son propre service, il doit voir tout patient ayant une
+        # Operation quelque part dans l'hôpital — y compris hors de son
+        # service, et sans filtrer par statut : une opération TERMINEE ou
+        # COMPLICATION reste pertinente (ex. dossier lié à une autopsie
+        # péri-opératoire), pas seulement les opérations encore PLANIFIEE.
+        if emp.a_la_capacite(Capacite.BLOC_GERER):
+            from chirurgie.models import Operation
+            patients_operes_ids = Operation.objects.values_list('patient_id', flat=True).distinct()
+            qs = (qs | base_qs.filter(id__in=patients_operes_ids)).distinct()
+
         # Filtrage par recherche si paramètre q présent
         if q:
             qs = qs.filter(
