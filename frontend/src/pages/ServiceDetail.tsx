@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { getServiceStats, getServicePatients, getServiceEmployes } from '../api/services'
-import type { RoleEmploye, ServiceStats, MedecinPerf, Patient, Employe } from '../types'
+import { getEmployes } from '../api/comptes'
+import { getHabilitations, createHabilitation, updateHabilitation, deleteHabilitation } from '../api/habilitations'
+import { useAuth } from '../contexts/AuthContext'
+import type { RoleEmploye, ServiceStats, MedecinPerf, Patient, Employe, HabilitationService } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import {
     ArrowLeft, Users, UserCheck, CalendarDays, CalendarRange,
     Calendar, Stethoscope, Activity, ShieldCheck, ShieldAlert, Droplet,
+    ScrollText, Plus, X,
 } from 'lucide-react'
 import PageBanner from "../components/PageBanner.tsx";
 
@@ -17,6 +21,7 @@ const ROLE_LABELS: Record<RoleEmploye, string> = {
     infirmier: 'Infirmier(ère)',
     secretaire: 'Secrétaire',
     laborantin: 'Laborantin',
+    chef_chirurgie: 'Chef de Chirurgie',
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
     admin: 'var(--ht-primary)',
@@ -24,8 +29,9 @@ const ROLE_COLORS: Record<RoleEmploye, string> = {
     infirmier: 'var(--role-infirmier)',
     secretaire: 'var(--role-secretaire)',
     laborantin: 'var(--role-laborantin)',
+    chef_chirurgie: 'var(--role-chef_chirurgie)',
 }
-const ROLES: RoleEmploye[] = ['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin']
+const ROLES: RoleEmploye[] = ['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin', 'chef_chirurgie']
 
 // ─── Carte KPI ─────────────────────────────────────────────────────────────────
 function KpiCard({ label, value, icon }: { label: string; value: number; icon: React.ReactNode }) {
@@ -93,8 +99,8 @@ function MedecinRow({ medecin }: { medecin: MedecinPerf }) {
     )
 }
 
-// ─── Onglets Patients / Employés (même principe que la fiche patient) ─────────
-type MembresTab = 'patients' | 'employes'
+// ─── Onglets Patients / Employés / Habilitations (même principe que la fiche patient) ─
+type MembresTab = 'patients' | 'employes' | 'habilitations'
 
 function PatientRow({ patient, onClick }: { patient: Patient; onClick: () => void }) {
     return (
@@ -152,7 +158,183 @@ function EmployeRow({ employe, onClick }: { employe: Employe; onClick: () => voi
     )
 }
 
-function MembresTabs({ patients, employes }: { patients: Patient[]; employes: Employe[] }) {
+function HabilitationRow({ hab, canManage, onToggle, onDelete }: {
+    hab: HabilitationService; canManage: boolean
+    onToggle: () => void; onDelete: () => void
+}) {
+    return (
+        <div className="flex items-center gap-3 p-2.5 rounded-xl border"
+             style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+            <div className="ht-avatar ht-avatar-md flex-shrink-0">
+                {hab.employe_prenom[0]}{hab.employe_nom[0]}
+            </div>
+            <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium truncate" style={{ color: 'var(--ht-text)' }}>
+                    {hab.employe_prenom} {hab.employe_nom}
+                </p>
+                <p className="text-xs truncate" style={{ color: 'var(--ht-text-muted)' }}>
+                    {hab.employe_role_label}
+                    {(hab.date_debut || hab.date_fin) &&
+                        ` · ${hab.date_debut ? new Date(hab.date_debut).toLocaleDateString('fr-FR') : '…'} → ${hab.date_fin ? new Date(hab.date_fin).toLocaleDateString('fr-FR') : '…'}`}
+                </p>
+            </div>
+            {canManage ? (
+                <>
+                    <button onClick={onToggle} className={`badge ${hab.actif ? 'badge-primary' : 'badge-muted'} flex-shrink-0 cursor-pointer`}>
+                        {hab.actif ? 'Active' : 'Suspendue'}
+                    </button>
+                    <button onClick={onDelete} className="p-1 rounded-md hover:bg-black/5 transition-colors flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>
+                        <X size={14} />
+                    </button>
+                </>
+            ) : (
+                <span className={`badge ${hab.actif ? 'badge-primary' : 'badge-muted'} flex-shrink-0`}>
+                    {hab.actif ? 'Active' : 'Suspendue'}
+                </span>
+            )}
+        </div>
+    )
+}
+
+function AddHabilitationForm({ serviceId, candidats, onCreated, onCancel }: {
+    serviceId: number; candidats: Employe[]
+    onCreated: (h: HabilitationService) => void; onCancel: () => void
+}) {
+    const [employeId, setEmployeId] = useState<number | ''>('')
+    const [dateDebut, setDateDebut] = useState('')
+    const [dateFin, setDateFin] = useState('')
+    const [saving, setSaving] = useState(false)
+    const [erreur, setErreur] = useState('')
+
+    const handleSubmit = async () => {
+        if (!employeId) return
+        setSaving(true)
+        setErreur('')
+        try {
+            const created = await createHabilitation({
+                employe: Number(employeId), service: serviceId,
+                date_debut: dateDebut || null, date_fin: dateFin || null,
+            })
+            onCreated(created)
+        } catch {
+            setErreur("Impossible de créer cette habilitation (vérifie que l'employé peut exercer des actes médicaux).")
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <div className="mb-3 p-3 rounded-xl space-y-3" style={{ backgroundColor: 'var(--ht-bg)', border: '1px solid var(--ht-border)' }}>
+            <select value={employeId} onChange={e => setEmployeId(e.target.value ? Number(e.target.value) : '')} className="ht-input w-full text-sm">
+                <option value="">— Choisir un chirurgien d'un autre service —</option>
+                {candidats.map(e => (
+                    <option key={e.id} value={e.id}>{e.prenom} {e.nom} — {e.service_nom || 'Sans service'}</option>
+                ))}
+            </select>
+            <div className="grid grid-cols-2 gap-3">
+                <div className="ht-field">
+                    <label className="ht-label">Début (optionnel)</label>
+                    <input type="date" value={dateDebut} onChange={e => setDateDebut(e.target.value)} className="ht-input" />
+                </div>
+                <div className="ht-field">
+                    <label className="ht-label">Fin (optionnel)</label>
+                    <input type="date" value={dateFin} onChange={e => setDateFin(e.target.value)} className="ht-input" />
+                </div>
+            </div>
+            {erreur && <p className="text-xs" style={{ color: 'var(--ht-danger)' }}>{erreur}</p>}
+            <div className="flex gap-2">
+                <button onClick={onCancel} className="btn btn-ghost btn-sm">Annuler</button>
+                <button onClick={handleSubmit} disabled={!employeId || saving} className="btn btn-primary btn-sm">
+                    {saving ? 'Ajout…' : 'Habiliter'}
+                </button>
+            </div>
+        </div>
+    )
+}
+
+function HabilitationsTab({ serviceId }: { serviceId: number }) {
+    const { hasRole } = useAuth()
+    // NB : un superuser Django sans fiche Employe ne verra pas ce bouton
+    // (hasRole ne connaît pas is_superuser) — il gère ça via le Django admin.
+    const canManage = hasRole('chef_chirurgie')
+
+    const [habilitations, setHabilitations] = useState<HabilitationService[]>([])
+    const [candidats, setCandidats] = useState<Employe[]>([])
+    const [loading, setLoading] = useState(true)
+    const [showForm, setShowForm] = useState(false)
+
+    useEffect(() => {
+        setLoading(true)
+        Promise.all([
+            getHabilitations({ service: serviceId }),
+            canManage ? getEmployes() : Promise.resolve([]),
+        ])
+            .then(([habs, employes]) => {
+                setHabilitations(habs)
+                setCandidats(employes.filter(e =>
+                    e.service !== serviceId && (e.role === 'medecin' || e.role === 'chef_chirurgie')
+                ))
+            })
+            .finally(() => setLoading(false))
+    }, [serviceId, canManage])
+
+    const handleToggle = async (h: HabilitationService) => {
+        const updated = await updateHabilitation(h.id, { actif: !h.actif })
+        setHabilitations(prev => prev.map(x => x.id === h.id ? updated : x))
+    }
+
+    const handleDelete = async (h: HabilitationService) => {
+        if (!confirm(`Retirer l'habilitation de ${h.employe_prenom} ${h.employe_nom} ?`)) return
+        await deleteHabilitation(h.id)
+        setHabilitations(prev => prev.filter(x => x.id !== h.id))
+    }
+
+    if (loading) {
+        return (
+            <div className="space-y-2.5">
+                {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-14 rounded-xl animate-pulse" style={{ backgroundColor: 'var(--ht-bg)' }} />
+                ))}
+            </div>
+        )
+    }
+
+    const candidatsDisponibles = candidats.filter(c =>
+        !habilitations.some(h => h.employe === c.id && h.actif)
+    )
+
+    return (
+        <div>
+            {canManage && (
+                showForm ? (
+                    <AddHabilitationForm
+                        serviceId={serviceId}
+                        candidats={candidatsDisponibles}
+                        onCreated={h => { setHabilitations(prev => [h, ...prev]); setShowForm(false) }}
+                        onCancel={() => setShowForm(false)}
+                    />
+                ) : (
+                    <button onClick={() => setShowForm(true)} className="btn btn-secondary btn-sm mb-3">
+                        <Plus size={12} /> Habiliter un chirurgien
+                    </button>
+                )
+            )}
+
+            {habilitations.length === 0 ? (
+                <div className="ht-empty">Aucune habilitation pour ce service</div>
+            ) : (
+                <div className="space-y-2.5 max-h-96 overflow-y-auto">
+                    {habilitations.map(h => (
+                        <HabilitationRow key={h.id} hab={h} canManage={canManage}
+                                         onToggle={() => handleToggle(h)} onDelete={() => handleDelete(h)} />
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
+function MembresTabs({ patients, employes, serviceId }: { patients: Patient[]; employes: Employe[]; serviceId: number }) {
     const navigate = useNavigate()
     const [tab, setTab] = useState<MembresTab>('patients')
 
@@ -175,6 +357,7 @@ function MembresTabs({ patients, employes }: { patients: Patient[]; employes: Em
             <div className="flex items-center gap-1 mb-4 overflow-x-auto" style={{ borderBottom: '1px solid var(--ht-border)' }}>
                 <TabButton value="patients" icon={UserCheck} label="Patients" count={patients.length} />
                 <TabButton value="employes" icon={Users} label="Employés" count={employes.length} />
+                <TabButton value="habilitations" icon={ScrollText} label="Habilitations" count={0} />
             </div>
 
             {tab === 'patients' && (
@@ -200,6 +383,8 @@ function MembresTabs({ patients, employes }: { patients: Patient[]; employes: Em
                     </div>
                 )
             )}
+
+            {tab === 'habilitations' && <HabilitationsTab serviceId={serviceId} />}
         </div>
     )
 }
@@ -355,7 +540,7 @@ export default function ServiceDetail() {
                     <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
                         Membres du service
                     </h2>
-                    <MembresTabs patients={patientsListe} employes={employesListe} />
+                    <MembresTabs patients={patientsListe} employes={employesListe} serviceId={Number(id)} />
                 </div>
 
                 {/* Placeholder décès — à connecter une fois le module morgue en place */}

@@ -12,11 +12,11 @@ import { Edit3, User, Lock, FileText, ClipboardList, CalendarClock, Clock, Check
 // ─── Constantes ──────────────────────────────────────────────────────────────
 const ROLE_LABELS: Record<RoleEmploye, string> = {
     admin: 'Administrateur', medecin: 'Médecin', infirmier: 'Infirmier(ère)',
-    secretaire: 'Secrétaire', laborantin: 'Laborantin',
+    secretaire: 'Secrétaire', laborantin: 'Laborantin', chef_chirurgie: 'Chef de Chirurgie',
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
     admin: 'var(--ht-primary)', medecin: 'var(--role-medecin)', infirmier: 'var(--role-infirmier)',
-    secretaire: 'var(--role-secretaire)', laborantin: 'var(--role-laborantin)',
+    secretaire: 'var(--role-secretaire)', laborantin: 'var(--role-laborantin)', chef_chirurgie: 'var(--role-chef_chirurgie)',
 }
 const CONTRAT_LABELS: Record<string, string> = {
     cdi: 'CDI', cdd: 'CDD', stage: 'Stage', vacation: 'Vacation', benevolat: 'Bénévolat',
@@ -454,11 +454,9 @@ export default function EmployeDetail() {
                                 <EditField label="Rôle">
                                     <select className={inputCls} value={form.role ?? ''} onChange={e => set('role', e.target.value)}
                                             disabled={isSelf}>
-                                        <option value="admin">Administrateur</option>
-                                        <option value="medecin">Médecin</option>
-                                        <option value="infirmier">Infirmier(ère)</option>
-                                        <option value="secretaire">Secrétaire</option>
-                                        <option value="laborantin">Laborantin</option>
+                                        {(Object.keys(ROLE_LABELS) as RoleEmploye[]).map(r => (
+                                            <option key={r} value={r}>{ROLE_LABELS[r]}</option>
+                                        ))}
                                     </select>
                                     {isSelf && <p className="text-xs text-[var(--ht-text-muted)] mt-1">Tu ne peux pas modifier ton propre rôle.</p>}
                                 </EditField>

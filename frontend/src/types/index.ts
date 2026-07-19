@@ -106,7 +106,7 @@ export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annule
 export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
 
 // ─── Comptes / Employés ─────────────────────────────────────────────────────
-export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin'
+export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie'
 
 export type TypeContrat = 'cdi' | 'cdd' | 'stage' | 'vacation' | 'benevolat' | ''
 
@@ -138,6 +138,7 @@ export interface Employe {
     date_creation: string
     signature_medicale?: string
     preferences?: Record<string, unknown>
+    capacites?: string[]
 }
 
 export interface Service {
@@ -148,6 +149,20 @@ export interface Service {
     chef_nom?: string
     nb_employes: number
     nb_patients: number
+    actif: boolean
+    date_creation: string
+}
+
+export interface HabilitationService {
+    id: number
+    employe: number
+    employe_nom: string
+    employe_prenom: string
+    employe_role_label: string
+    service: number
+    service_nom: string
+    date_debut?: string | null
+    date_fin?: string | null
     actif: boolean
     date_creation: string
 }
@@ -190,6 +205,7 @@ export interface CurrentUser {
     service?: number | null
     service_nom?: string | null
     est_major?: boolean
+    capacites?: string[]
 }
 
 // ─── Antécédents ──────────────────────────────────────────────────────────────

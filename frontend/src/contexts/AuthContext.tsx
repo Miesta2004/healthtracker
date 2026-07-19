@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 import type { CurrentUser, RoleEmploye } from '../types'
+import type { CapaciteValue } from '../constants/capacites'
 import { getMe } from '../api/comptes'
 import { login as loginApi, logout as logoutApi } from '../api/auth'
 import type { LoginCredentials } from '../types'
@@ -8,6 +9,7 @@ interface AuthContextValue {
     user: CurrentUser | null
     loading: boolean
     hasRole: (...roles: RoleEmploye[]) => boolean
+    hasCapacite: (...capacites: CapaciteValue[]) => boolean
     login: (credentials: LoginCredentials) => Promise<void>
     logout: () => Promise<void>
 }
@@ -16,6 +18,7 @@ const AuthContext = createContext<AuthContextValue>({
     user: null,
     loading: true,
     hasRole: () => false,
+    hasCapacite: () => false,
     login: async () => {},
     logout: async () => {},
 })
@@ -49,6 +52,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return user ? roles.includes(user.role) : false
     }
 
+    // NB : ne couvre pas un superuser Django sans fiche Employe (capacites
+    // sera alors undefined/vide) — il passe par is_superuser côté backend,
+    // qui bypass toutes les permissions de toute façon.
+    const hasCapacite = (...capacites: CapaciteValue[]): boolean => {
+        if (!user?.capacites) return false
+        return capacites.some(c => user.capacites!.includes(c))
+    }
+
     const login = async (credentials: LoginCredentials) => {
         await loginApi(credentials)
         await loadUser()
@@ -61,7 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, loading, hasRole, login, logout }}>
+        <AuthContext.Provider value={{ user, loading, hasRole, hasCapacite, login, logout }}>
             {children}
         </AuthContext.Provider>
     )

@@ -10,6 +10,7 @@ from django.middleware.csrf import get_token
 from .models import Employe, HabilitationService
 from .serializers import EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer
 from .permissions import IsAdminRole, PeutGererHabilitations, get_employe
+from .capacites import Capacite
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
 from django.contrib.auth.hashers import check_password
@@ -29,7 +30,18 @@ class EmployeViewSet(viewsets.ModelViewSet):
         if emp is None:
             return Employe.objects.none()
 
-        return qs.filter(service=emp.service) if emp.service else Employe.objects.none()
+        qs_propre_service = qs.filter(service=emp.service) if emp.service else Employe.objects.none()
+
+        # Chef de Chirurgie (capacité BLOC_GERER) : doit pouvoir chercher un
+        # chirurgien d'un AUTRE service pour l'habiliter (HabilitationService
+        # concerne par nature un employé qui n'est pas de son service) — même
+        # principe transversal que PatientViewSet.get_queryset.
+        if emp.a_la_capacite(Capacite.BLOC_GERER):
+            from .capacites import roles_avec_capacite
+            autres_chirurgiens = qs.filter(role__in=roles_avec_capacite(Capacite.ACTES_MEDICAUX_GERER))
+            return (qs_propre_service | autres_chirurgiens).distinct()
+
+        return qs_propre_service
 
     def get_serializer_class(self):
         if self.action == 'create':

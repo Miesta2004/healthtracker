@@ -12,6 +12,7 @@ class EmployeSerializer(serializers.ModelSerializer):
     type_contrat_label = serializers.CharField(source='get_type_contrat_display', read_only=True)
     age                = serializers.IntegerField(read_only=True)
     service_nom        = serializers.CharField(source='service.nom', default=None, read_only=True)
+    capacites          = serializers.SerializerMethodField()
 
     class Meta:
         model  = Employe
@@ -20,12 +21,21 @@ class EmployeSerializer(serializers.ModelSerializer):
             'nom', 'prenom', 'date_naissance', 'sexe', 'age',
             'telephone', 'adresse', 'photo_path',
             'role', 'role_label', 'specialite', 'matricule', 'actif', 'est_major',
+            'capacites',
             'service', 'service_nom',
             'type_contrat', 'type_contrat_label',
             'date_debut_contrat', 'date_fin_contrat',
             'description_poste',
             'date_creation',
         ]
+
+    def get_capacites(self, obj):
+        """
+        Capacités effectives (héritage compris) — le frontend s'appuie
+        dessus (hasCapacite) plutôt que de dupliquer CAPACITES_PAR_ROLE/
+        HERITE_DE : la logique de mapping reste uniquement côté backend.
+        """
+        return sorted(obj.capacites)
 
     def validate(self, data):
         # est_major n'a de sens que pour un infirmier.

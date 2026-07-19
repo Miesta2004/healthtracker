@@ -6,6 +6,7 @@ import {
     Syringe,
     Folder,
     FlaskConical,
+    Scissors,
     ArrowLeft,
     AlertCircle,
     CheckCircle2,
@@ -23,6 +24,7 @@ const ROLES: { value: RoleEmploye; label: string; icon: React.ComponentType<any>
     { value: 'infirmier', label: 'Infirmier(ère)', icon: Syringe },
     { value: 'secretaire', label: 'Secrétaire', icon: Folder },
     { value: 'laborantin', label: 'Laborantin', icon: FlaskConical },
+    { value: 'chef_chirurgie', label: 'Chef de Chirurgie', icon: Scissors },
 ]
 
 // ─── Champ texte réutilisable ─────────────────────────────────────────────────

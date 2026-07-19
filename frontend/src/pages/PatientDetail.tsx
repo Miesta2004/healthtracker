@@ -12,6 +12,7 @@ import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
 import { createAssignation, deleteAssignation } from '../api/disponibilites'
 import type { RendezVous, PassageUrgence, Hospitalisation, AssignationPatient, Shift } from '../types'
 import { useAuth } from '../contexts/AuthContext'
+import { Capacite } from '../constants/capacites'
 import { SkeletonDetailPage, SkeletonListRows } from '../components/Skeleton'
 import Sidebar from '../components/Sidebar.tsx'
 import GraviteBadge from '../components/GraviteBadge'
@@ -767,11 +768,18 @@ function ResultatsAnalyseModal({ demande, onClose }: { demande: DemandeAnalyse; 
 export default function PatientDetail() {
     const {id} = useParams<{ id: string }>()
     const navigate = useNavigate()
-    const {hasRole, user} = useAuth()
+    const {hasRole, hasCapacite, user} = useAuth()
 
-    const canEdit = hasRole('admin', 'secretaire', 'medecin')
+    // Mêmes rôles autorisés qu'avant (medecin/admin/secretaire), mais via la
+    // capacité PATIENTS_CREER — un chef_chirurgie (qui hérite de médecin
+    // côté backend) en bénéficie désormais aussi, sans lister son rôle ici.
+    const canEdit = hasCapacite(Capacite.PATIENTS_CREER)
     const canDelete = hasRole('admin')
-    const canRequestLab = hasRole('admin', 'medecin', 'infirmier')
+    // ACTES_MEDICAUX_GERER couvre medecin/admin (+ chef_chirurgie par
+    // héritage) ; infirmier gardé explicitement pour ne pas changer le
+    // comportement existant (question distincte, non traitée ici — voir
+    // note sur analyses/views.py qui restreint déjà la création côté API).
+    const canRequestLab = hasCapacite(Capacite.ACTES_MEDICAUX_GERER) || hasRole('infirmier')
     const canAssignInfirmier = hasRole('admin') || !!user?.est_major
 
     const patientId = id ? Number(id) : undefined
@@ -1256,7 +1264,7 @@ export default function PatientDetail() {
                                     style={{color: 'var(--ht-text)'}}>
                                     <Activity size={16} style={{color: 'var(--ht-text-muted)'}}/> Évolution des constantes vitales
                                 </h3>
-                                {hasRole('admin', 'medecin', 'infirmier') && (
+                                {hasCapacite(Capacite.SIGNES_VITAUX_SAISIR) && (
                                     <button
                                         onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
                                         className="btn btn-primary btn-sm"
