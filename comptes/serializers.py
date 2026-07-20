@@ -13,6 +13,7 @@ class EmployeSerializer(serializers.ModelSerializer):
     age                = serializers.IntegerField(read_only=True)
     service_nom        = serializers.CharField(source='service.nom', default=None, read_only=True)
     capacites          = serializers.SerializerMethodField()
+    roles_effectifs    = serializers.ListField(read_only=True)
 
     class Meta:
         model  = Employe
@@ -21,7 +22,7 @@ class EmployeSerializer(serializers.ModelSerializer):
             'nom', 'prenom', 'date_naissance', 'sexe', 'age',
             'telephone', 'adresse', 'photo_path',
             'role', 'role_label', 'specialite', 'matricule', 'actif', 'est_major',
-            'capacites',
+            'capacites', 'roles_effectifs',
             'service', 'service_nom',
             'type_contrat', 'type_contrat_label',
             'date_debut_contrat', 'date_fin_contrat',

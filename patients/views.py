@@ -6,6 +6,7 @@ from django.db.models import Q
 from .models import Patient
 from .serializers import PatientSerializer, PatientListSerializer
 from comptes.permissions import get_employe, PeutCreerPatient
+from comptes.capacites import Capacite
 
 
 class PatientViewSet(viewsets.ModelViewSet):
@@ -62,6 +63,17 @@ class PatientViewSet(viewsets.ModelViewSet):
         else:
             qs = base_qs.all()
 
+        # Chef de Chirurgie (capacité BLOC_GERER, transversale) : en plus de ce
+        # qui précède, il doit voir tout patient ayant une Operation n'importe
+        # où dans l'hôpital — y compris hors de son service, et sans filtrer
+        # par statut : une opération TERMINEE ou COMPLICATION reste pertinente
+        # (ex. dossier lié à une autopsie péri-opératoire), pas seulement les
+        # opérations encore actives couvertes par la règle générale ci-dessus.
+        if emp.a_la_capacite(Capacite.BLOC_GERER):
+            from chirurgie.models import Operation
+            patients_operes_ids = Operation.objects.values_list('patient_id', flat=True).distinct()
+            qs = (qs | base_qs.filter(id__in=patients_operes_ids)).distinct()
+
         # Filtrage par recherche si paramètre q présent
         if q:
             qs = qs.filter(
@@ -100,7 +112,7 @@ class PatientViewSet(viewsets.ModelViewSet):
         if emp is not None:
             if not serializer.validated_data.get('service'):
                 extra['service'] = emp.service
-            if emp.role == 'medecin' and not serializer.validated_data.get('medecin_referent'):
+            if emp.a_la_capacite(Capacite.ACTES_MEDICAUX_GERER) and not serializer.validated_data.get('medecin_referent'):
                 extra['medecin_referent'] = emp
         serializer.save(**extra)
 

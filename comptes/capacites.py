@@ -97,3 +97,21 @@ def roles_avec_capacite(capacite: str) -> list:
     """
     from .models import Role
     return [r for r in Role.values if capacite in capacites_du_role(r)]
+
+
+def roles_effectifs(role: str) -> list:
+    """
+    Un rôle + toute sa chaîne d'héritage (ex. 'chef_chirurgie' -> ['chef_chirurgie', 'medecin']).
+
+    Sert à rendre le hasRole() du frontend conscient de l'héritage, sans lui
+    faire connaître HERITE_DE : le backend calcule la chaîne une fois
+    (Employe.roles_effectifs, exposé par l'API), le frontend se contente de
+    tester l'appartenance à cette liste au lieu du seul `role` brut. Ainsi
+    tout hasRole('medecin', ...) déjà écrit ailleurs dans l'app inclut
+    automatiquement 'chef_chirurgie' — sans modifier ces fichiers.
+    """
+    chaine = [role]
+    parent = HERITE_DE.get(role)
+    if parent:
+        chaine += roles_effectifs(parent)
+    return chaine

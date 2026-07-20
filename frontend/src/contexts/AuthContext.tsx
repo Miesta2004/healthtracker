@@ -49,7 +49,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, [])
 
     const hasRole = (...roles: RoleEmploye[]): boolean => {
-        return user ? roles.includes(user.role) : false
+        if (!user) return false
+        // roles_effectifs = le rôle + toute sa chaîne d'héritage côté backend
+        // (ex. chef_chirurgie -> [chef_chirurgie, medecin]). Fallback sur
+        // [user.role] si l'API ne le renvoie pas encore (ancien cache, etc.)
+        // — comportement strictement identique à avant dans ce cas.
+        const rolesEffectifs = user.roles_effectifs ?? [user.role]
+        return roles.some(r => rolesEffectifs.includes(r))
     }
 
     // NB : ne couvre pas un superuser Django sans fiche Employe (capacites

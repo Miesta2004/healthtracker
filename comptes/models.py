@@ -114,6 +114,11 @@ class Employe(Personne):
         from .capacites import capacites_du_role
         return capacites_du_role(self.role)
 
+    @property
+    def roles_effectifs(self) -> list:
+        from .capacites import roles_effectifs
+        return roles_effectifs(self.role)
+
     def a_la_capacite(self, capacite: str) -> bool:
         return capacite in self.capacites
 
