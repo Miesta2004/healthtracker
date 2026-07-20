@@ -22,11 +22,11 @@ export const TYPE_EVENEMENT_STYLE: Record<TypeEvenementRdv, TypeEvenementStyle> 
         icon: Scissors,
     },
     reunion: {
-        bg: 'rgba(179, 157, 222, 0.16)', border: 'var(--ht-violet)', text: 'var(--ht-violet)',
+        bg: 'var(--ht-evenement-violet-bg)', border: 'var(--ht-violet)', text: 'var(--ht-violet)',
         icon: Users,
     },
     garde: {
-        bg: 'rgba(94, 200, 224, 0.16)', border: 'var(--ht-blue)', text: 'var(--ht-blue)',
+        bg: 'var(--ht-evenement-blue-tint-bg)', border: 'var(--ht-blue)', text: 'var(--ht-blue)',
         icon: ShieldAlert,
     },
     visite_postoperatoire: {

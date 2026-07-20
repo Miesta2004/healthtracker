@@ -16,6 +16,10 @@
     --ht-primary-contrast: #ffffff;
     --ht-primary-tint-text: var(--ht-primary);
 
+    /* Fonds légers pour types d'événements (utilisés dans le planning) */
+    --ht-evenement-violet-bg: rgba(179, 157, 222, 0.16);
+    --ht-evenement-blue-tint-bg: rgba(94, 200, 224, 0.16);
+
     /* Marque fixe (Sidebar, panneau de connexion) : même couleur en clair et en sombre,
        volontairement plus sourde qu'un accent pour ne pas fatiguer l'œil sur une grande surface */
     --ht-brand-bg:      #123b35;
@@ -258,6 +262,59 @@ body {
 .ht-sidebar-toggle-label { opacity: 1; font-size: 0.75rem; transition: opacity var(--sidebar-transition); }
 .ht-sidebar.compact .ht-sidebar-toggle-label { opacity: 0; }
 
+/* Focus visible et léger "pop" pour les blocs d'événements du planning */
+.planning-event:focus-visible {
+    outline: none;
+    box-shadow: var(--ht-shadow-focus);
+    transform: translateY(-1px);
+}
+.planning-event {
+    transition: box-shadow 160ms ease, transform 160ms ease, border-left-width 160ms ease;
+}
+.planning-event:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+}
+
+/* Indicateur d'heure actuelle : ligne horizontale avec petit cercle à gauche */
+.current-time-indicator {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--ht-primary);
+    pointer-events: none;
+    z-index: 15;
+    box-shadow: 0 0 6px rgba(47, 93, 78, 0.3);
+}
+
+.current-time-indicator::before {
+    content: '';
+    position: absolute;
+    left: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ht-primary);
+    box-shadow: 0 0 0 3px var(--ht-card-bg), 0 0 8px rgba(0,0,0,0.2);
+}
+
+.current-time-label {
+    position: absolute;
+    left: 8px;
+    top: -22px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    background: var(--ht-primary);
+    color: var(--ht-primary-contrast);
+    padding: 2px 6px;
+    border-radius: 3px;
+    white-space: nowrap;
+    pointer-events: none;
+    z-index: 16;
+}
+
 .ht-page {
     min-height: 100vh; background-color: var(--ht-bg);
     padding-left: var(--sidebar-width); transition: padding-left var(--sidebar-transition);
@@ -309,6 +366,9 @@ body {
     --ht-primary-tint-bg:  rgba(111,174,156,0.16);
     --ht-primary-contrast: #ffffff;
     --ht-primary-tint-text: #d7f0e8;
+
+    --ht-evenement-violet-bg: rgba(179, 157, 222, 0.12);
+    --ht-evenement-blue-tint-bg: rgba(94, 200, 224, 0.12);
 
     --ht-success:          #6fd7c4;
     --ht-success-bg:       rgba(111,215,196,0.16);

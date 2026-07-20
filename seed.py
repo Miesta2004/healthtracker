@@ -23,13 +23,15 @@ from alertes.models import Alerte
 from services.models import Service
 from hospitalisations.models import Hospitalisation, StatutHospitalisation
 from urgences.models import PassageUrgence, NiveauTri, ModeArrivee, StatutUrgence, DecisionSortie
-from comptes.models import Employe
+from comptes.models import Employe, Specialite, HabilitationService
 from analyses.models import DemandeAnalyse
 from disponibilites.models import (
     CreneauDisponibilite, ExceptionDisponibilite, JourSemaine, TypeCreneau,
     TypeException, StatutException, AssignationPatient, Shift,
 )
 from morgue.models import Deces, Autopsie, LieuDeces, StatutDeces, TypeAutopsie
+from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
+from chirurgie.models import Operation, SalleBloc, StatutOperation
 
 random.seed(42)
 
@@ -50,6 +52,9 @@ for Model, label in [
     (AssignationPatient, "assignation(s) infirmier ↔ patient"),
     (DemandeAnalyse,  "demande(s) d'analyse"),
     (PassageUrgence,  "passage(s) urgences"),
+    (Operation,       "opération(s) chirurgicale(s)"),
+    (SalleBloc,       "salle(s) de bloc"),
+    (Antecedent,      "antécédent(s) détaillé(s)"),
     (Hospitalisation, "hospitalisation(s)"),
     (Alerte,          "alerte(s)"),
     (RendezVous,      "rendez-vous"),
@@ -58,7 +63,9 @@ for Model, label in [
     (Patient,         "patient(s)"),
     (ExceptionDisponibilite, "exception(s) de disponibilité"),
     (CreneauDisponibilite,   "créneau(x) de disponibilité"),
+    (HabilitationService,    "habilitation(s) service"),
     (Employe,         "employé(s)"),
+    (Specialite,      "spécialité(s)"),
     (Service,         "service(s)"),
 ]:
     nb = Model.objects.count()
@@ -68,6 +75,57 @@ for Model, label in [
 
 nb, _ = User.objects.filter(is_superuser=False).delete()
 print(f"   - {nb} user(s) Django supprimé(s)\n✅ Nettoyé.\n")
+
+# ─── SPÉCIALITÉS MÉDICALES ────────────────────────────────────────────────────
+print("🏥 Spécialités médicales...")
+SPECIALITES_DATA = [
+    # Cardiologie
+    ("Cardiologie générale", False),
+    ("Cardiologie interventionnelle", True),
+    ("Rythmologie", False),
+    # Médecine interne & infectiologie
+    ("Médecine interne", False),
+    ("Maladies infectieuses", False),
+    # Pédiatrie
+    ("Pédiatrie générale", False),
+    ("Néonatologie", False),
+    # Diabétologie
+    ("Diabétologie", False),
+    ("Endocrinologie", False),
+    # Urgences
+    ("Médecine d'urgence", False),
+    ("Réanimation polyvalente", False),
+    # Chirurgie
+    ("Chirurgie digestive", True),
+    ("Chirurgie orthopédique", True),
+    ("Chirurgie vasculaire", True),
+    ("Chirurgie thoracique", True),
+    ("Chirurgie cardiaque", True),
+    # Gynécologie-Obstétrique
+    ("Gynécologie-Obstétrique", True),
+    # Neurologie
+    ("Neurologie générale", False),
+    ("Neurologie vasculaire", False),
+    # Pneumologie
+    ("Pneumologie générale", False),
+    ("Pneumologie-Infectiologie", False),
+    # Néphro-dialyse
+    ("Néphrologie", False),
+    ("Dialyse péritonéale", False),
+    # ORL-Ophtalmo
+    ("ORL-Chirurgie cervico-faciale", True),
+    ("Ophtalmologie", False),
+    # Biologie & Anesthésie
+    ("Biologie médicale", False),
+    ("Anesthésie-Réanimation", False),
+]
+
+specialites = {}
+for nom, est_chirurgicale in SPECIALITES_DATA:
+    specialites[nom] = Specialite.objects.create(
+        nom=nom, est_chirurgicale=est_chirurgicale
+    )
+print(f"✅ {len(specialites)} spécialités\n")
 
 # ─── SERVICES ─────────────────────────────────────────────────────────────────
 print("🏥 Services...")
@@ -265,11 +323,16 @@ for (prenom, nom, sexe, role, specialite, username, password, age,
     )
     # date_fin pour CDD : 2 ans après début
     date_fin = date(date_debut.year + 2, date_debut.month, date_debut.day) if type_contrat == 'cdd' else None
+
+    # Lier la specialite du modèle si elle existe
+    specialite_obj = specialites.get(specialite) if specialite else None
+
     emp = Employe.objects.create(
         user=user, nom=nom, prenom=prenom, date_naissance=dnaiss,
         sexe=sexe, telephone=tel(),
         adresse=f"{random.choice(QUARTIERS)}, Dakar",
         role=role, specialite=specialite,
+        specialite_principale=specialite_obj,
         service=services.get(svc_nom) if svc_nom else None,
         type_contrat=type_contrat,
         date_debut_contrat=date_debut,
@@ -299,6 +362,42 @@ for svc_obj in services.values():
             svc_obj.save()
             print(f"   {svc_obj.nom} → {chef.prenom} {chef.nom} (responsable technique)")
 print()
+
+# ── Habilitations services ─────────────────────────────────────────────────────
+print("🔑 Habilitations des employés sur les services...")
+total_habilitations = 0
+
+# Chaque employé est habilité sur au moins son service de rattachement
+for emp in employes:
+    if emp.service:
+        HabilitationService.objects.create(
+            employe=emp, service=emp.service,
+            date_debut=emp.date_debut_contrat or date.today(),
+            date_fin=emp.date_fin_contrat,  # null si CDI
+            actif=emp.actif
+        )
+        total_habilitations += 1
+
+# Quelques habilitations supplémentaires pour refléter la mobilité réelle
+# (chirurgiens pouvant intervenir dans plusieurs services, consultants externes)
+medecins_tous = [e for e in employes if e.role == 'medecin']
+for medecin in random.sample(medecins_tous, k=min(8, len(medecins_tous))):
+    # Habilitation dans un 2e service
+    autres_services = [s for s in services.values() if s.id != medecin.service_id]
+    if autres_services:
+        svc_supp = random.choice(autres_services)
+        try:
+            HabilitationService.objects.create(
+                employe=medecin, service=svc_supp,
+                date_debut=date.today() - timedelta(days=random.randint(30, 365)),
+                date_fin=None,  # Sans limitation pour ces habilitations supplémentaires
+                actif=True
+            )
+            total_habilitations += 1
+        except:
+            pass  # Doublon possible
+
+print(f"✅ {total_habilitations} habilitations (service principal + complémentaires)\n")
 
 # ── Renfort d'équipe (x3 médecins / infirmiers au total) ──────────────────────
 # Les employés ci-dessus sont l'équipe "historique" avec bio détaillée.
@@ -984,6 +1083,51 @@ for patient, age, ant_str, profil_key in patients_data:
 
 print(f"✅ {total_consult} consultations, {total_rdv} rendez-vous\n")
 
+# ─── ANTÉCÉDENTS DÉTAILLÉS ────────────────────────────────────────────────────
+print("📋 Antécédents détaillés (liaison avec consultations)...")
+total_antecedents = 0
+
+for patient, age, ant_str, profil_key in patients_data:
+    # Parser les antécédents texte et créer les instances Antecedent
+    if ant_str:
+        ant_list = [a.strip() for a in ant_str.split(",")]
+        consults_patient = consultations_par_patient.get(patient.id, [])
+
+        for ant_libelle in ant_list:
+            # Mapper le libellé au type d'antécédent le plus plausible
+            if any(kw in ant_libelle.lower() for kw in ["chirurg", "appendic", "cure", "hernior", "ablation", "exci"]):
+                type_ant = TypeAntecedent.CHIRURGIE
+            elif any(kw in ant_libelle.lower() for kw in ["allergi", "intolerance"]):
+                type_ant = TypeAntecedent.ALLERGIE
+            elif any(kw in ant_libelle.lower() for kw in ["antécédent", "familial", "père", "mère", "frère", "sœur"]):
+                type_ant = TypeAntecedent.FAMILIAL
+            else:
+                type_ant = TypeAntecedent.MALADIE_CHRONIQUE
+
+            # Dater l'antécédent quelque part dans le passé (antérieur au patient)
+            date_diag = date.today() - timedelta(days=random.randint(30, 8*365))
+
+            # Optionnellement lier à une consultation
+            consultation_source = None
+            if consults_patient and random.random() > 0.5:
+                consultation_source = random.choice(consults_patient)
+
+            try:
+                Antecedent.objects.create(
+                    patient=patient,
+                    type_antecedent=type_ant,
+                    libelle=ant_libelle,
+                    observations="Antécédent connu et documenté." if random.random() > 0.4 else "",
+                    statut=StatutAntecedent.ACTIF if random.random() > 0.15 else StatutAntecedent.RESOLU,
+                    date_diagnostic=date_diag,
+                    consultation_source=consultation_source,
+                )
+                total_antecedents += 1
+            except Exception:
+                pass  # Doublon ou erreur - skip silencieusement
+
+print(f"✅ {total_antecedents} antécédents détaillés créés\n")
+
 # ─── DEMANDES D'ANALYSE ───────────────────────────────────────────────────────
 print("🔬 Demandes d'analyse...")
 
@@ -1211,6 +1355,94 @@ for pdata in random.sample(patients_restants, k=min(n_extra, len(patients_restan
 
 print(f"✅ {total_hosp} hospitalisations, réparties dans les {len(services) - 1} services cliniques "
       f"(Laboratoire exclu, pas de médecin)\n")
+
+# ─── SALLES DE BLOC ET OPÉRATIONS ──────────────────────────────────────────────
+print("🏥 Salles de bloc et opérations chirurgicales...")
+total_salles = 0
+total_operations = 0
+
+# Créer 2-3 salles par service chirurgical
+services_chirurgie = [s for n, s in services.items() if n in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
+salles_bloc = {}
+for svc in services_chirurgie:
+    nb_salles = random.randint(2, 3)
+    for i in range(1, nb_salles + 1):
+        salle = SalleBloc.objects.create(
+            nom=f"Salle {i}", service=svc, actif=True
+        )
+        salles_bloc[svc.id] = salles_bloc.get(svc.id, []) + [salle]
+        total_salles += 1
+
+# Créer 30-50 opérations programmées liées aux hospitalisations
+chirurgiens_list = [e for e in employes if e.role == 'medecin'
+                   and e.service and e.service.nom in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
+
+operations_data = []
+for hosp in random.sample(list(Hospitalisation.objects.all()), k=min(40, Hospitalisation.objects.count())):
+    # Créer une opération pour environ 40% des hospitalisations
+    if not hosp.patient or not hosp.service or random.random() > 0.4:
+        continue
+    if not hosp.service.id in salles_bloc:
+        continue
+
+    salle = random.choice(salles_bloc[hosp.service.id])
+    chirurgien = None
+    # Trouver un chirurgien habilité
+    for chir in chirurgiens_list:
+        if chir.service_id == hosp.service.id or chir.service is None:
+            chirurgien = chir
+            break
+    if not chirurgien:
+        chirurgien = random.choice(chirurgiens_list) if chirurgiens_list else None
+    if not chirurgien:
+        continue
+
+    # Date de l'opération pendant l'hospitalisation
+    date_fin = (hosp.date_sortie or now).date()
+
+    nb_jours = max(
+        1,
+        (date_fin - hosp.date_admission.date()).days
+    )
+
+    d_op = hosp.date_admission + timedelta(
+        days=random.randint(1, nb_jours)
+    )
+    heure_op = datetime.combine(d_op.date(), datetime.min.time()).replace(hour=random.randint(8, 16))
+
+    try:
+        op = Operation.objects.create(
+            patient=hosp.patient,
+            consultation_indication=random.choice(consultations_par_patient.get(hosp.patient.id, [])) if consultations_par_patient.get(hosp.patient.id) else None,
+            hospitalisation=hosp,
+            service_chirurgie=hosp.service,
+            salle=salle,
+            chirurgien_principal=chirurgien,
+            type_intervention=random.choice(MOTIFS_OPERATION),
+            date_heure_prevue=heure_op,
+            duree_estimee_min=random.randint(60, 180),
+            statut=random.choices(
+                [StatutOperation.TERMINEE, StatutOperation.EN_COURS, StatutOperation.CONFIRMEE],
+                weights=[0.70, 0.15, 0.15]
+            )[0],
+            compte_rendu_operatoire="Acte chirurgical réalisé sans incident majeur. Suites opératoires simples attendues." if random.random() > 0.2 else "",
+            complications="" if random.random() > 0.05 else "Saignement contrôlé per-opératoire, hémostase complète.",
+        )
+        operations_data.append(op)
+        total_operations += 1
+
+        # Assigner une équipe à l'opération
+        if random.random() > 0.4:
+            assistants = random.sample(
+                [e for e in employes if e.role in ['medecin', 'infirmier'] and e.service_id == hosp.service.id],
+                k=random.randint(1, 3)
+            )
+            for asst in assistants:
+                op.equipe.add(asst)
+    except Exception as e:
+        pass  # Conflit de salle ou autre constraint - skip silencieusement
+
+print(f"✅ {total_salles} salles de bloc, {total_operations} opérations chirurgicales\n")
 
 # ─── URGENCES ─────────────────────────────────────────────────────────────────
 print("🚑 Urgences...")
@@ -1506,19 +1738,24 @@ for deces in tous_les_deces:
 print(f"✅ {total_deces} décès enregistrés, {total_autopsies} autopsies\n")
 
 # ─── RÉSUMÉ ───────────────────────────────────────────────────────────────────
-print("═" * 55)
+print("═" * 60)
 print("🏥  SEED TERMINÉ — Résumé complet :")
-print(f"   🏢 Services         : {len(services)}")
-print(f"   👔 Employés         : {len(employes)}")
-print(f"   👤 Patients         : {NB_PATIENTS}")
-print(f"   📊 Signes vitaux    : {total_sv}")
-print(f"   🩺 Consultations    : {total_consult}")
-print(f"   📅 Rendez-vous      : {total_rdv}")
+print(f"   🏢 Services           : {len(services)}")
+print(f"   🎓 Spécialités        : {len(specialites)}")
+print(f"   👔 Employés           : {len(employes)}")
+print(f"   🔑 Habilitations      : {total_habilitations}")
+print(f"   👤 Patients           : {NB_PATIENTS}")
+print(f"   📊 Signes vitaux      : {total_sv}")
+print(f"   🩺 Consultations      : {total_consult}")
+print(f"   📅 Rendez-vous        : {total_rdv}")
+print(f"   📋 Antécédents détaillés : {total_antecedents}")
 print(f"   🔬 Demandes d'analyse : {total_analyses}")
-print(f"   🛏️  Hospitalisations : {total_hosp}")
-print(f"   🚑 Passages urgences: {total_urgences}")
-print(f"   🧑‍⚕️ Assignations shifts : {total_assignations}")
-print(f"   ⚰️  Décès / autopsies : {total_deces} / {total_autopsies}")
-print(f"   🚨 Alertes          : {total_alertes} (dont {total_alertes_analyses} résultats d'analyse)")
-print("═" * 55)
+print(f"   🛏️  Hospitalisations   : {total_hosp}")
+print(f"   🏥 Salles de bloc      : {total_salles}")
+print(f"   ⚕️  Opérations chirurg : {total_operations}")
+print(f"   🚑 Passages urgences  : {total_urgences}")
+print(f"   🧑‍⚕️  Assignations shifts : {total_assignations}")
+print(f"   ⚰️  Décès / autopsies  : {total_deces} / {total_autopsies}")
+print(f"   🚨 Alertes            : {total_alertes} (dont {total_alertes_analyses} résultats d'analyse)")
+print("═" * 60)
 print("✅ Base de données peuplée avec succès !")

@@ -1,9 +1,11 @@
+import { useEffect, useRef } from 'react'
 import type { EvenementPlanning, IndisponibilitePlanning } from '../../types'
 import PlanningEventBlock from './PlanningEventBlock'
 
-export const HEURE_DEBUT = 7
-export const HEURE_FIN = 19
-export const HAUTEUR_HEURE = 56 // px
+export const HEURE_DEBUT = 0
+export const HEURE_FIN = 24
+export const HAUTEUR_DEMI_HEURE = 44 // px par tranche de 30 min
+export const HAUTEUR_HEURE = HAUTEUR_DEMI_HEURE * 2 // pour compatibilité et calculs
 
 export interface EvenementPositionne {
     evenement: EvenementPlanning
@@ -58,6 +60,17 @@ export function offsetMinutes(iso: string): number {
     return (d.getHours() - HEURE_DEBUT) * 60 + d.getMinutes()
 }
 
+export function getHeureActuelle(): number {
+    const now = new Date()
+    return (now.getHours() - HEURE_DEBUT) * 60 + now.getMinutes()
+}
+
+export interface HeureAffichage {
+    heure: number
+    minutes: number
+    estDemiHeure: boolean
+}
+
 function estIndisponible(jour: Date, indisponibilites: IndisponibilitePlanning[]) {
     const iso = jour.toISOString().slice(0, 10)
     return indisponibilites.find(i => i.date_debut <= iso && i.date_fin >= iso)
@@ -71,23 +84,56 @@ interface Props {
 }
 
 export default function PlanningWeekView({ lundi, evenements, indisponibilites, onSelectEvenement }: Props) {
+    const containerRef = useRef<HTMLDivElement>(null)
+
     const jours = Array.from({ length: 7 }, (_, i) => {
         const d = new Date(lundi)
         d.setDate(lundi.getDate() + i)
         return d
     })
-    const heures = Array.from({ length: HEURE_FIN - HEURE_DEBUT }, (_, i) => HEURE_DEBUT + i)
-    const hauteurTotale = (HEURE_FIN - HEURE_DEBUT) * HAUTEUR_HEURE
+
+    // Générer les heures et demi-heures
+    const heuresAffichage: HeureAffichage[] = []
+    for (let h = HEURE_DEBUT; h < HEURE_FIN; h++) {
+        heuresAffichage.push({ heure: h, minutes: 0, estDemiHeure: false })
+        heuresAffichage.push({ heure: h, minutes: 30, estDemiHeure: true })
+    }
+
+    const hauteurTotale = (HEURE_FIN - HEURE_DEBUT) * 2 * HAUTEUR_DEMI_HEURE
+    const heureActuelle = getHeureActuelle()
+
+    // Centrer le scroll sur l'heure actuelle au montage
+    useEffect(() => {
+        if (containerRef.current && heureActuelle >= 0 && heureActuelle < (HEURE_FIN - HEURE_DEBUT) * 60) {
+            const scrollTop = (heureActuelle / 60) * HAUTEUR_DEMI_HEURE * 2 - containerRef.current.clientHeight / 2
+            containerRef.current.scrollTop = Math.max(0, scrollTop)
+        }
+    }, [])
 
     return (
-        <div className="ht-card overflow-x-auto">
+        <div className="ht-card overflow-auto" ref={containerRef} style={{ maxHeight: 'calc(100vh - 200px)' }}>
             <div className="flex min-w-[720px]">
                 {/* Colonne des heures */}
                 <div className="flex-shrink-0 w-14 border-r" style={{ borderColor: 'var(--ht-border)' }}>
                     <div className="h-12 border-b" style={{ borderColor: 'var(--ht-border)' }} />
-                    {heures.map(h => (
-                        <div key={h} style={{ height: HAUTEUR_HEURE }} className="text-right pr-2 -mt-2.5">
-                            <span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{h}h</span>
+                    {heuresAffichage.map((h, idx) => (
+                        <div
+                            key={idx}
+                            style={{ height: HAUTEUR_DEMI_HEURE }}
+                            className="text-right pr-2 -mt-2.5 relative"
+                        >
+                            {!h.estDemiHeure ? (
+                                <span className="text-xs font-semibold" style={{ color: 'var(--ht-text-muted)' }}>
+                                    {h.heure.toString().padStart(2, '0')}h
+                                </span>
+                            ) : (
+                                <span
+                                    className="text-xs opacity-40"
+                                    style={{ color: 'var(--ht-text-muted)' }}
+                                >
+                                    :30
+                                </span>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -101,7 +147,7 @@ export default function PlanningWeekView({ lundi, evenements, indisponibilites, 
                     const aujourdhui = iso === new Date().toISOString().slice(0, 10)
 
                     return (
-                        <div key={iso} className="flex-1 min-w-[90px] border-r last:border-r-0" style={{ borderColor: 'var(--ht-border)' }}>
+                        <div key={iso} className="flex-1 min-w-[90px] border-r last:border-r-0 relative" style={{ borderColor: 'var(--ht-border)' }}>
                             <div className="h-12 flex flex-col items-center justify-center border-b" style={{ borderColor: 'var(--ht-border)' }}>
                                 <span className="text-[10px] uppercase font-semibold" style={{ color: 'var(--ht-text-muted)' }}>
                                     {jour.toLocaleDateString('fr-FR', { weekday: 'short' })}
@@ -113,7 +159,28 @@ export default function PlanningWeekView({ lundi, evenements, indisponibilites, 
                                     {jour.getDate()}
                                 </span>
                             </div>
-                            <div className="relative" style={{ height: hauteurTotale }} title={indispo?.motif}>
+                            <div className="relative overflow-hidden" style={{ height: hauteurTotale }} title={indispo?.motif}>
+                                {/* Grille des heures et demi-heures */}
+                                <div className="absolute inset-0 pointer-events-none">
+                                    {heuresAffichage.map((h, idx) => (
+                                        <div
+                                            key={idx}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                right: 0,
+                                                height: HAUTEUR_DEMI_HEURE,
+                                                transform: `translateY(${idx * HAUTEUR_DEMI_HEURE}px)`,
+                                                borderTop: h.estDemiHeure
+                                                    ? `1px solid var(--ht-border)`
+                                                    : `2px solid var(--ht-border)`,
+                                                opacity: h.estDemiHeure ? 0.4 : 1,
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+
                                 {indispo && (
                                     <div
                                         className="absolute inset-0 z-0"
@@ -122,14 +189,35 @@ export default function PlanningWeekView({ lundi, evenements, indisponibilites, 
                                         }}
                                     />
                                 )}
+
+                                {/* Ligne "heure actuelle" */}
+                                {aujourdhui && heureActuelle >= 0 && heureActuelle < (HEURE_FIN - HEURE_DEBUT) * 60 && (
+                                    <>
+                                        <div
+                                            className="current-time-indicator"
+                                            style={{
+                                                top: `${(heureActuelle / 60) * HAUTEUR_DEMI_HEURE * 2}px`,
+                                            }}
+                                        />
+                                        <div
+                                            className="current-time-label"
+                                            style={{
+                                                top: `${(heureActuelle / 60) * HAUTEUR_DEMI_HEURE * 2}px`,
+                                            }}
+                                        >
+                                            {new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                        </div>
+                                    </>
+                                )}
+
                                 {positionnes.slice(0, 4).map(({ evenement, colonne, nbColonnes }, idx) => {
                                     if (idx === 3 && positionnes.length > 4) {
                                         return (
                                             <button
                                                 key="plus"
-                                                className="absolute text-xs font-semibold rounded px-1"
+                                                className="absolute text-xs font-semibold rounded px-1 relative z-20"
                                                 style={{
-                                                    top: (offsetMinutes(evenement.start_time) / 60) * HAUTEUR_HEURE,
+                                                    top: (offsetMinutes(evenement.start_time) / 30) * HAUTEUR_DEMI_HEURE,
                                                     left: `${(colonne / Math.min(nbColonnes, 4)) * 100}%`,
                                                     width: `${100 / Math.min(nbColonnes, 4)}%`,
                                                     backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text)',
@@ -140,16 +228,16 @@ export default function PlanningWeekView({ lundi, evenements, indisponibilites, 
                                             </button>
                                         )
                                     }
-                                    const top = (offsetMinutes(evenement.start_time) / 60) * HAUTEUR_HEURE
+                                    const top = (offsetMinutes(evenement.start_time) / 30) * HAUTEUR_DEMI_HEURE
                                     const hauteur = Math.max(
-                                        ((offsetMinutes(evenement.end_time) - offsetMinutes(evenement.start_time)) / 60) * HAUTEUR_HEURE,
+                                        ((offsetMinutes(evenement.end_time) - offsetMinutes(evenement.start_time)) / 30) * HAUTEUR_DEMI_HEURE,
                                         24
                                     )
                                     const largeur = 100 / Math.min(nbColonnes, 4)
                                     return (
                                         <div
                                             key={evenement.id}
-                                            className="absolute px-0.5"
+                                            className="absolute px-0.5 relative z-20"
                                             style={{ top, height: hauteur, left: `${colonne * largeur}%`, width: `${largeur}%` }}
                                         >
                                             <PlanningEventBlock evenement={evenement} onClick={() => onSelectEvenement(evenement)} compact={hauteur < 40} />
