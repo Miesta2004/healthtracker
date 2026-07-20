@@ -506,8 +506,29 @@ export interface PlanningResponse {
     indisponibilites: IndisponibilitePlanning[]
 }
 
-export class VueEnsemble {
+// Calqué sur ServiceViewSet.vue_ensemble (services/views.py) — pas de champ
+// inventé, chaque clé correspond exactement à ce que renvoie le backend.
+export interface VueEnsemble {
+    nb_services: number
+    patients: {
+        total: number
+        actifs: number
+        nouveaux_mois: number
+    }
+    employes: {
+        total: number
+        par_role: Record<RoleEmploye, number>
+    }
+    par_service: {
+        id: number
+        nom: string
+        nb_patients: number
+        nb_employes: number
+    }[]
 }
 
-export class ActiviteJour {
+// Calqué sur ServiceViewSet.activite (services/views.py) : {'jour': ..., 'nb': ...} par jour
+export interface ActiviteJour {
+    jour: string
+    nb: number
 }
