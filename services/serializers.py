@@ -10,7 +10,7 @@ class ServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Service
         fields = [
-            'id', 'nom', 'description', 'actif',
+            'id', 'nom', 'description', 'actif', 'capacite_lits',
             'chef_de_service', 'chef_nom',
             'nb_patients', 'nb_employes',
             'date_creation',

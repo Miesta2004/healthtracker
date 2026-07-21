@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { EvenementPlanning, IndisponibilitePlanning } from '../../types'
 import PlanningEventBlock from './PlanningEventBlock'
 import { HEURE_DEBUT, HEURE_FIN, HAUTEUR_DEMI_HEURE, disposerEvenements, offsetMinutes, getHeureActuelle, type HeureAffichage } from './PlanningWeekView'
+import { usePlanningDrag } from './usePlanningDrag'
 
 interface Props {
     jour: Date
@@ -9,10 +10,16 @@ interface Props {
     indisponibilites: IndisponibilitePlanning[]
     evenementSelectionneId?: number | null
     onSelectEvenement: (e: EvenementPlanning) => void
+    onDeplacer: (id: number, nouveauDebutISO: string) => void
+    onRedimensionner: (id: number, nouvelleDureeMinutes: number) => void
 }
 
-export default function PlanningDayView({ jour, evenements, indisponibilites, evenementSelectionneId, onSelectEvenement }: Props) {
+export default function PlanningDayView({ jour, evenements, indisponibilites, evenementSelectionneId, onSelectEvenement, onDeplacer, onRedimensionner }: Props) {
     const containerRef = useRef<HTMLDivElement>(null)
+    const drag = usePlanningDrag({
+        hauteurDemiHeure: HAUTEUR_DEMI_HEURE, heureDebut: HEURE_DEBUT, heureFin: HEURE_FIN,
+        onDeplacer, onRedimensionner,
+    })
 
     // Générer les heures et demi-heures
     const heuresAffichage: HeureAffichage[] = []
@@ -121,22 +128,39 @@ export default function PlanningDayView({ jour, evenements, indisponibilites, ev
                         </p>
                     )}
                     {positionnes.map(({ evenement, colonne, nbColonnes }) => {
-                        const top = (offsetMinutes(evenement.start_time) / 30) * HAUTEUR_DEMI_HEURE
-                        const hauteur = Math.max(
+                        const dragEtat = drag.enDrag(evenement.id)
+                        const pxParMinute = HAUTEUR_DEMI_HEURE / 30
+                        let top = (offsetMinutes(evenement.start_time) / 30) * HAUTEUR_DEMI_HEURE
+                        let hauteur = Math.max(
                             ((offsetMinutes(evenement.end_time) - offsetMinutes(evenement.start_time)) / 30) * HAUTEUR_DEMI_HEURE,
                             28
                         )
+                        let heureApercu: string | undefined
+                        if (dragEtat?.mode === 'deplacer') {
+                            top += dragEtat.decalageMinutes * pxParMinute
+                            const apercu = new Date(evenement.start_time)
+                            apercu.setMinutes(apercu.getMinutes() + dragEtat.decalageMinutes)
+                            heureApercu = apercu.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+                        } else if (dragEtat?.mode === 'redimensionner') {
+                            hauteur = Math.max(hauteur + dragEtat.decalageMinutes * pxParMinute, HAUTEUR_DEMI_HEURE / 2)
+                        }
                         const largeur = 100 / nbColonnes
                         return (
                             <div
                                 key={evenement.id}
-                                className="absolute px-1 relative z-20"
-                                style={{ top, height: hauteur, left: `${colonne * largeur}%`, width: `${largeur}%` }}
+                                className="absolute px-1 relative"
+                                style={{ top, height: hauteur, left: `${colonne * largeur}%`, width: `${largeur}%`, zIndex: dragEtat ? 30 : 20 }}
                             >
                                 <PlanningEventBlock
                                     evenement={evenement}
                                     onClick={() => onSelectEvenement(evenement)}
                                     selectionne={evenement.id === evenementSelectionneId}
+                                    enDeplacement={!!dragEtat}
+                                    heureApercu={heureApercu}
+                                    onPointerDownDeplacer={(e) => drag.demarrerDeplacement(e, evenement, 0, () => onSelectEvenement(evenement))}
+                                    onPointerDownRedimensionner={(e) => drag.demarrerRedimensionnement(e, evenement)}
+                                    onPointerMove={drag.bouger}
+                                    onPointerUp={drag.relacher}
                                 />
                             </div>
                         )

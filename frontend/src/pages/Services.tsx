@@ -17,6 +17,7 @@ function ServiceModal({ service, onClose, onSave} : {
     const [form, setForm] = useState({
         nom: service?.nom || '',
         description: service?.description || '',
+        capacite_lits: service?.capacite_lits ?? '',
     })
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState('')
@@ -26,7 +27,10 @@ function ServiceModal({ service, onClose, onSave} : {
         setLoading(true)
         setError('')
         try {
-            await onSave(form)
+            await onSave({
+                ...form,
+                capacite_lits: form.capacite_lits === '' ? null : Number(form.capacite_lits),
+            })
             onClose()
         } catch {
             setError('Erreur lors de la sauvegarde')
@@ -66,6 +70,18 @@ function ServiceModal({ service, onClose, onSave} : {
                             rows={3} placeholder="Description du service..."
                             className="ht-input ht-textarea"
                         />
+                    </div>
+                    <div className="ht-field">
+                        <label className="ht-label">Capacité en lits</label>
+                        <input
+                            type="number" min={0} value={form.capacite_lits}
+                            onChange={e => setForm({ ...form, capacite_lits: e.target.value === '' ? '' : Number(e.target.value) })}
+                            placeholder="Ex: 24"
+                            className="ht-input"
+                        />
+                        <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                            Sert à calculer le taux d'occupation réel dans Analytics. Laisser vide si non pertinent.
+                        </p>
                     </div>
                     <div className="flex gap-3 justify-end pt-2">
                         <button type="button" onClick={onClose} className="btn btn-secondary">

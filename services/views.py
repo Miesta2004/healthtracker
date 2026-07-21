@@ -11,6 +11,7 @@ from .models import Service
 from .serializers import ServiceSerializer
 from comptes.permissions import IsAdminRole, IsSuperUser
 from comptes.analytics import stats_medecin
+from .analytics import occupation_service
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -102,6 +103,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
             'patients': patients_stats,
             'employes': employes_stats,
             'medecins': medecins_perf,
+            'occupation': occupation_service(service),
         })
 
     @action(detail=False, methods=['get'], url_path='vue-ensemble')
@@ -139,6 +141,7 @@ class ServiceViewSet(viewsets.ModelViewSet):
                 {
                     'id': s.id, 'nom': s.nom,
                     'nb_patients': s.nb_patients, 'nb_employes': s.nb_employes,
+                    **occupation_service(s),
                 }
                 for s in services
             ],

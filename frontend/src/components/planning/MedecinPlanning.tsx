@@ -5,6 +5,7 @@ import PlanningToolbar from './PlanningToolbar'
 import PlanningWeekView from './PlanningWeekView'
 import PlanningDayView from './PlanningDayView'
 import PlanningMonthView from './PlanningMonthView'
+import PlanningAgendaView from './PlanningAgendaView'
 import PlanningDayDetailPanel from './PlanningDayDetailPanel'
 import PlanningEventPreviewModal from './PlanningEventPreviewModal'
 import PlanningKpiCards from './PlanningKpiCards'
@@ -30,13 +31,14 @@ export default function MedecinPlanning() {
     const [dateReference, setDateReference] = useState(new Date())
     const [evenementSelectionne, setEvenementSelectionne] = useState<EvenementPlanning | null>(null)
 
-    const { evenements, indisponibilites, loading, erreur, changerStatut } = usePlanning(vue, dateReference)
+    const { evenements, indisponibilites, loading, erreur, debut, fin, changerStatut, deplacerEvenement, redimensionnerEvenement } = usePlanning(vue, dateReference)
 
     const naviguer = (direction: -1 | 0 | 1) => {
         if (direction === 0) { setDateReference(new Date()); return }
         const nouvelle = new Date(dateReference)
         if (vue === 'jour') nouvelle.setDate(nouvelle.getDate() + direction)
         else if (vue === 'mois') nouvelle.setMonth(nouvelle.getMonth() + direction)
+        else if (vue === 'agenda') nouvelle.setDate(nouvelle.getDate() + direction * 14)
         else nouvelle.setDate(nouvelle.getDate() + direction * 7)
         setDateReference(nouvelle)
     }
@@ -77,6 +79,8 @@ export default function MedecinPlanning() {
                         indisponibilites={indisponibilites}
                         evenementSelectionneId={evenementSelectionne?.id ?? null}
                         onSelectEvenement={setEvenementSelectionne}
+                        onDeplacer={deplacerEvenement}
+                        onRedimensionner={redimensionnerEvenement}
                     />
                     <PlanningDayDetailPanel
                         evenement={evenementSelectionne}
@@ -95,6 +99,23 @@ export default function MedecinPlanning() {
                         onSelectJour={(jour) => { setDateReference(jour); setVue('jour') }}
                     />
                 </div>
+            ) : vue === 'agenda' ? (
+                <>
+                    <PlanningAgendaView
+                        debut={debut}
+                        fin={fin}
+                        evenements={evenements}
+                        indisponibilites={indisponibilites}
+                        onSelectEvenement={setEvenementSelectionne}
+                    />
+                    {evenementSelectionne && (
+                        <PlanningEventPreviewModal
+                            evenement={evenementSelectionne}
+                            onClose={() => setEvenementSelectionne(null)}
+                            onStatutChange={gererChangementStatut}
+                        />
+                    )}
+                </>
             ) : (
                 <>
                     <PlanningWeekView
@@ -102,6 +123,8 @@ export default function MedecinPlanning() {
                         evenements={evenements}
                         indisponibilites={indisponibilites}
                         onSelectEvenement={setEvenementSelectionne}
+                        onDeplacer={deplacerEvenement}
+                        onRedimensionner={redimensionnerEvenement}
                     />
 
                     {/* ── Bandeau bas : événements du jour / rappels / mini-calendrier ── */}

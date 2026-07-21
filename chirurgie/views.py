@@ -100,6 +100,101 @@ class OperationViewSet(viewsets.ModelViewSet):
         # opération). Sinon, la valeur envoyée par le frontend fait foi.
         serializer.save()
 
+    @action(detail=False, methods=['get'], url_path='stats')
+    def stats(self, request):
+        """
+        Agrégats réels sur les opérations visibles par l'utilisateur connecté
+        (réutilise get_queryset, donc déjà scopé par service). Alimente les
+        onglets « Vue d'ensemble » et « Performance par chirurgien » côté
+        Analytics — plus aucune donnée mockée pour ces deux onglets.
+        """
+        from datetime import timedelta
+        from django.db.models import Count, Avg, F, DurationField, ExpressionWrapper
+        from django.db.models.functions import TruncWeek
+        from django.utils import timezone
+
+        qs = self.get_queryset()
+        terminees_ou_complication = qs.filter(statut__in=[StatutOperation.TERMINEE, StatutOperation.COMPLICATION])
+
+        # Durée réelle moyenne — seulement sur les opérations dont les deux
+        # horodatages réels sont renseignés.
+        avec_duree = terminees_ou_complication.filter(
+            date_debut_reelle__isnull=False, date_fin_reelle__isnull=False
+        ).annotate(
+            duree=ExpressionWrapper(F('date_fin_reelle') - F('date_debut_reelle'), output_field=DurationField())
+        )
+        duree_moyenne = avec_duree.aggregate(m=Avg('duree'))['m']
+        duree_moyenne_min = round(duree_moyenne.total_seconds() / 60) if duree_moyenne else None
+
+        nb_terminees = terminees_ou_complication.filter(statut=StatutOperation.TERMINEE).count()
+        nb_complications = terminees_ou_complication.filter(statut=StatutOperation.COMPLICATION).count()
+        total_issues = nb_terminees + nb_complications
+        taux_succes = round(nb_terminees / total_issues * 100, 1) if total_issues else None
+
+        repartition_par_type = list(
+            terminees_ou_complication.values('type_intervention')
+            .annotate(nb=Count('id')).order_by('-nb')[:6]
+        )
+
+        depuis = timezone.now() - timedelta(weeks=8)
+        evolution_hebdo = list(
+            qs.filter(date_heure_prevue__gte=depuis)
+            .annotate(semaine=TruncWeek('date_heure_prevue'))
+            .values('semaine').annotate(nb=Count('id')).order_by('semaine')
+        )
+
+        dernieres = qs.filter(statut__in=[StatutOperation.TERMINEE, StatutOperation.COMPLICATION]).order_by('-date_fin_reelle')[:5]
+        dernieres_interventions = [
+            {
+                'date': op.date_fin_reelle.strftime('%d/%m/%Y') if op.date_fin_reelle else None,
+                'patient': f"{op.patient.prenom} {op.patient.nom}",
+                'type': op.type_intervention,
+                'chirurgien': f"{op.chirurgien_principal.prenom} {op.chirurgien_principal.nom}",
+                'duree': (
+                    f"{round((op.date_fin_reelle - op.date_debut_reelle).total_seconds() / 60)} min"
+                    if op.date_debut_reelle and op.date_fin_reelle else None
+                ),
+                'issue': 'succes' if op.statut == StatutOperation.TERMINEE else 'complication',
+            }
+            for op in dernieres
+        ]
+
+        par_chirurgien = []
+        chirurgien_ids = terminees_ou_complication.values_list('chirurgien_principal_id', flat=True).distinct()
+        for chirurgien_id in chirurgien_ids:
+            ops_chirurgien = terminees_ou_complication.filter(chirurgien_principal_id=chirurgien_id)
+            premiere = ops_chirurgien.first()
+            if not premiere:
+                continue
+            chirurgien = premiere.chirurgien_principal
+            avec_duree_c = ops_chirurgien.filter(
+                date_debut_reelle__isnull=False, date_fin_reelle__isnull=False
+            ).annotate(duree=ExpressionWrapper(F('date_fin_reelle') - F('date_debut_reelle'), output_field=DurationField()))
+            duree_c = avec_duree_c.aggregate(m=Avg('duree'))['m']
+            nb_term_c = ops_chirurgien.filter(statut=StatutOperation.TERMINEE).count()
+            nb_comp_c = ops_chirurgien.filter(statut=StatutOperation.COMPLICATION).count()
+            total_c = nb_term_c + nb_comp_c
+            par_chirurgien.append({
+                'id': chirurgien.id,
+                'nom': f"{chirurgien.prenom} {chirurgien.nom}",
+                'specialite': chirurgien.specialite or '',
+                'nb_interventions': total_c,
+                'duree_moyenne_min': round(duree_c.total_seconds() / 60) if duree_c else None,
+                'taux_succes': round(nb_term_c / total_c * 100, 1) if total_c else None,
+                'patients_operes': ops_chirurgien.values('patient_id').distinct().count(),
+            })
+        par_chirurgien.sort(key=lambda c: c['nb_interventions'], reverse=True)
+
+        return Response({
+            'nb_interventions': total_issues,
+            'duree_moyenne_min': duree_moyenne_min,
+            'taux_succes': taux_succes,
+            'repartition_par_type': repartition_par_type,
+            'evolution_hebdo': evolution_hebdo,
+            'dernieres_interventions': dernieres_interventions,
+            'par_chirurgien': par_chirurgien,
+        })
+
     @action(detail=True, methods=['post'])
     def confirmer(self, request, pk=None):
         """Valide salle + équipe : planifiee → confirmee."""

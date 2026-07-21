@@ -124,6 +124,15 @@ export default function Dashboard() {
     const isSecretaire   = hasRole("secretaire");
     const isMedecin      = hasRole("medecin");
 
+    // Le médecin a déjà ses propres KPI (Interventions / Consultations / Patients
+    // suivis) affichés dans PlanningKpiCards, intégrés au calendrier ci-dessous
+    // — cf. maquette. On masque ici les cartes génériques équivalentes pour
+    // éviter une double rangée de KPI redondante. Urgences et Hospitalisations
+    // restent affichées : ce sont des informations que le calendrier ne couvre pas.
+    const showPatientsKpi = canSeePatients && !isMedecin;
+    const showRdvKpi      = canSeeRdv && !isMedecin;
+    const showConsultKpi  = canSeeConsult && !isMedecin;
+
     const [patients, setPatients] = useState<Patient[] | null>(null);
     const [urgences, setUrgences] = useState<PassageUrgence[] | null>(null);
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null);
@@ -259,30 +268,33 @@ export default function Dashboard() {
                 />
 
                 {/* ── Section KPIs ── */}
-                {(canSeePatients || canSeeUrgences || canSeeHospit || canSeeRdv || isAdmin) && (
+                {/* Pour le médecin, cette rangée se limite à Urgences / Hospitalisations :
+                    les KPI patients / RDV / consultations vivent déjà dans PlanningKpiCards
+                    juste en dessous, au plus près du calendrier — cf. maquette. */}
+                {(showPatientsKpi || canSeeUrgences || canSeeHospit || showRdvKpi || isAdmin) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {canSeePatients && (
+                        {showPatientsKpi && (
                             patients === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="Total patients" value={patients.length} icon={Users} accent
                                           sub={`${nouveauCeMois} ajouté${nouveauCeMois > 1 ? "s" : ""} ce mois`}
                                           onClick={() => navigate("/patients")} />
                             )
                         )}
-                        {canSeePatients && (
+                        {showPatientsKpi && (
                             patients === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="Nouveaux patients (semaine)" value={nouveauCetteSemaine} icon={UserPlus}
                                           sub={nouveauCetteSemaine > 0 ? "Sur les 7 derniers jours" : "Aucun cette semaine"}
                                           onClick={() => navigate("/patients")} />
                             )
                         )}
-                        {canSeeRdv && (
+                        {showRdvKpi && (
                             rendezVous === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="Rendez-vous aujourd'hui" value={rdvAujourdhui.length} icon={CalendarCheck}
                                           sub={rdvAujourdhui.length > 0 ? "Programmés aujourd'hui" : "Aucun aujourd'hui"}
                                           onClick={() => navigate("/rendez_vous")} />
                             )
                         )}
-                        {canSeeRdv && (
+                        {showRdvKpi && (
                             rendezVous === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="À confirmer" value={rdvAConfirmer.length} icon={CalendarClock}
                                           sub={rdvAConfirmer.length > 0 ? "En attente de confirmation" : "Tout est confirmé"}
@@ -302,7 +314,7 @@ export default function Dashboard() {
                                           sub={hospitalisations.length > 0 ? `${hospitalisations.length} lits occupés` : "Aucune"} />
                             )
                         )}
-                        {canSeeConsult && (
+                        {showConsultKpi && (
                             consultations === null ? <SkeletonKpiCard /> : (
                                 <StatCard label="Consultations (Jour)" value={consultationsAujourdhui.length} icon={Stethoscope}
                                           sub={consultationsAujourdhui.length > 0 ? "Programmées ou faites" : "Aucune prévue"} />

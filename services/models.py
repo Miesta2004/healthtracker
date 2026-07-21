@@ -15,6 +15,10 @@ class Service(models.Model):
         limit_choices_to={'role__in': ['medecin', 'laborantin']}
     )
     actif = models.BooleanField(default=True)
+    capacite_lits = models.PositiveIntegerField(
+        null=True, blank=True,
+        help_text="Nombre de lits du service — sert à calculer le taux d'occupation. Laisser vide si non pertinent (ex: service sans hospitalisation)."
+    )
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 

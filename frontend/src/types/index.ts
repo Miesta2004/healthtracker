@@ -154,6 +154,7 @@ export interface Service {
     nb_employes: number
     nb_patients: number
     actif: boolean
+    capacite_lits?: number | null
     date_creation: string
 }
 
@@ -180,6 +181,13 @@ export interface MedecinPerf {
     nb_operations: number
 }
 
+export interface OccupationService {
+    capacite_lits: number | null
+    lits_occupes: number
+    taux_occupation: number | null
+    duree_moyenne_sejour: number | null
+}
+
 export interface ServiceStats {
     service: Service
     patients: {
@@ -194,6 +202,7 @@ export interface ServiceStats {
         par_role: Record<RoleEmploye, number>
     }
     medecins: MedecinPerf[]
+    occupation: OccupationService
 }
 
 // Réponse de /employes/me/ : soit un Employe complet, soit un fallback minimal
@@ -524,11 +533,44 @@ export interface VueEnsemble {
         nom: string
         nb_patients: number
         nb_employes: number
+        capacite_lits: number | null
+        lits_occupes: number
+        taux_occupation: number | null
+        duree_moyenne_sejour: number | null
     }[]
+}
+
+// Calqué sur OperationViewSet.stats (chirurgie/views.py) — réel, scopé par service.
+export interface InterventionRecenteReelle {
+    date: string | null
+    patient: string
+    type: string
+    chirurgien: string
+    duree: string | null
+    issue: 'succes' | 'complication'
+}
+
+export interface ChirurgienPerfReelle {
+    id: number
+    nom: string
+    specialite: string
+    nb_interventions: number
+    duree_moyenne_min: number | null
+    taux_succes: number | null
+    patients_operes: number
+}
+
+export interface OperationStats {
+    nb_interventions: number
+    duree_moyenne_min: number | null
+    taux_succes: number | null
+    repartition_par_type: { type_intervention: string; nb: number }[]
+    evolution_hebdo: { semaine: string; nb: number }[]
+    dernieres_interventions: InterventionRecenteReelle[]
+    par_chirurgien: ChirurgienPerfReelle[]
 }
 
 // Calqué sur ServiceViewSet.activite (services/views.py) : {'jour': ..., 'nb': ...} par jour
 export interface ActiviteJour {
     jour: string
-    nb: number
-}
+    nb: number}

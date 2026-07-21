@@ -1,5 +1,10 @@
 import api from './client.ts'
-import type { Operation, SalleBloc } from '../types'
+import type { Operation, SalleBloc, OperationStats } from '../types'
+
+export const getOperationStats = async (): Promise<OperationStats> => {
+    const response = await api.get('/operations/stats/')
+    return response.data
+}
 
 export const getOperations = async (patientId?: number): Promise<Operation[]> => {
     const response = await api.get('/operations/', { params: patientId ? { patient: patientId } : {} })

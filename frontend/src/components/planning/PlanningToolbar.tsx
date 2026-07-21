@@ -13,6 +13,7 @@ const VUES: { key: VuePlanning; label: string }[] = [
     { key: 'jour', label: 'Jour' },
     { key: 'semaine', label: 'Semaine' },
     { key: 'mois', label: 'Mois' },
+    { key: 'agenda', label: 'Agenda' },
 ]
 
 function formatPeriode(vue: VuePlanning, d: Date): string {
@@ -21,6 +22,14 @@ function formatPeriode(vue: VuePlanning, d: Date): string {
     }
     if (vue === 'mois') {
         return d.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+    }
+    if (vue === 'agenda') {
+        const fin = new Date(d)
+        fin.setDate(fin.getDate() + 13)
+        const memeMois = d.getMonth() === fin.getMonth()
+        const debutLabel = d.toLocaleDateString('fr-FR', { day: 'numeric', month: memeMois ? undefined : 'short' })
+        const finLabel = fin.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+        return `${debutLabel} – ${finLabel} (14 jours)`
     }
     const jour = d.getDay()
     const decalage = jour === 0 ? -6 : 1 - jour
