@@ -498,6 +498,9 @@ export interface EvenementPlanning {
     }
     a_alerte_critique: boolean
     consultation_id: number | null
+    medecin_id: number | null
+    medecin_nom: string | null
+    medecin_prenom: string | null
 }
 
 export interface IndisponibilitePlanning {

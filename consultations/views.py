@@ -486,6 +486,44 @@ class RdvViewSet(viewsets.ModelViewSet):
         dimanche = lundi + timedelta(days=6)
         return lundi, dimanche
 
+    @action(detail=False, methods=['get'], url_path='planning')
+    def planning(self, request):
+        """
+        Planning générique pour le module Calendrier (vues Jour/Semaine) —
+        contrairement à `mon_planning`, n'est pas réservé aux médecins :
+        accessible à tout rôle passant PeutVoirRendezVous (secrétaire, chef
+        de service, infirmier, admin…), et pas limité à l'employé connecté.
+
+        Réutilise le même queryset scopé par service que le reste du
+        ViewSet (cf. get_queryset) : un chef de service ne voit que les RDV
+        de son service, un admin/superuser voit tout.
+
+        Query params :
+          - debut / fin (AAAA-MM-JJ, optionnels — défaut : semaine courante)
+          - medecin     (id, optionnel — filtre déjà géré par get_queryset)
+        """
+        debut, fin = self._resoudre_bornes(request)
+
+        rendez_vous = (
+            self.filter_queryset(self.get_queryset())
+            .filter(date_heure__date__range=(debut, fin))
+            .select_related('patient', 'medecin', 'consultation_liee')
+            .annotate(
+                _a_alerte_critique=Exists(
+                    Alerte.objects.filter(
+                        patient_id=OuterRef('patient_id'),
+                        statut='non_lue',
+                    )
+                )
+            )
+        )
+
+        return Response({
+            'debut': debut.isoformat(),
+            'fin': fin.isoformat(),
+            'evenements': RdvPlanningSerializer(rendez_vous, many=True).data,
+        })
+
     @action(detail=False, methods=['get'], url_path='mon_planning')
     def mon_planning(self, request):
         """

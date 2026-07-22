@@ -69,6 +69,9 @@ class RdvPlanningSerializer(serializers.ModelSerializer):
     patient = PatientPlanningSerializer()
     a_alerte_critique = serializers.SerializerMethodField()
     consultation_id = serializers.IntegerField(source='consultation_liee_id', read_only=True)
+    medecin_id = serializers.IntegerField(read_only=True, default=None)
+    medecin_nom = serializers.CharField(source='medecin.nom', read_only=True, default=None)
+    medecin_prenom = serializers.CharField(source='medecin.prenom', read_only=True, default=None)
 
     class Meta:
         model = RendezVous
@@ -76,6 +79,7 @@ class RdvPlanningSerializer(serializers.ModelSerializer):
             'id', 'start_time', 'end_time', 'statut', 'statut_label',
             'type_evenement', 'type_evenement_label',
             'motif', 'notes', 'patient', 'a_alerte_critique', 'consultation_id',
+            'medecin_id', 'medecin_nom', 'medecin_prenom',
         ]
 
     def get_end_time(self, obj):

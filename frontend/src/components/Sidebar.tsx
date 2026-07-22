@@ -26,6 +26,7 @@ import {
     Moon,
     ClipboardCheck,
     CalendarClock,
+    CalendarDays,
 } from "lucide-react";
 
 const STORAGE_KEY = "ht_sidebar_compact";
@@ -247,13 +248,15 @@ export default function Sidebar() {
                     collapsed={collapsed}
                 />
 
-                <SidebarItem
-                    icon={CalendarClock}
-                    label="Mes disponibilités"
-                    active={isActive("/settings") && location.search.includes("tab=disponibilites")}
-                    onClick={() => navigate("/settings?tab=disponibilites")}
-                    collapsed={collapsed}
-                />
+                {hasRole("admin", "medecin", "infirmier", "secretaire") && (
+                    <SidebarItem
+                        icon={CalendarDays}
+                        label="Calendrier"
+                        active={isActive("/calendrier")}
+                        onClick={() => navigate("/calendrier")}
+                        collapsed={collapsed}
+                    />
+                )}
 
                 {hasRole("admin", "medecin", "infirmier", "secretaire") && (
                     <SidebarItem
@@ -275,6 +278,7 @@ export default function Sidebar() {
                     />
                 )}
 
+
                 {hasRole("admin", "medecin", "infirmier") && (
                     <SidebarItem
                         icon={TriangleAlert}
@@ -295,6 +299,14 @@ export default function Sidebar() {
                         collapsed={collapsed}
                     />
                 )}
+
+                <SidebarItem
+                    icon={CalendarClock}
+                    label="Mes disponibilités"
+                    active={isActive("/settings") && location.search.includes("tab=disponibilites")}
+                    onClick={() => navigate("/settings?tab=disponibilites")}
+                    collapsed={collapsed}
+                />
 
                 {hasRole("admin") && (
                     <>

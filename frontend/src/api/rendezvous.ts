@@ -66,3 +66,14 @@ export const getMonPlanning = async (debut?: string, fin?: string): Promise<Plan
     const response = await api.get(`/rendez_vous/mon_planning/?${params.toString()}`)
     return response.data
 }
+
+// Planning générique (module Calendrier) — accessible à tous les rôles
+// autorisés à voir les rendez-vous, pas seulement à un médecin sur son
+// propre planning. Alimente les vues Jour/Semaine du calendrier.
+export const getPlanning = async (debut?: string, fin?: string): Promise<PlanningResponse> => {
+    const params = new URLSearchParams()
+    if (debut) params.set('debut', debut)
+    if (fin) params.set('fin', fin)
+    const response = await api.get(`/rendez_vous/planning/?${params.toString()}`)
+    return response.data
+}

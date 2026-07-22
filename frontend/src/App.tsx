@@ -19,6 +19,7 @@ import Urgences from './pages/Urgences'
 import AccesRefuse from './pages/AccesRefuse'
 import EmployeDetail from './pages/EmployeDetail'
 import RendezVousPage from './pages/RendezVous'
+import CalendrierPage from './pages/Calendrier'
 import Laboratoire from './pages/Laboratoire'
 import Settings from './pages/Settings'
 import DemandesConges from './pages/DemandesConges'
@@ -90,6 +91,11 @@ function App() {
                 <Route path="/rendez_vous" element={
                     <ProtectedRoute roles={['admin', 'medecin', 'infirmier', 'secretaire']}>
                         <RendezVousPage />
+                    </ProtectedRoute>
+                } />
+                <Route path="/calendrier" element={
+                    <ProtectedRoute roles={['admin', 'medecin', 'infirmier', 'secretaire']}>
+                        <CalendrierPage />
                     </ProtectedRoute>
                 } />
 
