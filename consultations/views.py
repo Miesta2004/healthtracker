@@ -64,6 +64,29 @@ class ConsultViewSet(viewsets.ModelViewSet):
         rdv_id = self.request.data.get('rdv_origine')
         if rdv_id:
             RendezVous.objects.filter(pk=rdv_id).update(consultation_liee=consultation)
+        self._repercuter_statut_sur_rdv(consultation)
+
+    def perform_update(self, serializer):
+        """
+        Répercute la fin d'une consultation sur le rendez-vous qui l'a
+        déclenchée : si le médecin passe la consultation à 'terminee', le
+        RendezVous lié (RendezVous.consultation_liee) doit lui aussi passer
+        à 'termine' — sans ce cascade, l'onglet "Passés" de la page
+        Rendez-vous ne voit jamais ces RDV consultés en avance sur leur
+        horaire planifié (cf. correctif filtrage "Passés").
+        """
+        consultation = serializer.save()
+        self._repercuter_statut_sur_rdv(consultation)
+
+    def _repercuter_statut_sur_rdv(self, consultation):
+        if consultation.statut != 'terminee':
+            return
+        (
+            RendezVous.objects
+            .filter(consultation_liee=consultation)
+            .exclude(statut__in=['termine', 'annule'])
+            .update(statut='termine')
+        )
 
     @action(detail=True, methods=['post'], url_path='promouvoir_antecedent')
     def promouvoir_antecedent(self, request, pk=None):
@@ -202,10 +225,20 @@ class RdvViewSet(viewsets.ModelViewSet):
         restriction, à l'image de IsAdminRole/same_service ailleurs dans
         l'app — seul le chef de service (rôle 'admin') reste limité à SON
         service, comme les autres rôles.
+
+        Un médecin, lui, ne peut jamais programmer un rendez-vous pour un
+        autre médecin que lui-même — l'UI le verrouille déjà côté frontend,
+        mais la règle doit aussi tenir face à un appel API direct.
         """
         user = self.request.user
         if not user.is_superuser:
             emp = get_employe(user)
+            if emp is not None and emp.role == 'medecin':
+                medecin = serializer.validated_data.get('medecin')
+                if medecin is not None and medecin.pk != emp.pk:
+                    raise ValidationError({
+                        'medecin': "Vous ne pouvez programmer un rendez-vous que pour vous-même."
+                    })
             if emp is not None and emp.service_id is not None:
                 patient = serializer.validated_data.get('patient')
                 medecin = serializer.validated_data.get('medecin')
@@ -217,6 +250,20 @@ class RdvViewSet(viewsets.ModelViewSet):
                 if medecin is not None and medecin.service_id != emp.service_id:
                     raise ValidationError({
                         'medecin': "Ce médecin n'appartient pas à votre service."
+                    })
+
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """Même verrouillage qu'à la création, appliqué aussi à la modification."""
+        user = self.request.user
+        if not user.is_superuser:
+            emp = get_employe(user)
+            if emp is not None and emp.role == 'medecin':
+                medecin = serializer.validated_data.get('medecin', serializer.instance.medecin)
+                if medecin is not None and medecin.pk != emp.pk:
+                    raise ValidationError({
+                        'medecin': "Vous ne pouvez programmer un rendez-vous que pour vous-même."
                     })
 
         serializer.save()

@@ -13,7 +13,6 @@ import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
-import MedecinPlanning from "../components/planning/MedecinPlanning";
 import {
     Users,
     BedDouble,
@@ -129,9 +128,12 @@ export default function Dashboard() {
     // — cf. maquette. On masque ici les cartes génériques équivalentes pour
     // éviter une double rangée de KPI redondante. Urgences et Hospitalisations
     // restent affichées : ce sont des informations que le calendrier ne couvre pas.
-    const showPatientsKpi = canSeePatients && !isMedecin;
-    const showRdvKpi      = canSeeRdv && !isMedecin;
-    const showConsultKpi  = canSeeConsult && !isMedecin;
+    // Le calendrier complet (et ses propres KPI) vit désormais sur /calendrier —
+    // le Dashboard n'a donc plus de doublon à éviter, ces cartes s'affichent
+    // pour tous les rôles concernés, médecin compris.
+    const showPatientsKpi = canSeePatients;
+    const showRdvKpi      = canSeeRdv;
+    const showConsultKpi  = canSeeConsult;
 
     const [patients, setPatients] = useState<Patient[] | null>(null);
     const [urgences, setUrgences] = useState<PassageUrgence[] | null>(null);
@@ -268,9 +270,9 @@ export default function Dashboard() {
                 />
 
                 {/* ── Section KPIs ── */}
-                {/* Pour le médecin, cette rangée se limite à Urgences / Hospitalisations :
-                    les KPI patients / RDV / consultations vivent déjà dans PlanningKpiCards
-                    juste en dessous, au plus près du calendrier — cf. maquette. */}
+                {/* Rangée complète pour tous les rôles concernés — le calendrier complet
+                    (et ses propres KPI Interventions/Consultations/Patients suivis) vit
+                    désormais sur /calendrier, plus de doublon à éviter ici pour le médecin. */}
                 {(showPatientsKpi || canSeeUrgences || canSeeHospit || showRdvKpi || isAdmin) && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                         {showPatientsKpi && (
@@ -323,10 +325,6 @@ export default function Dashboard() {
                     </div>
                 )}
 
-                {/* ── Calendrier interactif (médecin uniquement — remplace les widgets RDV en liste) ── */}
-                {isMedecin && (
-                    <MedecinPlanning />
-                )}
 
                 {/* ── Section Widgets ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -434,7 +432,7 @@ export default function Dashboard() {
                         </WidgetCard>
                     )}
 
-                    {canSeeRdv && !isMedecin && (
+                    {canSeeRdv && (
                         <WidgetCard
                             title="Cette semaine"
                             count={rdvCetteSemaine.length}

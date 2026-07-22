@@ -68,6 +68,34 @@ const MODES: { key: ModeRecherche; label: string; Icon: typeof CalendarSearch }[
     { key: 'sans_medecin', label: 'Sans médecin', Icon: CalendarOff },
 ]
 
+// Durée par défaut proposée selon le type d'événement — ajustable ensuite
+// via le champ "Durée" dédié, sans jamais bloquer une modification manuelle.
+const DUREE_PAR_DEFAUT_TYPE: Record<TypeEvenementRdv, number> = {
+    consultation: 30,
+    intervention: 60,
+    reunion: 30,
+    garde: 480,
+    visite_postoperatoire: 15,
+    autre: 30,
+}
+
+const OPTIONS_DUREE = [
+    { minutes: 15, label: '15 min' },
+    { minutes: 30, label: '30 min' },
+    { minutes: 45, label: '45 min' },
+    { minutes: 60, label: '1h' },
+    { minutes: 90, label: '1h30' },
+]
+
+function formatHeureFin(heureDebut: string, dureeMinutes: number): string {
+    if (!heureDebut) return '—'
+    const [h, m] = heureDebut.split(':').map(Number)
+    const total = h * 60 + m + dureeMinutes
+    const hFin = Math.floor((total % 1440) / 60)
+    const mFin = total % 60
+    return `${hFin.toString().padStart(2, '0')}:${mFin.toString().padStart(2, '0')}`
+}
+
 function formatDateCourte(iso: string) {
     return new Date(iso + 'T00:00:00').toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
 }
@@ -106,20 +134,42 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
     onSaved: (r: RendezVous) => void
 }) {
     const isEdit = !!rdv
+    const { user, hasRole } = useAuth()
+    // Un médecin programme forcément pour lui-même — jamais de choix d'un
+    // autre médecin ni du mode de recherche (par date / par médecin / sans
+    // médecin), qui n'a de sens que pour le secrétariat ou l'admin.
+    const peutChoisirMedecin = hasRole('admin', 'secretaire')
+    const medecinConnecteId = !peutChoisirMedecin && hasRole('medecin') ? (user?.id ?? null) : null
+
     const [search, setSearch] = useState('')
     const [patientId, setPatientId] = useState<number | null>(rdv?.patient ?? null)
 
     const [mode, setMode] = useState<ModeRecherche>(
-        isEdit ? (rdv?.medecin ? 'par_medecin' : 'sans_medecin') : 'par_date'
+        medecinConnecteId ? 'par_medecin' : isEdit ? (rdv?.medecin ? 'par_medecin' : 'sans_medecin') : 'par_date'
     )
-    const [medecinId, setMedecinId] = useState<number | null>(rdv?.medecin ?? null)
+    const [medecinId, setMedecinId] = useState<number | null>(medecinConnecteId ?? rdv?.medecin ?? null)
     const [date, setDate] = useState(rdv ? rdv.date_heure.slice(0, 10) : '')
     const [heure, setHeure] = useState(rdv ? rdv.date_heure.slice(11, 16) : '09:00')
     const [motif, setMotif] = useState(rdv?.motif ?? '')
     const [typeEvenement, setTypeEvenement] = useState<TypeEvenementRdv>(rdv?.type_evenement ?? 'consultation')
+    const [duree, setDuree] = useState<number>(rdv?.duree_minutes ?? DUREE_PAR_DEFAUT_TYPE[rdv?.type_evenement ?? 'consultation'])
     const [notes, setNotes] = useState(rdv?.notes ?? '')
     const [submitting, setSubmitting] = useState(false)
     const [erreur, setErreur] = useState('')
+
+    // Un médecin ne doit jamais pouvoir se retrouver, même via une donnée
+    // existante en édition, avec un autre médecin que lui-même sélectionné.
+    useEffect(() => {
+        if (medecinConnecteId) setMedecinId(medecinConnecteId)
+    }, [medecinConnecteId])
+
+    // Le changement de type d'événement met à jour la durée par défaut —
+    // uniquement à la création : en édition, on ne veut pas écraser une
+    // durée déjà personnalisée simplement parce que le type a changé.
+    const handleTypeChange = (t: TypeEvenementRdv) => {
+        setTypeEvenement(t)
+        if (!isEdit) setDuree(DUREE_PAR_DEFAUT_TYPE[t])
+    }
 
     const [creneaux, setCreneaux] = useState<CreneauDisponible[]>([])
     const [loadingCreneaux, setLoadingCreneaux] = useState(false)
@@ -217,6 +267,7 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
                 patient: patientId,
                 medecin: mode === 'sans_medecin' ? null : medecinId,
                 date_heure: new Date(`${date}T${heure}`).toISOString(),
+                duree_minutes: duree,
                 type_evenement: typeEvenement,
                 motif: motif.trim(),
                 notes,
@@ -281,24 +332,26 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
                         )}
                     </div>
 
-                    <div className="ht-field">
-                        <label className="ht-label">Comment souhaitez-vous fixer le rendez-vous ?</label>
-                        <div className="flex gap-1 p-1 rounded-xl w-fit flex-wrap" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
-                            {MODES.map(m => (
-                                <button
-                                    key={m.key}
-                                    type="button"
-                                    onClick={() => switchMode(m.key)}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                                    style={mode === m.key
-                                        ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
-                                        : { color: 'var(--ht-text-secondary)' }}
-                                >
-                                    <m.Icon size={13} /> {m.label}
-                                </button>
-                            ))}
+                    {peutChoisirMedecin && (
+                        <div className="ht-field">
+                            <label className="ht-label">Comment souhaitez-vous fixer le rendez-vous ?</label>
+                            <div className="flex gap-1 p-1 rounded-xl w-fit flex-wrap" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
+                                {MODES.map(m => (
+                                    <button
+                                        key={m.key}
+                                        type="button"
+                                        onClick={() => switchMode(m.key)}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                        style={mode === m.key
+                                            ? { backgroundColor: 'var(--ht-primary)', color: 'white' }
+                                            : { color: 'var(--ht-text-secondary)' }}
+                                    >
+                                        <m.Icon size={13} /> {m.label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {/* ── Mode "Par date" : choisir la date, puis un médecin disponible ── */}
                     {mode === 'par_date' && (
@@ -351,18 +404,26 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
                         <>
                             <div className="ht-field">
                                 <label className="ht-label">Médecin</label>
-                                <select
-                                    value={medecinId ?? ''}
-                                    onChange={e => { setMedecinId(e.target.value ? Number(e.target.value) : null); setDate('') }}
-                                    className="ht-input"
-                                >
-                                    <option value="">Choisir un médecin…</option>
-                                    {medecins.map(m => (
-                                        <option key={m.id} value={m.id}>
-                                            Dr. {m.prenom} {m.nom}{m.specialite ? ` — ${m.specialite}` : ''}
-                                        </option>
-                                    ))}
-                                </select>
+                                {medecinConnecteId ? (
+                                    <div className="flex items-center gap-1.5 px-3 py-2 border rounded-xl text-sm"
+                                         style={{ borderColor: 'var(--ht-border)', color: 'var(--ht-text)', backgroundColor: 'var(--ht-bg)' }}>
+                                        <Stethoscope size={14} />
+                                        Dr. {user?.prenom} {user?.nom}{user?.specialite ? ` — ${user.specialite}` : ''}
+                                    </div>
+                                ) : (
+                                    <select
+                                        value={medecinId ?? ''}
+                                        onChange={e => { setMedecinId(e.target.value ? Number(e.target.value) : null); setDate('') }}
+                                        className="ht-input"
+                                    >
+                                        <option value="">Choisir un médecin…</option>
+                                        {medecins.map(m => (
+                                            <option key={m.id} value={m.id}>
+                                                Dr. {m.prenom} {m.nom}{m.specialite ? ` — ${m.specialite}` : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                )}
                             </div>
                             {medecinId && (
                                 date ? (
@@ -452,17 +513,33 @@ function RdvModal({ patients, medecins, rdv, onClose, onSaved }: {
                         </div>
                     )}
 
-                    <div className="ht-field">
-                        <label className="ht-label">Type d'événement</label>
-                        <select value={typeEvenement} onChange={e => setTypeEvenement(e.target.value as TypeEvenementRdv)} className="ht-input">
-                            <option value="consultation">Consultation</option>
-                            <option value="intervention">Intervention</option>
-                            <option value="reunion">Réunion</option>
-                            <option value="garde">Garde</option>
-                            <option value="visite_postoperatoire">Visite postopératoire</option>
-                            <option value="autre">Autre</option>
-                        </select>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="ht-field">
+                            <label className="ht-label">Type d'événement</label>
+                            <select value={typeEvenement} onChange={e => handleTypeChange(e.target.value as TypeEvenementRdv)} className="ht-input">
+                                <option value="consultation">Consultation</option>
+                                <option value="intervention">Intervention</option>
+                                <option value="reunion">Réunion</option>
+                                <option value="garde">Garde</option>
+                                <option value="visite_postoperatoire">Visite postopératoire</option>
+                                <option value="autre">Autre</option>
+                            </select>
+                        </div>
+                        <div className="ht-field">
+                            <label className="ht-label">Durée</label>
+                            <select value={duree} onChange={e => setDuree(Number(e.target.value))} className="ht-input">
+                                {OPTIONS_DUREE.map(o => (
+                                    <option key={o.minutes} value={o.minutes}>{o.label}</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
+
+                    {heure && (
+                        <p className="text-xs flex items-center gap-1.5 -mt-2" style={{ color: 'var(--ht-text-muted)' }}>
+                            <Clock size={12} /> {heure} — {formatHeureFin(heure, duree)}
+                        </p>
+                    )}
 
                     <div className="ht-field">
                         <label className="ht-label">Motif</label>
@@ -612,14 +689,30 @@ export default function RendezVousPage() {
 
     const now = new Date()
 
+    /**
+     * Fin effective d'un RDV : date_heure + duree_minutes. La durée n'est
+     * pas toujours renseignée (RDV créés avant son introduction) — on
+     * retombe sur 30 min par défaut plutôt que de traiter le RDV comme
+     * "instantané", ce qui le ferait basculer trop tôt dans "Passés".
+     */
+    const finEffective = (r: RendezVous) =>
+        new Date(new Date(r.date_heure).getTime() + (r.duree_minutes ?? 30) * 60000)
+
     const filtered = useMemo(() => {
         let list = [...rdvs]
         if (filtre === 'aujourdhui') {
             list = list.filter(r => isSameDay(new Date(r.date_heure), now))
         } else if (filtre === 'venir') {
-            list = list.filter(r => new Date(r.date_heure) >= now && r.statut !== 'annule')
+            // Un RDV déjà marqué "Terminé" ne doit plus apparaître ici même
+            // si son horaire nominal n'est pas encore écoulé (consultation
+            // menée en avance) — cf. règle symétrique de "passes" ci-dessous.
+            list = list.filter(r => r.statut !== 'annule' && r.statut !== 'termine' && finEffective(r) >= now)
         } else if (filtre === 'passes') {
-            list = list.filter(r => new Date(r.date_heure) < now)
+            // Un RDV apparaît dans "Passés" si son statut est terminal
+            // (Terminé/Annulé), quel que soit son horaire — ou sinon si sa
+            // fin effective est révolue, même s'il a eu lieu plus tôt le
+            // jour même.
+            list = list.filter(r => r.statut === 'termine' || r.statut === 'annule' || finEffective(r) < now)
         }
         if (search.trim()) {
             const q = search.toLowerCase()
