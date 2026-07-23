@@ -159,6 +159,13 @@ export function positionHeureActuelle(): number | null {
     return minutes * PX_PAR_MINUTE
 }
 
+export function extraireMessageErreur(err: unknown): string {
+    const donnees = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data
+    if (!donnees) return 'Une erreur est survenue.'
+    const texte = Object.values(donnees).flat().join(' ')
+    return texte || 'Une erreur est survenue.'
+}
+
 export function memeJour(a: Date, b: Date): boolean {
     return a.toDateString() === b.toDateString()
 }

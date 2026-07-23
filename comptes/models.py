@@ -174,3 +174,31 @@ class HabilitationService(models.Model):
 
     def __str__(self):
         return f"{self.employe} → {self.service}"
+
+
+class Rappel(models.Model):
+    """
+    Pense-bête personnel et simple (pas un événement de calendrier : pas
+    d'heure, pas de patient/médecin associé) — affiché à la fois sur le
+    Dashboard et dans la colonne latérale du module Calendrier, sur la même
+    source de données.
+    """
+    employe = models.ForeignKey(
+        Employe, on_delete=models.CASCADE,
+        related_name='rappels'
+    )
+    texte = models.CharField(max_length=255)
+    fait = models.BooleanField(default=False)
+    date_echeance = models.DateField(
+        null=True, blank=True,
+        help_text="Optionnel — date à laquelle le rappel doit être traité."
+    )
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['fait', 'date_echeance', '-date_creation']
+        verbose_name = "Rappel"
+        verbose_name_plural = "Rappels"
+
+    def __str__(self):
+        return self.texte

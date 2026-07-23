@@ -78,6 +78,8 @@ class PassageUrgenceViewSet(viewsets.ModelViewSet):
         elif emp and emp.a_la_capacite(Capacite.ACTES_MEDICAUX_GERER):
             passage.medecin_examinateur = emp
         passage.statut = StatutUrgence.EN_CONSULTATION
+        if passage.date_prise_en_charge is None:
+            passage.date_prise_en_charge = timezone.now()
         passage.save()
         return Response(PassageUrgenceSerializer(passage).data)
 

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import type { EvenementPlanning } from '../../types'
 import EventBlock from './EventBlock'
 import CurrentTimeLine from './CurrentTimeLine'
+import CalendarSlotCell from './CalendarSlotCell'
 import {
     heuresGrille, PX_PAR_HEURE, PX_PAR_DEMI_HEURE, HEURE_SCROLL_INITIAL,
     joursDeSemaine, estAujourdhui, memeJour, disposerEvenements, dateACreneauHoraire,
@@ -13,9 +14,16 @@ interface Props {
     onSelectEvenement: (e: EvenementPlanning) => void
     onSelectCreneau: (date: Date) => void
     onSelectJour: (date: Date) => void
+    /** Autorise le glisser-déposer et le redimensionnement (droits insuffisants → lecture seule) */
+    deplacable?: boolean
+    onDeplacerEvenement?: (id: number, nouvelleDate: Date) => void
+    onRedimensionnerEvenement?: (id: number, dureeMinutes: number) => void
 }
 
-export default function CalendarWeekView({ ancre, evenements, onSelectEvenement, onSelectCreneau, onSelectJour }: Props) {
+export default function CalendarWeekView({
+                                             ancre, evenements, onSelectEvenement, onSelectCreneau, onSelectJour,
+                                             deplacable = false, onDeplacerEvenement, onRedimensionnerEvenement,
+                                         }: Props) {
     const jours = joursDeSemaine(ancre)
     const heures = heuresGrille()
     const hauteurGrille = heures.length * PX_PAR_HEURE
@@ -81,15 +89,16 @@ export default function CalendarWeekView({ ancre, evenements, onSelectEvenement,
                             >
                                 {heures.map(h => (
                                     <div key={h} style={{ height: PX_PAR_HEURE }}>
-                                        <div
+                                        <CalendarSlotCell
+                                            hauteur={PX_PAR_DEMI_HEURE}
+                                            pointille
                                             onClick={() => onSelectCreneau(dateACreneauHoraire(jour, h, 0))}
-                                            className="border-b border-dashed cursor-pointer transition-colors hover:bg-[var(--ht-bg)]"
-                                            style={{ height: PX_PAR_DEMI_HEURE, borderColor: 'var(--ht-border)' }}
+                                            onDrop={(id) => onDeplacerEvenement?.(id, dateACreneauHoraire(jour, h, 0))}
                                         />
-                                        <div
+                                        <CalendarSlotCell
+                                            hauteur={PX_PAR_DEMI_HEURE}
                                             onClick={() => onSelectCreneau(dateACreneauHoraire(jour, h, 30))}
-                                            className="border-b cursor-pointer transition-colors hover:bg-[var(--ht-bg)]"
-                                            style={{ height: PX_PAR_DEMI_HEURE, borderColor: 'var(--ht-border)' }}
+                                            onDrop={(id) => onDeplacerEvenement?.(id, dateACreneauHoraire(jour, h, 30))}
                                         />
                                     </div>
                                 ))}
@@ -100,6 +109,8 @@ export default function CalendarWeekView({ ancre, evenements, onSelectEvenement,
                                         colonnes={colonnes}
                                         indexColonne={indexColonne}
                                         onClick={() => onSelectEvenement(evenement)}
+                                        deplacable={deplacable}
+                                        onRedimensionner={(duree) => onRedimensionnerEvenement?.(evenement.id, duree)}
                                     />
                                 ))}
                                 {estAujourdhui(jour) && <CurrentTimeLine />}

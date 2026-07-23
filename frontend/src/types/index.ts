@@ -172,6 +172,14 @@ export interface HabilitationService {
     date_creation: string
 }
 
+export interface Rappel {
+    id: number
+    texte: string
+    fait: boolean
+    date_echeance?: string | null
+    date_creation: string
+}
+
 export interface MedecinPerf {
     id: number
     nom: string
@@ -540,6 +548,41 @@ export interface VueEnsemble {
         lits_occupes: number
         taux_occupation: number | null
         duree_moyenne_sejour: number | null
+    }[]
+}
+
+// Calqué sur ServiceViewSet.qualite (services/views.py) — tous les chiffres
+// sont calculés à la volée sur des données réelles (Operation, Hospitalisation,
+// RendezVous, PassageUrgence) ; `valeur`/`delta` sont null quand la période
+// n'a tout simplement pas assez de données pour produire un taux fiable.
+export interface QualiteIndicateur {
+    valeur: number | null
+    delta: number | null
+    nb?: number
+    total?: number
+}
+
+export interface QualiteIndicateurs {
+    indicateurs: {
+        periode: { depuis: string; jusqua: string; jours: number }
+        taux_complications: QualiteIndicateur
+        taux_readmission: QualiteIndicateur
+        taux_annulation: QualiteIndicateur
+        temps_operatoire_moyen: QualiteIndicateur
+        temps_prise_en_charge_moyen: QualiteIndicateur
+    }
+    evolution: {
+        semaine: string
+        complications: number | null
+        readmission: number | null
+        annulation: number | null
+    }[]
+    evenements_recents: {
+        date: string
+        intervention: string
+        service: string
+        chirurgien: string
+        description: string
     }[]
 }
 

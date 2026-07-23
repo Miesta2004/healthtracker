@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { CalendarClock } from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
 import PageHeader from '../components/PageHeader.tsx'
+import RappelsPanel from '../components/RappelsPanel.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlanning, useCreerEvenement, useModifierEvenement, useSupprimerEvenement } from '../hooks/useCalendrier'
 import CalendarHeader, { type VueCalendrier } from '../components/calendrier/CalendarHeader'
@@ -14,6 +15,7 @@ import EventFormDialog, { type EventFormInitial } from '../components/calendrier
 import EventDetailsPanel from '../components/calendrier/EventDetailsPanel'
 import {
     TYPE_EVENEMENT_CONFIG, joursDeSemaine, joursGrilleMois, toISODate, AGENDA_JOURS_A_VENIR,
+    extraireMessageErreur,
 } from '../components/calendrier/calendrierConfig'
 import type { EvenementPlanning, TypeEvenementRdv } from '../types'
 
@@ -29,6 +31,7 @@ export default function CalendrierPage() {
     const [evenementSelectionne, setEvenementSelectionne] = useState<EvenementPlanning | null>(null)
     const [formulaire, setFormulaire] = useState<EventFormInitial | null>(null)
     const [erreurFormulaire, setErreurFormulaire] = useState('')
+    const [erreurAction, setErreurAction] = useState('')
 
     const { debut, fin } = useMemo(() => {
         if (vue === 'jour') return { debut: ancre, fin: ancre }
@@ -107,11 +110,7 @@ export default function CalendrierPage() {
     const soumettreFormulaire = (data: Record<string, unknown>) => {
         setErreurFormulaire('')
         const options = {
-            onError: (err: unknown) => {
-                const message = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data
-                const texte = message ? Object.values(message).flat().join(' ') : "Une erreur est survenue."
-                setErreurFormulaire(texte || "Une erreur est survenue.")
-            },
+            onError: (err: unknown) => setErreurFormulaire(extraireMessageErreur(err)),
             onSuccess: () => {
                 setFormulaire(null)
             },
@@ -126,6 +125,30 @@ export default function CalendrierPage() {
     const annulerEvenement = (e: EvenementPlanning) => {
         modifier.mutate({ id: e.id, data: { statut: 'annule' } }, {
             onSuccess: () => setEvenementSelectionne(null),
+        })
+    }
+
+    // Le backend reste la source de vérité pour la détection de chevauchement
+    // (cf. RdvSerializer.validate côté Django) : en cas de conflit, la requête
+    // échoue avec 400 et le planning n'est pas modifié — react-query n'a rien
+    // invalidé, donc le bloc reprend automatiquement sa position d'origine au
+    // prochain rendu. On se contente d'afficher le message renvoyé par l'API.
+    const signalerErreurAction = (err: unknown) => {
+        setErreurAction(extraireMessageErreur(err))
+        window.setTimeout(() => setErreurAction(''), 6000)
+    }
+
+    const deplacerEvenement = (id: number, nouvelleDate: Date) => {
+        setErreurAction('')
+        modifier.mutate({ id, data: { date_heure: nouvelleDate.toISOString() } }, {
+            onError: signalerErreurAction,
+        })
+    }
+
+    const redimensionnerEvenement = (id: number, dureeMinutes: number) => {
+        setErreurAction('')
+        modifier.mutate({ id, data: { duree_minutes: dureeMinutes } }, {
+            onError: signalerErreurAction,
         })
     }
 
@@ -144,84 +167,104 @@ export default function CalendrierPage() {
         <div className="ht-page">
             <Sidebar />
 
-            <main className="ht-page-content max-w-6xl mx-auto space-y-5">
+            <main className="ht-page-content max-w-7xl mx-auto">
                 <PageHeader
                     title="Calendrier"
                     subtitle="Vue d'ensemble des consultations, interventions et gardes"
                     icon={CalendarClock}
                 />
 
-                <CalendarStats evenements={evenements} />
+                <div className="flex flex-col lg:flex-row gap-5 items-start mt-5">
+                    <div className="flex-1 min-w-0 w-full space-y-5">
+                        <CalendarStats evenements={evenements} />
 
-                <div className="flex flex-wrap gap-2">
-                    {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
-                        const cfg = TYPE_EVENEMENT_CONFIG[t]
-                        const actif = typesActifs.has(t)
-                        return (
-                            <button
-                                key={t}
-                                onClick={() => toggleType(t)}
-                                className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
-                                style={{
-                                    borderColor: actif ? cfg.text : 'var(--ht-border-input)',
-                                    backgroundColor: actif ? cfg.bg : 'transparent',
-                                    color: actif ? cfg.text : 'var(--ht-text-muted)',
-                                    opacity: actif ? 1 : 0.6,
-                                }}
-                            >
-                                <cfg.Icon size={12} /> {cfg.label}
-                            </button>
-                        )
-                    })}
+                        <div className="flex flex-wrap gap-2">
+                            {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
+                                const cfg = TYPE_EVENEMENT_CONFIG[t]
+                                const actif = typesActifs.has(t)
+                                return (
+                                    <button
+                                        key={t}
+                                        onClick={() => toggleType(t)}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                                        style={{
+                                            borderColor: actif ? cfg.text : 'var(--ht-border-input)',
+                                            backgroundColor: actif ? cfg.bg : 'transparent',
+                                            color: actif ? cfg.text : 'var(--ht-text-muted)',
+                                            opacity: actif ? 1 : 0.6,
+                                        }}
+                                    >
+                                        <cfg.Icon size={12} /> {cfg.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+
+                        <CalendarHeader
+                            ancre={ancre}
+                            vue={vue}
+                            onVueChange={setVue}
+                            onPrecedent={() => naviguer(-1)}
+                            onSuivant={() => naviguer(1)}
+                            onAujourdhui={() => setAncre(new Date())}
+                            onNouvelEvenement={() => ouvrirCreation(new Date())}
+                        />
+
+                        {isError && (
+                            <div className="text-sm px-4 py-3 rounded-xl" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
+                                Impossible de charger le planning. Réessayez dans un instant.
+                            </div>
+                        )}
+
+                        {erreurAction && (
+                            <div className="text-sm px-4 py-3 rounded-xl flex items-center justify-between gap-3" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
+                                <span>{erreurAction}</span>
+                                <button onClick={() => setErreurAction('')} className="text-xs underline flex-shrink-0">Fermer</button>
+                            </div>
+                        )}
+
+                        {isLoading && !data ? (
+                            <div className="ht-card flex items-center justify-center py-24" style={{ color: 'var(--ht-text-muted)' }}>
+                                Chargement du planning…
+                            </div>
+                        ) : vue === 'semaine' ? (
+                            <CalendarWeekView
+                                ancre={ancre}
+                                evenements={evenements}
+                                onSelectEvenement={setEvenementSelectionne}
+                                onSelectCreneau={ouvrirCreation}
+                                onSelectJour={(d) => { setAncre(d); setVue('jour') }}
+                                deplacable={peutModifier}
+                                onDeplacerEvenement={deplacerEvenement}
+                                onRedimensionnerEvenement={redimensionnerEvenement}
+                            />
+                        ) : vue === 'mois' ? (
+                            <CalendarMonthView
+                                ancre={ancre}
+                                evenements={evenements}
+                                onSelectJour={(d) => { setAncre(d); setVue('jour') }}
+                            />
+                        ) : vue === 'agenda' ? (
+                            <CalendarAgendaView
+                                evenements={evenements}
+                                onSelectEvenement={setEvenementSelectionne}
+                            />
+                        ) : (
+                            <CalendarDayView
+                                ancre={ancre}
+                                evenements={evenements}
+                                onSelectEvenement={setEvenementSelectionne}
+                                onSelectCreneau={ouvrirCreation}
+                                deplacable={peutModifier}
+                                onDeplacerEvenement={deplacerEvenement}
+                                onRedimensionnerEvenement={redimensionnerEvenement}
+                            />
+                        )}
+                    </div>
                 </div>
-
-                <CalendarHeader
-                    ancre={ancre}
-                    vue={vue}
-                    onVueChange={setVue}
-                    onPrecedent={() => naviguer(-1)}
-                    onSuivant={() => naviguer(1)}
-                    onAujourdhui={() => setAncre(new Date())}
-                    onNouvelEvenement={() => ouvrirCreation(new Date())}
-                />
-
-                {isError && (
-                    <div className="text-sm px-4 py-3 rounded-xl" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
-                        Impossible de charger le planning. Réessayez dans un instant.
-                    </div>
-                )}
-
-                {isLoading && !data ? (
-                    <div className="ht-card flex items-center justify-center py-24" style={{ color: 'var(--ht-text-muted)' }}>
-                        Chargement du planning…
-                    </div>
-                ) : vue === 'semaine' ? (
-                    <CalendarWeekView
-                        ancre={ancre}
-                        evenements={evenements}
-                        onSelectEvenement={setEvenementSelectionne}
-                        onSelectCreneau={ouvrirCreation}
-                        onSelectJour={(d) => { setAncre(d); setVue('jour') }}
-                    />
-                ) : vue === 'mois' ? (
-                    <CalendarMonthView
-                        ancre={ancre}
-                        evenements={evenements}
-                        onSelectJour={(d) => { setAncre(d); setVue('jour') }}
-                    />
-                ) : vue === 'agenda' ? (
-                    <CalendarAgendaView
-                        evenements={evenements}
-                        onSelectEvenement={setEvenementSelectionne}
-                    />
-                ) : (
-                    <CalendarDayView
-                        ancre={ancre}
-                        evenements={evenements}
-                        onSelectEvenement={setEvenementSelectionne}
-                        onSelectCreneau={ouvrirCreation}
-                    />
-                )}
+                <div className="w-full lg:w-72 flex-shrink-0">
+                    <RappelsPanel />
+                </div>
             </main>
 
             {evenementSelectionne && (

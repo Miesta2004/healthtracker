@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from django.utils import timezone
-from .models import Employe, HabilitationService, Role
+from .models import Employe, HabilitationService, Role, Rappel
 from services.models import Service
 
 
@@ -149,3 +149,13 @@ class HabilitationServiceSerializer(serializers.ModelSerializer):
                 {'date_fin': "La date de fin ne peut pas être antérieure à la date de début."}
             )
         return data
+
+
+class RappelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rappel
+        fields = ['id', 'texte', 'fait', 'date_echeance', 'date_creation']
+        read_only_fields = ['date_creation']
+        # `employe` n'est volontairement pas exposé : toujours déduit de
+        # request.user côté vue (perform_create), jamais fourni par le
+        # client — un rappel n'appartient qu'à son auteur.

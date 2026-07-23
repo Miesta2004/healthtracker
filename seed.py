@@ -1081,6 +1081,20 @@ for patient, age, ant_str, profil_key in patients_data:
         )
         total_rdv += 1
 
+    # Rendez-vous passés (0 à 2, sur les ~60 derniers jours) — sans ça, le
+    # taux d'annulation réel (Analytics > Qualité) n'a aucune donnée : les
+    # RDV "futurs" ci-dessus ne retombent jamais dans une fenêtre passée.
+    for _ in range(random.randint(0, 2)):
+        jours_passes = random.randint(1, 60)
+        RendezVous.objects.create(
+            patient=patient,
+            date_heure=now - timedelta(days=jours_passes, hours=random.randint(-8, 8)),
+            duree_minutes=random.choice([15, 30, 30, 45, 60]),
+            motif=random.choice(MOTIFS_CONSULT),
+            statut=random.choices(['termine', 'annule'], weights=[0.88, 0.12])[0],
+        )
+        total_rdv += 1
+
 print(f"✅ {total_consult} consultations, {total_rdv} rendez-vous\n")
 
 # ─── ANTÉCÉDENTS DÉTAILLÉS ────────────────────────────────────────────────────
@@ -1353,6 +1367,35 @@ for pdata in random.sample(patients_restants, k=min(n_extra, len(patients_restan
             [s for n, s in services.items() if n != "Laboratoire"])
         creer_hospitalisation(patient, svc_h, medecin_h, offset_jours=h * 45)
 
+# Phase C — réadmissions réelles : pour un échantillon de séjours déjà
+# terminés, une nouvelle admission du même patient dans le même service,
+# 5 à 25 jours après sa sortie (donc < 30 jours) — sans ça, le taux de
+# réadmission réel (Analytics > Qualité) n'a aucun cas positif à détecter.
+sejours_termines = list(Hospitalisation.objects.filter(
+    statut=StatutHospitalisation.TERMINEE, date_sortie__isnull=False,
+))
+for hosp in random.sample(sejours_termines, k=min(8, len(sejours_termines))):
+    jours_apres = random.randint(5, 25)
+    d_readmission = hosp.date_sortie + timedelta(days=jours_apres)
+    if d_readmission >= now:
+        continue
+    duree = random.randint(2, 10)
+    est_terminee = (d_readmission + timedelta(days=duree)) < now
+    readmission = Hospitalisation.objects.create(
+        patient=hosp.patient, service=hosp.service, medecin_responsable=hosp.medecin_responsable,
+        chambre=random.choice(CHAMBRES), lit=random.choice(LITS),
+        motif_admission="Réadmission — " + random.choice(MOTIFS_HOSP),
+        diagnostic_entree=random.choice(DIAGNOSTICS),
+        date_admission=d_readmission,
+        date_sortie_prevue=(d_readmission + timedelta(days=duree)).date(),
+        statut=StatutHospitalisation.TERMINEE if est_terminee else StatutHospitalisation.EN_COURS,
+    )
+    if est_terminee:
+        readmission.date_sortie = d_readmission + timedelta(days=duree)
+        readmission.diagnostic_sortie = random.choice(DIAG_HOSP_SORTIE)
+        readmission.save()
+    total_hosp += 1
+
 print(f"✅ {total_hosp} hospitalisations, réparties dans les {len(services) - 1} services cliniques "
       f"(Laboratoire exclu, pas de médecin)\n")
 
@@ -1375,7 +1418,7 @@ for svc in services_chirurgie:
 
 # Créer 30-50 opérations programmées liées aux hospitalisations
 chirurgiens_list = [e for e in employes if e.role == 'medecin'
-                   and e.service and e.service.nom in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
+                    and e.service and e.service.nom in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
 
 operations_data = []
 for hosp in random.sample(list(Hospitalisation.objects.all()), k=min(40, Hospitalisation.objects.count())):
@@ -1410,6 +1453,22 @@ for hosp in random.sample(list(Hospitalisation.objects.all()), k=min(40, Hospita
     )
     heure_op = datetime.combine(d_op.date(), datetime.min.time()).replace(hour=random.randint(8, 16))
 
+    duree_prevue = random.randint(60, 180)
+    statut_op = random.choices(
+        [StatutOperation.TERMINEE, StatutOperation.EN_COURS, StatutOperation.CONFIRMEE, StatutOperation.COMPLICATION],
+        weights=[0.65, 0.15, 0.15, 0.05]
+    )[0]
+
+    # date_debut_reelle/date_fin_reelle : uniquement pour les opérations
+    # effectivement passées au bloc — alimente le "temps opératoire moyen"
+    # réel (Analytics > Qualité). Une complication rallonge un peu la durée
+    # réelle par rapport à l'estimation, ce qui reste réaliste.
+    debut_reel = fin_reel = None
+    if statut_op in (StatutOperation.TERMINEE, StatutOperation.COMPLICATION):
+        debut_reel = heure_op + timedelta(minutes=random.randint(-10, 20))
+        duree_reelle = duree_prevue + (random.randint(20, 60) if statut_op == StatutOperation.COMPLICATION else random.randint(-15, 15))
+        fin_reel = debut_reel + timedelta(minutes=max(20, duree_reelle))
+
     try:
         op = Operation.objects.create(
             patient=hosp.patient,
@@ -1420,13 +1479,20 @@ for hosp in random.sample(list(Hospitalisation.objects.all()), k=min(40, Hospita
             chirurgien_principal=chirurgien,
             type_intervention=random.choice(MOTIFS_OPERATION),
             date_heure_prevue=heure_op,
-            duree_estimee_min=random.randint(60, 180),
-            statut=random.choices(
-                [StatutOperation.TERMINEE, StatutOperation.EN_COURS, StatutOperation.CONFIRMEE],
-                weights=[0.70, 0.15, 0.15]
-            )[0],
-            compte_rendu_operatoire="Acte chirurgical réalisé sans incident majeur. Suites opératoires simples attendues." if random.random() > 0.2 else "",
-            complications="" if random.random() > 0.05 else "Saignement contrôlé per-opératoire, hémostase complète.",
+            duree_estimee_min=duree_prevue,
+            date_debut_reelle=debut_reel,
+            date_fin_reelle=fin_reel,
+            statut=statut_op,
+            compte_rendu_operatoire="Acte chirurgical réalisé sans incident majeur. Suites opératoires simples attendues." if statut_op == StatutOperation.TERMINEE and random.random() > 0.2 else "",
+            complications=(
+                random.choice([
+                    "Hémorragie post-opératoire nécessitant reprise partielle de l'hémostase.",
+                    "Infection du site opératoire, mise sous antibiothérapie.",
+                    "Complication anesthésique mineure, surveillance rapprochée en SSPI.",
+                    "Déhiscence partielle de la plaie, reprise au bloc.",
+                ]) if statut_op == StatutOperation.COMPLICATION
+                else ("Saignement contrôlé per-opératoire, hémostase complète." if random.random() < 0.05 else "")
+            ),
         )
         operations_data.append(op)
         total_operations += 1
@@ -1508,10 +1574,17 @@ def creer_passage(patient, niveau_tri, mode_arrivee, statut, decision=None, jour
         statut=statut,
         diagnostic=random.choice(DIAGNOSTICS) if statut == StatutUrgence.SORTI else '',
     )
+    if statut != StatutUrgence.EN_ATTENTE:
+        # Délai de prise en charge cohérent avec la gravité du triage : un
+        # niveau 1 (vital) est vu en quelques minutes, un niveau 5 peut
+        # attendre plus d'une heure — alimente le "temps de prise en charge
+        # moyen" réel (Analytics > Qualité).
+        delai_min = {1: (2, 10), 2: (5, 20), 3: (15, 45), 4: (30, 90), 5: (45, 150)}.get(niveau_tri, (15, 60))
+        p.date_prise_en_charge = d_arr + timedelta(minutes=random.randint(*delai_min))
     if statut == StatutUrgence.SORTI:
         p.decision   = decision or DecisionSortie.DOMICILE
         p.date_sortie = d_arr + timedelta(hours=random.randint(1, 12))
-        p.save()
+    p.save()
     return p
 
 def niveau_aleatoire():

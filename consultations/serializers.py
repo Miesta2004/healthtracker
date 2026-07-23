@@ -28,20 +28,55 @@ class RdvSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
     def validate(self, data):
-        medecin    = data.get('medecin', getattr(self.instance, 'medecin', None))
-        date_heure = data.get('date_heure', getattr(self.instance, 'date_heure', None))
+        medecin       = data.get('medecin', getattr(self.instance, 'medecin', None))
+        patient       = data.get('patient', getattr(self.instance, 'patient', None))
+        date_heure    = data.get('date_heure', getattr(self.instance, 'date_heure', None))
+        duree_minutes = data.get('duree_minutes', getattr(self.instance, 'duree_minutes', 30))
+        statut        = data.get('statut', getattr(self.instance, 'statut', None))
 
-        if medecin and date_heure:
-            conflit = RendezVous.objects.filter(
-                medecin=medecin, date_heure=date_heure
-            ).exclude(statut='annule')
+        if not date_heure or statut == 'annule':
+            return data
+
+        fin = date_heure + timedelta(minutes=duree_minutes)
+
+        def premier_chevauchement(queryset):
+            # Filtre grossier en base (borné à ±24h pour rester performant même
+            # avec beaucoup de RDV), puis vérification exacte de chevauchement
+            # en Python — un simple `date_heure__lt=fin` ne suffit pas seul
+            # car il faut aussi comparer la fin de CHAQUE candidat à notre
+            # propre début (impossible à exprimer simplement avec F() sur un
+            # DurationField dérivé de duree_minutes).
+            candidats = (
+                queryset.exclude(statut='annule')
+                .filter(date_heure__lt=fin, date_heure__gt=date_heure - timedelta(hours=24))
+            )
             if self.instance:
-                conflit = conflit.exclude(pk=self.instance.pk)
-            if conflit.exists():
-                raise serializers.ValidationError(
-                    "Ce créneau est déjà réservé pour ce médecin. "
-                    "Merci de choisir un autre horaire."
-                )
+                candidats = candidats.exclude(pk=self.instance.pk)
+            for rdv in candidats:
+                if rdv.date_heure + timedelta(minutes=rdv.duree_minutes) > date_heure:
+                    return rdv
+            return None
+
+        if medecin:
+            conflit = premier_chevauchement(RendezVous.objects.filter(medecin=medecin))
+            if conflit:
+                raise serializers.ValidationError({
+                    'date_heure': (
+                        f"Ce créneau chevauche un autre événement de ce médecin "
+                        f"({conflit.get_type_evenement_display()} à {conflit.date_heure.strftime('%H:%M')})."
+                    )
+                })
+
+        if patient:
+            conflit = premier_chevauchement(RendezVous.objects.filter(patient=patient))
+            if conflit:
+                raise serializers.ValidationError({
+                    'date_heure': (
+                        f"Ce patient a déjà un événement sur ce créneau "
+                        f"({conflit.get_type_evenement_display()} à {conflit.date_heure.strftime('%H:%M')})."
+                    )
+                })
+
         return data
 
 

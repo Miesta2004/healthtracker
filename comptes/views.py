@@ -1,4 +1,5 @@
 from rest_framework import viewsets, status
+from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
@@ -7,8 +8,8 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.conf import settings
 from django.middleware.csrf import get_token
-from .models import Employe, HabilitationService
-from .serializers import EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer
+from .models import Employe, HabilitationService, Rappel
+from .serializers import EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer, RappelSerializer
 from .permissions import IsAdminRole, PeutGererHabilitations, get_employe
 from .analytics import stats_medecin
 from .capacites import Capacite
@@ -370,3 +371,26 @@ class HabilitationServiceViewSet(viewsets.ModelViewSet):
         if self.request.method in ('GET', 'HEAD', 'OPTIONS'):
             return [IsAuthenticated()]
         return [PeutGererHabilitations()]
+
+
+class RappelViewSet(viewsets.ModelViewSet):
+    """
+    Pense-bêtes personnels, affichés à la fois sur le Dashboard et dans le
+    module Calendrier (même source de données côté frontend). Strictement
+    privés : chacun ne voit et ne modifie que ses propres rappels — y
+    compris le superuser, qui n'a ici aucune raison de voir ceux des autres.
+    """
+    serializer_class = RappelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        employe = get_employe(self.request.user)
+        if employe is None:
+            return Rappel.objects.none()
+        return Rappel.objects.filter(employe=employe)
+
+    def perform_create(self, serializer):
+        employe = get_employe(self.request.user)
+        if employe is None:
+            raise ValidationError("Aucun profil employé associé à ce compte.")
+        serializer.save(employe=employe)

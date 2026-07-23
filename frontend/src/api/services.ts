@@ -1,5 +1,5 @@
 import api from './client'
-import type {Service, ServiceStats, VueEnsemble, ActiviteJour, Patient, Employe} from '../types'
+import type {Service, ServiceStats, VueEnsemble, ActiviteJour, Patient, Employe, QualiteIndicateurs} from '../types'
 
 export const getServices = async (): Promise<Service[]> => {
     const response = await api.get('/services/')
@@ -23,6 +23,11 @@ export const getVueEnsemble = async (): Promise<VueEnsemble> => {
 
 export const getServiceActivite = async (id: number, jours = 30): Promise<ActiviteJour[]> => {
     const response = await api.get(`/services/${id}/activite/`, { params: { jours } })
+    return response.data
+}
+
+export const getQualiteIndicateurs = async (jours = 30): Promise<QualiteIndicateurs> => {
+    const response = await api.get('/services/qualite/', { params: { jours } })
     return response.data
 }
 

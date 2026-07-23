@@ -81,6 +81,12 @@ class PassageUrgence(models.Model):
 
     date_sortie = models.DateTimeField(null=True, blank=True)
 
+    date_prise_en_charge = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Renseigné automatiquement dès qu'un médecin_examinateur est assigné — "
+                  "alimente le KPI 'temps moyen de prise en charge' (Analytics > Qualité)."
+    )
+
     date_creation     = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
 

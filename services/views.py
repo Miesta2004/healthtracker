@@ -11,7 +11,7 @@ from .models import Service
 from .serializers import ServiceSerializer
 from comptes.permissions import IsAdminRole, IsSuperUser
 from comptes.analytics import stats_medecin
-from .analytics import occupation_service
+from .analytics import occupation_service, indicateurs_qualite, evolution_qualite_hebdomadaire, evenements_qualite_recents
 
 
 class ServiceViewSet(viewsets.ModelViewSet):
@@ -170,3 +170,23 @@ class ServiceViewSet(viewsets.ModelViewSet):
             .order_by('jour')
         )
         return Response(list(par_jour))
+
+    @action(detail=False, methods=['get'], url_path='qualite')
+    def qualite(self, request):
+        """
+        Indicateurs qualité & sécurité (Analytics > onglet Qualité), scopés
+        aux mêmes services que vue_ensemble. Tout est calculé à la volée sur
+        des données réelles — voir services/analytics.py pour le détail de
+        ce qui est (et n'est pas) réellement traçable aujourd'hui.
+        """
+        try:
+            jours = min(max(int(request.query_params.get('jours', 30)), 7), 180)
+        except ValueError:
+            jours = 30
+
+        services = self.get_queryset()
+        return Response({
+            'indicateurs': indicateurs_qualite(services, jours=jours),
+            'evolution': evolution_qualite_hebdomadaire(services),
+            'evenements_recents': evenements_qualite_recents(services),
+        })

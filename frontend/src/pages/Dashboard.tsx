@@ -11,6 +11,7 @@ import { getDemandesEnAttente } from "../api/analyses";
 import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
+import RappelsPanel from "../components/RappelsPanel.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
 import {
@@ -459,6 +460,8 @@ export default function Dashboard() {
                             </div>
                         </WidgetCard>
                     )}
+
+                    <RappelsPanel />
                 </div>
 
                 {/* ── Module Laboratoire dédié pour les Laborantins ── */}
