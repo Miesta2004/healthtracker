@@ -64,8 +64,8 @@ interface Props {
 }
 
 function PickerPersonne<T extends { id: number; nom: string; prenom: string }>({
-    label, valeur, valeurLabel, onChange, rechercher, placeholder, optionnel,
-}: {
+                                                                                   label, valeur, valeurLabel, onChange, rechercher, placeholder, optionnel,
+                                                                               }: {
     label: string
     valeur: number | null
     valeurLabel?: string
@@ -226,9 +226,9 @@ export default function EventFormDialog({ initial, onClose, onSubmit, onDelete, 
                                             <div
                                                 className="flex flex-col items-center gap-1 py-2 rounded-xl border text-[11px] font-medium transition-colors"
                                                 style={{
-                                                    borderColor: actif ? cfg.color : 'var(--ht-border-input)',
+                                                    borderColor: actif ? cfg.text : 'var(--ht-border-input)',
                                                     backgroundColor: actif ? cfg.bg : 'transparent',
-                                                    color: actif ? cfg.color : 'var(--ht-text-secondary)',
+                                                    color: actif ? cfg.text : 'var(--ht-text-secondary)',
                                                 }}
                                             >
                                                 <cfg.Icon size={15} />

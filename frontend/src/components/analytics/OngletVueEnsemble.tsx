@@ -45,7 +45,7 @@ export default function OngletVueEnsemble({
     ]
 
     const repartitionInterventions = (opStats?.repartition_par_type ?? []).map((r, i) => ({
-        nom: r.type_intervention, valeur: r.nb, couleur: COULEURS[i % COULEURS.length],
+        nom: r.type_acte, valeur: r.nb, couleur: COULEURS[i % COULEURS.length],
     }))
 
     return (
@@ -158,7 +158,7 @@ export default function OngletVueEnsemble({
                                     <td className="py-2.5 px-3" style={{ color: 'var(--ht-text-secondary)' }}>{it.duree ?? '—'}</td>
                                     <td className="py-2.5 px-3">
                                             <span className={`badge ${it.issue === 'succes' ? 'badge-success' : 'badge-danger'}`}>
-                                                {it.issue === 'succes' ? 'Succès' : 'Complication'}
+                                                {it.issue === 'succes' ? 'Succès' : 'Décès au bloc'}
                                             </span>
                                     </td>
                                 </tr>

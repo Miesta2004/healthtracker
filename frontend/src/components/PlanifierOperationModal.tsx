@@ -68,6 +68,8 @@ export default function PlanifierOperationModal({ patientId, consultationId, onC
         setSubmitting(true)
         setErreur('')
         try {
+            const debutISO = new Date(`${date}T${heure}`)
+            const finISO = new Date(debutISO.getTime() + dureeMin * 60_000)
             const operation = await createOperation({
                 patient: patientId,
                 consultation_indication: consultationId ?? null,
@@ -76,9 +78,9 @@ export default function PlanifierOperationModal({ patientId, consultationId, onC
                 salle: salleId,
                 chirurgien_principal: chirurgienId,
                 equipe: [],
-                type_intervention: typeIntervention.trim(),
-                date_heure_prevue: new Date(`${date}T${heure}`).toISOString(),
-                duree_estimee_min: dureeMin,
+                type_acte: typeIntervention.trim(),
+                heure_debut: debutISO.toISOString(),
+                heure_fin: finISO.toISOString(),
             })
             onCreated(operation)
         } catch (e: unknown) {

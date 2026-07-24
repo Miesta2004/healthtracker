@@ -3,7 +3,7 @@ import { useState } from 'react'
 interface Props {
     hauteur: number
     pointille?: boolean
-    onClick: () => void
+    onClick?: () => void
     onDrop: (idEvenement: number) => void
 }
 
@@ -21,7 +21,7 @@ export default function CalendarSlotCell({ hauteur, pointille, onClick, onDrop }
                 const id = Number(e.dataTransfer.getData('text/plain'))
                 if (id) onDrop(id)
             }}
-            className={`cursor-pointer transition-colors border-b ${pointille ? 'border-dashed' : ''}`}
+            className={`transition-colors border-b ${pointille ? 'border-dashed' : ''} ${onClick ? 'cursor-pointer' : ''}`}
             style={{
                 height: hauteur,
                 borderColor: 'var(--ht-border)',

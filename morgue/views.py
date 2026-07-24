@@ -8,6 +8,7 @@ from comptes.permissions import IsMedecinOuAdmin, get_employe
 from .models import Deces, Autopsie, StatutDeces
 from .serializers import DecesSerializer, AutopsieSerializer
 from .permissions import PeutVoirMorgue, PeutValiderAutopsiePerioperatoire
+from .services import enregistrer_deces
 
 
 class DecesViewSet(viewsets.ModelViewSet):
@@ -27,18 +28,16 @@ class DecesViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         emp = get_employe(self.request.user)
-        statut_initial = (
-            StatutDeces.EN_ATTENTE_AUTOPSIE
-            if serializer.validated_data.get('necessite_autopsie')
-            else StatutDeces.DISPENSE_AUTOPSIE
-        )
-        deces = serializer.save(
+        deces = enregistrer_deces(
+            patient=serializer.validated_data['patient'],
+            date_deces=serializer.validated_data.get('date_deces'),
+            lieu_deces=serializer.validated_data.get('lieu_deces'),
+            operation_liee=serializer.validated_data.get('operation_liee'),
+            necessite_autopsie=serializer.validated_data.get('necessite_autopsie', False),
+            cause_presumee=serializer.validated_data.get('cause_presumee', ''),
             medecin_constatant=serializer.validated_data.get('medecin_constatant') or emp,
-            statut=statut_initial,
         )
-        patient = deces.patient
-        patient.statut_vital = patient.StatutVital.DECEDE
-        patient.save(update_fields=['statut_vital'])
+        serializer.instance = deces
 
     @action(detail=True, methods=['post'], url_path='remettre-corps')
     def remettre_corps(self, request, pk=None):

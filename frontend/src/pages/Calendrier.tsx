@@ -11,13 +11,16 @@ import CalendarWeekView from '../components/calendrier/CalendarWeekView'
 import CalendarDayView from '../components/calendrier/CalendarDayView'
 import CalendarMonthView from '../components/calendrier/CalendarMonthView'
 import CalendarAgendaView from '../components/calendrier/CalendarAgendaView'
+import CalendarBlocOperatoireView from '../components/calendrier/CalendarBlocOperatoireView'
+import OperationDetailsPanel from '../components/calendrier/OperationDetailsPanel'
 import EventFormDialog, { type EventFormInitial } from '../components/calendrier/EventFormDialog'
 import EventDetailsPanel from '../components/calendrier/EventDetailsPanel'
+import { useSallesBloc, useOperationsPlanning, useModifierOperation, useDemarrerOperation, useCloturerOperation } from '../hooks/useBlocOperatoire'
 import {
     TYPE_EVENEMENT_CONFIG, joursDeSemaine, joursGrilleMois, toISODate, AGENDA_JOURS_A_VENIR,
     extraireMessageErreur,
 } from '../components/calendrier/calendrierConfig'
-import type { EvenementPlanning, TypeEvenementRdv } from '../types'
+import type { EvenementPlanning, TypeEvenementRdv, Operation } from '../types'
 
 export default function CalendrierPage() {
     const { user } = useAuth()
@@ -29,6 +32,7 @@ export default function CalendrierPage() {
     )
 
     const [evenementSelectionne, setEvenementSelectionne] = useState<EvenementPlanning | null>(null)
+    const [operationSelectionnee, setOperationSelectionnee] = useState<Operation | null>(null)
     const [formulaire, setFormulaire] = useState<EventFormInitial | null>(null)
     const [erreurFormulaire, setErreurFormulaire] = useState('')
     const [erreurAction, setErreurAction] = useState('')
@@ -54,6 +58,14 @@ export default function CalendrierPage() {
     const modifier = useModifierEvenement()
     const supprimer = useSupprimerEvenement()
 
+    const enBloc = vue === 'bloc'
+    const { data: salles, isLoading: sallesEnChargement } = useSallesBloc(user?.service ?? undefined, enBloc)
+    const { data: planningBloc, isLoading: blocEnChargement } = useOperationsPlanning(toISODate(ancre), toISODate(ancre), enBloc)
+    const modifierOperation = useModifierOperation()
+    const demarrer = useDemarrerOperation()
+    const cloturer = useCloturerOperation()
+    const [erreurOperation, setErreurOperation] = useState('')
+
     const evenements = useMemo(
         () => (data?.evenements ?? []).filter(e => typesActifs.has(e.type_evenement)),
         [data, typesActifs]
@@ -73,7 +85,7 @@ export default function CalendrierPage() {
                 return new Date(prev.getFullYear(), prev.getMonth() + delta, 1)
             }
             const next = new Date(prev)
-            next.setDate(next.getDate() + (vue === 'jour' ? delta : delta * 7))
+            next.setDate(next.getDate() + ((vue === 'jour' || vue === 'bloc') ? delta : delta * 7))
             return next
         })
     }
@@ -128,11 +140,6 @@ export default function CalendrierPage() {
         })
     }
 
-    // Le backend reste la source de vérité pour la détection de chevauchement
-    // (cf. RdvSerializer.validate côté Django) : en cas de conflit, la requête
-    // échoue avec 400 et le planning n'est pas modifié — react-query n'a rien
-    // invalidé, donc le bloc reprend automatiquement sa position d'origine au
-    // prochain rendu. On se contente d'afficher le message renvoyé par l'API.
     const signalerErreurAction = (err: unknown) => {
         setErreurAction(extraireMessageErreur(err))
         window.setTimeout(() => setErreurAction(''), 6000)
@@ -152,6 +159,48 @@ export default function CalendrierPage() {
         })
     }
 
+    const deplacerOperation = (id: number, salleId: number, nouvelleDate: Date) => {
+        const intervention = planningBloc?.operations.find(o => o.id === id)
+        if (!intervention) return
+        const dureeMs = new Date(intervention.heure_fin).getTime() - new Date(intervention.heure_debut).getTime()
+        const nouvelleFin = new Date(nouvelleDate.getTime() + dureeMs)
+
+        setErreurAction('')
+        modifierOperation.mutate(
+            { id, data: { salle: salleId, heure_debut: nouvelleDate.toISOString(), heure_fin: nouvelleFin.toISOString() } },
+            { onError: signalerErreurAction }
+        )
+    }
+
+    const redimensionnerOperation = (id: number, dureeMinutes: number) => {
+        const intervention = planningBloc?.operations.find(o => o.id === id)
+        if (!intervention) return
+        const nouvelleFin = new Date(new Date(intervention.heure_debut).getTime() + dureeMinutes * 60_000)
+
+        setErreurAction('')
+        modifierOperation.mutate({ id, data: { heure_fin: nouvelleFin.toISOString() } }, {
+            onError: signalerErreurAction,
+        })
+    }
+
+    const demarrerIntervention = () => {
+        if (!operationSelectionnee) return
+        setErreurOperation('')
+        demarrer.mutate(operationSelectionnee.id, {
+            onSuccess: (mise_a_jour) => setOperationSelectionnee(mise_a_jour),
+            onError: (err) => setErreurOperation(extraireMessageErreur(err)),
+        })
+    }
+
+    const cloturerIntervention = (data: { resultat: 'terminee' | 'deces_au_bloc'; compte_rendu_operatoire: string; complications?: string }) => {
+        if (!operationSelectionnee) return
+        setErreurOperation('')
+        cloturer.mutate({ id: operationSelectionnee.id, data }, {
+            onSuccess: () => setOperationSelectionnee(null),
+            onError: (err) => setErreurOperation(extraireMessageErreur(err)),
+        })
+    }
+
     const supprimerEvenement = () => {
         if (!formulaire?.id) return
         if (!window.confirm('Supprimer définitivement cet événement ?')) return
@@ -168,38 +217,49 @@ export default function CalendrierPage() {
             <Sidebar />
 
             <main className="ht-page-content max-w-7xl mx-auto">
-                <PageHeader
-                    title="Calendrier"
-                    subtitle="Vue d'ensemble des consultations, interventions et gardes"
-                    icon={CalendarClock}
-                />
+                {/* ===== SECTION 1 : KPI ===== */}
+                <section className="mb-8">
+                    {!enBloc && <CalendarStats evenements={evenements} />}
+                </section>
 
-                <div className="flex flex-col lg:flex-row gap-5 items-start mt-5">
-                    <div className="flex-1 min-w-0 w-full space-y-5">
-                        <CalendarStats evenements={evenements} />
+                {/* ===== SECTION 2 : RAPPELS ===== */}
+                <section className="mb-10">
+                    <RappelsPanel />
+                </section>
 
-                        <div className="flex flex-wrap gap-2">
-                            {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
-                                const cfg = TYPE_EVENEMENT_CONFIG[t]
-                                const actif = typesActifs.has(t)
-                                return (
-                                    <button
-                                        key={t}
-                                        onClick={() => toggleType(t)}
-                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
-                                        style={{
-                                            borderColor: actif ? cfg.text : 'var(--ht-border-input)',
-                                            backgroundColor: actif ? cfg.bg : 'transparent',
-                                            color: actif ? cfg.text : 'var(--ht-text-muted)',
-                                            opacity: actif ? 1 : 0.6,
-                                        }}
-                                    >
-                                        <cfg.Icon size={12} /> {cfg.label}
-                                    </button>
-                                )
-                            })}
-                        </div>
+                {/* ===== SECTION 3 : CALENDRIER ===== */}
+                <section className="mb-6">
+                    <PageHeader
+                        title="Calendrier"
+                        subtitle="Vue d'ensemble des consultations, interventions et gardes"
+                        icon={CalendarClock}
+                    />
 
+                    {/* Filtres */}
+                    <div className="flex flex-wrap gap-2 mt-4">
+                        {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
+                            const cfg = TYPE_EVENEMENT_CONFIG[t]
+                            const actif = typesActifs.has(t)
+                            return (
+                                <button
+                                    key={t}
+                                    onClick={() => toggleType(t)}
+                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                                    style={{
+                                        borderColor: actif ? cfg.text : 'var(--ht-border-input)',
+                                        backgroundColor: actif ? cfg.bg : 'transparent',
+                                        color: actif ? cfg.text : 'var(--ht-text-muted)',
+                                        opacity: actif ? 1 : 0.6,
+                                    }}
+                                >
+                                    <cfg.Icon size={12} /> {cfg.label}
+                                </button>
+                            )
+                        })}
+                    </div>
+
+                    {/* En-tête navigation */}
+                    <div className="mt-4">
                         <CalendarHeader
                             ancre={ancre}
                             vue={vue}
@@ -209,21 +269,40 @@ export default function CalendrierPage() {
                             onAujourdhui={() => setAncre(new Date())}
                             onNouvelEvenement={() => ouvrirCreation(new Date())}
                         />
+                    </div>
 
-                        {isError && (
-                            <div className="text-sm px-4 py-3 rounded-xl" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
-                                Impossible de charger le planning. Réessayez dans un instant.
-                            </div>
-                        )}
+                    {/* Messages d'erreur */}
+                    {isError && !enBloc && (
+                        <div className="text-sm px-4 py-3 rounded-xl mt-4" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
+                            Impossible de charger le planning. Réessayez dans un instant.
+                        </div>
+                    )}
 
-                        {erreurAction && (
-                            <div className="text-sm px-4 py-3 rounded-xl flex items-center justify-between gap-3" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
-                                <span>{erreurAction}</span>
-                                <button onClick={() => setErreurAction('')} className="text-xs underline flex-shrink-0">Fermer</button>
-                            </div>
-                        )}
+                    {erreurAction && (
+                        <div className="text-sm px-4 py-3 rounded-xl mt-4 flex items-center justify-between gap-3" style={{ backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
+                            <span>{erreurAction}</span>
+                            <button onClick={() => setErreurAction('')} className="text-xs underline flex-shrink-0">Fermer</button>
+                        </div>
+                    )}
 
-                        {isLoading && !data ? (
+                    {/* Vue calendrier */}
+                    <div className="mt-6">
+                        {enBloc ? (
+                            (sallesEnChargement || blocEnChargement) && !planningBloc ? (
+                                <div className="ht-card flex items-center justify-center py-24" style={{ color: 'var(--ht-text-muted)' }}>
+                                    Chargement du bloc opératoire…
+                                </div>
+                            ) : (
+                                <CalendarBlocOperatoireView
+                                    ancre={ancre}
+                                    salles={salles ?? []}
+                                    operations={planningBloc?.operations ?? []}
+                                    onSelectOperation={setOperationSelectionnee}
+                                    onDeplacerOperation={deplacerOperation}
+                                    onRedimensionnerOperation={redimensionnerOperation}
+                                />
+                            )
+                        ) : isLoading && !data ? (
                             <div className="ht-card flex items-center justify-center py-24" style={{ color: 'var(--ht-text-muted)' }}>
                                 Chargement du planning…
                             </div>
@@ -261,12 +340,10 @@ export default function CalendrierPage() {
                             />
                         )}
                     </div>
-                </div>
-                <div className="w-full lg:w-72 flex-shrink-0">
-                    <RappelsPanel />
-                </div>
+                </section>
             </main>
 
+            {/* ===== PANNEAUX MODAUX ===== */}
             {evenementSelectionne && (
                 <EventDetailsPanel
                     evenement={evenementSelectionne}
@@ -275,6 +352,17 @@ export default function CalendrierPage() {
                     onModifier={() => ouvrirEdition(evenementSelectionne)}
                     onAnnuler={() => annulerEvenement(evenementSelectionne)}
                     peutModifier={peutModifier}
+                />
+            )}
+
+            {operationSelectionnee && (
+                <OperationDetailsPanel
+                    operation={operationSelectionnee}
+                    onClose={() => { setOperationSelectionnee(null); setErreurOperation('') }}
+                    onDemarrer={demarrerIntervention}
+                    onCloturer={cloturerIntervention}
+                    enCours={demarrer.isPending || cloturer.isPending}
+                    erreur={erreurOperation}
                 />
             )}
 

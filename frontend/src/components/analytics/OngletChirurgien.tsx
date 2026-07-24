@@ -77,7 +77,7 @@ export default function OngletChirurgien({ opStats, loading }: { opStats: Operat
                     </h3>
                     <ResponsiveContainer width="100%" height={180}>
                         <PieChart>
-                            <Pie data={opStats.repartition_par_type} dataKey="nb" nameKey="type_intervention" innerRadius={42} outerRadius={65} paddingAngle={2}>
+                            <Pie data={opStats.repartition_par_type} dataKey="nb" nameKey="type_acte" innerRadius={42} outerRadius={65} paddingAngle={2}>
                                 {opStats.repartition_par_type.map((_, i) => (
                                     <Cell key={i} fill={['var(--ht-primary)', 'var(--ht-primary-tint)', '#e8a33d', '#6fb4d7', '#a78bd6', 'var(--ht-border-input)'][i % 6]} />
                                 ))}

@@ -23,6 +23,11 @@ class Capacite:
     RDV_LIRE                = 'rdv.lire'
     MORGUE_LIRE             = 'morgue.lire'
 
+    # Service des Admissions
+    ADMISSIONS_GERER        = 'admissions.gerer'           # créer un dossier administratif global (sans service)
+    PATIENTS_ORIENTER       = 'patients.orienter'           # affecter un patient admis à un service
+    ACCOMPAGNANTS_GERER     = 'accompagnants.gerer'         # traçabilité des accompagnants (contrôle d'accès)
+
     # Exclusives au Chef de Chirurgie
     BLOC_GERER              = 'bloc.gerer'                # transversal, indépendant du service
     HABILITATIONS_GERER     = 'habilitations.gerer'
@@ -60,6 +65,15 @@ CAPACITES_PAR_ROLE = {
     },
     'laborantin': {
         Capacite.DOSSIER_MEDICAL_LIRE,
+    },
+    'agent_admission': {
+        # Création globale (sans restriction de service) via /patients/admission/
+        # + affectation ultérieure d'un service via /patients/{id}/orienter/.
+        # PATIENTS_CREER est conservée pour compatibilité (ex. endpoint générique
+        # /patients/ encore accessible), mais le flux normal passe par ADMISSIONS_GERER.
+        Capacite.ADMISSIONS_GERER, Capacite.PATIENTS_ORIENTER,
+        Capacite.PATIENTS_CREER, Capacite.RDV_LIRE,
+        Capacite.ACCOMPAGNANTS_GERER,
     },
 
     # Uniquement ses capacités EXCLUSIVES — tout le reste (ACTES_MEDICAUX_GERER,

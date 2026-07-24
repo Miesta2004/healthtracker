@@ -237,11 +237,13 @@ export interface EvenementDispose<T> {
     indexColonne: number
 }
 
-export function disposerEvenements<T extends { start_time: string; end_time: string }>(
-    evenements: T[]
+export function disposerEvenements<T>(
+    evenements: T[],
+    obtenirDebut: (e: T) => string = (e) => (e as { start_time: string }).start_time,
+    obtenirFin: (e: T) => string = (e) => (e as { end_time: string }).end_time,
 ): EvenementDispose<T>[] {
     const tries = [...evenements].sort(
-        (a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime()
+        (a, b) => new Date(obtenirDebut(a)).getTime() - new Date(obtenirDebut(b)).getTime()
     )
 
     const resultats: EvenementDispose<T>[] = []
@@ -257,8 +259,8 @@ export function disposerEvenements<T extends { start_time: string; end_time: str
     }
 
     for (const evt of tries) {
-        const debut = new Date(evt.start_time).getTime()
-        const fin = new Date(evt.end_time).getTime()
+        const debut = new Date(obtenirDebut(evt)).getTime()
+        const fin = new Date(obtenirFin(evt)).getTime()
 
         if (debut >= finGroupe) {
             cloturerGroupe()
@@ -270,8 +272,8 @@ export function disposerEvenements<T extends { start_time: string; end_time: str
         const colonnesOccupees = new Set(
             groupeCourant
                 .filter(e => {
-                    const eDebut = new Date(e.evenement.start_time).getTime()
-                    const eFin = new Date(e.evenement.end_time).getTime()
+                    const eDebut = new Date(obtenirDebut(e.evenement)).getTime()
+                    const eFin = new Date(obtenirFin(e.evenement)).getTime()
                     return debut < eFin && fin > eDebut
                 })
                 .map(e => e.indexColonne)

@@ -57,21 +57,22 @@ class PatientViewSet(viewsets.ModelViewSet):
         if emp.service:
             qs = base_qs.filter(
                 Q(service=emp.service) |
-                Q(operations__service_chirurgie=emp.service, operations__statut__in=['planifiee', 'confirmee', 'en_cours']) |
+                Q(operations__service_chirurgie=emp.service, operations__statut__in=['programmee', 'en_cours']) |
                 Q(hospitalisations__service=emp.service, hospitalisations__statut='en_cours')
             ).distinct()
         else:
             qs = base_qs.all()
 
         # Chef de Chirurgie (capacité BLOC_GERER, transversale) : en plus de ce
-        # qui précède, il doit voir tout patient ayant une Operation n'importe
-        # où dans l'hôpital — y compris hors de son service, et sans filtrer
-        # par statut : une opération TERMINEE ou COMPLICATION reste pertinente
-        # (ex. dossier lié à une autopsie péri-opératoire), pas seulement les
-        # opérations encore actives couvertes par la règle générale ci-dessus.
+        # qui précède, il doit voir tout patient ayant une intervention
+        # chirurgicale n'importe où dans l'hôpital — y compris hors de son
+        # service, et sans filtrer par statut : une intervention TERMINEE ou
+        # DECES_AU_BLOC reste pertinente (ex. dossier lié à une autopsie
+        # péri-opératoire), pas seulement les interventions encore actives
+        # couvertes par la règle générale ci-dessus.
         if emp.a_la_capacite(Capacite.BLOC_GERER):
-            from chirurgie.models import Operation
-            patients_operes_ids = Operation.objects.values_list('patient_id', flat=True).distinct()
+            from chirurgie.models import InterventionChirurgicale
+            patients_operes_ids = InterventionChirurgicale.objects.values_list('patient_id', flat=True).distinct()
             qs = (qs | base_qs.filter(id__in=patients_operes_ids)).distinct()
 
         # Filtrage par recherche si paramètre q présent

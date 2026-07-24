@@ -1,7 +1,7 @@
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Rows3, Grid3x3, List } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Rows3, Grid3x3, List, Building2 } from 'lucide-react'
 import { joursDeSemaine } from './calendrierConfig'
 
-export type VueCalendrier = 'jour' | 'semaine' | 'mois' | 'agenda'
+export type VueCalendrier = 'jour' | 'semaine' | 'mois' | 'agenda' | 'bloc'
 
 interface Props {
     ancre: Date
@@ -23,11 +23,12 @@ const VUES: { value: VueCalendrier; label: string; Icon: typeof Rows3 }[] = [
     { value: 'semaine', label: 'Semaine', Icon: CalendarDays },
     { value: 'mois', label: 'Mois', Icon: Grid3x3 },
     { value: 'agenda', label: 'Agenda', Icon: List },
+    { value: 'bloc', label: 'Bloc opératoire', Icon: Building2 },
 ]
 
 function titreVue(ancre: Date, vue: VueCalendrier): string {
     if (vue === 'agenda') return 'Agenda'
-    if (vue === 'jour') {
+    if (vue === 'jour' || vue === 'bloc') {
         return ancre.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
     }
     if (vue === 'mois') {
@@ -101,9 +102,11 @@ export default function CalendarHeader({
                         </div>
                     ))}
                 </div>
-                <button onClick={onNouvelEvenement} className="btn btn-primary gap-1.5">
-                    <Plus size={16} /> Nouvel événement
-                </button>
+                {vue !== 'bloc' && (
+                    <button onClick={onNouvelEvenement} className="btn btn-primary gap-1.5">
+                        <Plus size={16} /> Nouvel événement
+                    </button>
+                )}
             </div>
         </div>
     )

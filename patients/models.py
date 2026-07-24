@@ -79,6 +79,41 @@ class Patient(Personne):
         related_name='patients'
     )
 
+    class StatutOrientation(models.TextChoices):
+        EN_ATTENTE_ORIENTATION = 'en_attente_orientation', "En attente d'orientation"
+        ORIENTE                = 'oriente',                'Orienté'
+        EN_CONSULTATION        = 'en_consultation',         'En consultation'
+        HOSPITALISE            = 'hospitalise',             'Hospitalisé'
+        SORTI                  = 'sorti',                   'Sorti'
+
+    statut_orientation = models.CharField(
+        max_length=25,
+        choices=StatutOrientation.choices,
+        default=StatutOrientation.EN_ATTENTE_ORIENTATION,
+        help_text="Parcours administratif du patient depuis son admission. "
+                  "Un patient créé par le Service des Admissions démarre à "
+                  "'en_attente_orientation' (pas encore de service) puis passe "
+                  "à 'oriente' une fois affecté à un service via l'action "
+                  "PATCH /patients/{id}/orienter/. Un patient créé directement "
+                  "par un service (secrétaire/médecin, hors admissions) est "
+                  "considéré 'oriente' d'emblée puisqu'il a déjà un service.",
+    )
+
+    # ── Contact d'urgence ────────────────────────────────────────────────────
+    contact_urgence_nom       = models.CharField(max_length=150, blank=True)
+    contact_urgence_telephone = models.CharField(max_length=20, blank=True)
+    contact_urgence_lien      = models.CharField(
+        max_length=50, blank=True,
+        help_text="Lien de parenté avec le patient (ex : conjoint, parent, ami)."
+    )
+
+    # ── Couverture sociale / mutuelle ────────────────────────────────────────
+    mutuelle        = models.CharField(
+        max_length=150, blank=True,
+        help_text="Nom de la mutuelle / assurance santé (vide = non couvert ou inconnu)."
+    )
+    numero_mutuelle = models.CharField(max_length=50, blank=True)
+
     def save(self, *args, **kwargs):
         # Génère un numéro de dossier automatique, garanti unique (vérifié en
         # base avant assignation, avec retry en cas de collision — corrige le
@@ -87,6 +122,13 @@ class Patient(Personne):
         if not self.numero_dossier:
             from healthtracker.identifiers import generer_identifiant_unique
             self.numero_dossier = generer_identifiant_unique(Patient, 'numero_dossier', 'P', 6)
+        # Un patient créé directement avec un service (flux historique : secrétaire/
+        # médecin d'un service, hors Admissions) est déjà "orienté" de fait — il ne
+        # doit pas rester bloqué au statut par défaut 'en_attente_orientation', qui
+        # est réservé au flux du Service des Admissions (création sans service via
+        # POST /patients/admission/, orientation ultérieure via /orienter/).
+        if self._state.adding and self.service_id and self.statut_orientation == self.StatutOrientation.EN_ATTENTE_ORIENTATION:
+            self.statut_orientation = self.StatutOrientation.ORIENTE
         super().save(*args, **kwargs)
 
     class Meta:
@@ -106,3 +148,62 @@ class Patient(Personne):
                 name='employe_sexe_validate',
             )
         ]
+
+
+class Accompagnant(models.Model):
+    """
+    Personne accompagnant un patient lors de son admission — traçabilité des
+    accès à l'établissement (identitovigilance) et point de contact rapide en
+    complément du contact d'urgence du patient (qui, lui, n'est pas forcément
+    présent physiquement). Un patient peut avoir plusieurs accompagnants au
+    fil du temps ; on garde l'historique plutôt que d'écraser (`statut` +
+    `date_sortie`) pour la traçabilité des accès plutôt qu'un simple champ
+    unique sur Patient.
+    """
+
+    class Statut(models.TextChoices):
+        PRESENT = 'present', 'Présent'
+        SORTI   = 'sorti',   'Sorti'
+
+    patient = models.ForeignKey(
+        Patient, on_delete=models.CASCADE,
+        related_name='accompagnants'
+    )
+    nom              = models.CharField(max_length=100)
+    prenom           = models.CharField(max_length=100)
+    lien_parente     = models.CharField(
+        max_length=50, blank=True,
+        help_text="Lien avec le patient (ex : conjoint, parent, enfant, ami)."
+    )
+    cni              = models.CharField(
+        max_length=30, blank=True,
+        help_text="Numéro de pièce d'identité présentée (CNI, passeport…) — "
+                  "utilisé pour la recherche inversée et le contrôle d'accès.",
+    )
+    telephone        = models.CharField(max_length=20, blank=True)
+    statut           = models.CharField(
+        max_length=10, choices=Statut.choices, default=Statut.PRESENT,
+        help_text="PRÉSENT tant que l'accompagnant n'a pas été pointé en sortie "
+                  "(contrôle d'accès) ; SORTI une fois son passage terminé.",
+    )
+    date_entree      = models.DateTimeField(auto_now_add=True)
+    date_sortie      = models.DateTimeField(null=True, blank=True)
+    enregistre_par   = models.ForeignKey(
+        'comptes.Employe', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='accompagnants_enregistres',
+        help_text="Agent ayant enregistré l'accompagnant (traçabilité)."
+    )
+
+    class Meta:
+        verbose_name = "Accompagnant"
+        verbose_name_plural = "Accompagnants"
+        ordering = ['-date_entree']
+        indexes = [
+            models.Index(fields=['nom', 'prenom'], name='accompagnant_nom_prenom_idx'),
+            models.Index(fields=['telephone'], name='accompagnant_telephone_idx'),
+            models.Index(fields=['cni'], name='accompagnant_cni_idx'),
+            models.Index(fields=['statut'], name='accompagnant_statut_idx'),
+        ]
+
+    def __str__(self):
+        return f"{self.prenom} {self.nom} (accompagnant de {self.patient})"

@@ -162,6 +162,33 @@ class PeutCreerPatient(RequiertCapacite):
     capacite = Capacite.PATIENTS_CREER
 
 
+class PeutAdmettrePatient(RequiertCapacite):
+    """
+    Création du dossier administratif de base par le Service des Admissions
+    (POST /patients/admission/) : agent d'admission (ou tout rôle héritant),
+    au niveau global — aucune restriction de service, à la différence de
+    PeutCreerPatient qui reste rattachée au service du créateur.
+    """
+    capacite = Capacite.ADMISSIONS_GERER
+
+
+class PeutOrienterPatient(RequiertCapacite):
+    """
+    Affectation d'un patient admis à un service (PATCH /patients/{id}/orienter/)
+    — réservée à l'agent d'admission (ou tout rôle héritant).
+    """
+    capacite = Capacite.PATIENTS_ORIENTER
+
+
+class PeutGererAccompagnants(RequiertCapacite):
+    """
+    Traçabilité des accompagnants (création, pointage entrée/sortie, contrôle
+    d'accès) — réservée à l'agent d'admission (ou tout rôle héritant), qui
+    tient le poste d'accueil/contrôle physique de l'établissement.
+    """
+    capacite = Capacite.ACCOMPAGNANTS_GERER
+
+
 class IsLectureAutorisee(RequiertCapacite):
     """Tous les rôles médicaux sauf secrétaire."""
     capacite = Capacite.DOSSIER_MEDICAL_LIRE

@@ -43,7 +43,7 @@ class Deces(models.Model):
     statut = models.CharField(max_length=25, choices=StatutDeces.choices, default=StatutDeces.DISPENSE_AUTOPSIE)
 
     operation_liee = models.ForeignKey(
-        'chirurgie.Operation', on_delete=models.SET_NULL, null=True, blank=True,
+        'chirurgie.InterventionChirurgicale', on_delete=models.SET_NULL, null=True, blank=True,
         related_name='deces_lies',
         help_text=(
             "À renseigner si le décès fait suite à une complication chirurgicale "

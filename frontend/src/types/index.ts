@@ -20,7 +20,77 @@ export interface Patient {
     service_nom?: string | null
     medecin_referent?: number | null
     medecin_nom?: string | null
+    statut_orientation?: StatutOrientation
+    statut_orientation_label?: string
+    contact_urgence_nom?: string
+    contact_urgence_telephone?: string
+    contact_urgence_lien?: string
+    mutuelle?: string
+    numero_mutuelle?: string
+    accompagnants?: Accompagnant[]
 }
+
+// ─── Accompagnants ─────────────────────────────────────────────────────────
+export type StatutAccompagnant = 'present' | 'sorti'
+
+export interface Accompagnant {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_prenom?: string
+    patient_dossier?: string
+    nom: string
+    prenom: string
+    lien_parente?: string
+    cni?: string
+    telephone?: string
+    statut: StatutAccompagnant
+    statut_label?: string
+    date_entree: string
+    date_sortie?: string | null
+    enregistre_par?: number | null
+    enregistre_par_nom?: string | null
+}
+
+// ─── Recherche & identitovigilance ─────────────────────────────────────────
+export interface PatientSearchResult {
+    id: number
+    nom: string
+    prenom: string
+    age?: number
+    date_naissance: string
+    sexe: 'M' | 'F'
+    telephone?: string
+    numero_dossier: string
+    service_nom?: string | null
+    statut_orientation: StatutOrientation
+    statut_orientation_label?: string
+    accompagnants_correspondants: Accompagnant[]
+}
+
+// ─── Badge / bracelet patient ──────────────────────────────────────────────
+export interface BadgePatient {
+    patient_id: number
+    numero_dossier: string
+    nom: string
+    prenom: string
+    date_naissance: string
+    sexe: 'M' | 'F'
+    service_nom: string
+    statut_orientation: StatutOrientation
+    groupe_sanguin: string
+    allergies: string
+    qr_payload: string
+    genere_le: string
+}
+
+// ─── Service des Admissions ───────────────────────────────────────────────
+export type StatutOrientation =
+    | 'en_attente_orientation'
+    | 'oriente'
+    | 'en_consultation'
+    | 'hospitalise'
+    | 'sorti'
 
 // ─── Rendez-vous ────────────────────────────────────────────────────────────
 export type StatutRendezVous = 'planifie' | 'confirme' | 'annule' | 'termine'
@@ -109,7 +179,7 @@ export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annule
 export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
 
 // ─── Comptes / Employés ─────────────────────────────────────────────────────
-export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie'
+export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie' | 'agent_admission'
 
 export type TypeContrat = 'cdi' | 'cdd' | 'stage' | 'vacation' | 'benevolat' | ''
 
@@ -447,14 +517,18 @@ export interface MesPatientsAssignesResponse {
 }
 
 // ─── Chirurgie / Opérations ──────────────────────────────────────────────────
-export type StatutOperation = 'planifiee' | 'confirmee' | 'en_cours' | 'terminee' | 'complication' | 'reportee' | 'annulee'
+export type StatutSalleBloc = 'disponible' | 'occupe' | 'desinfection_approfondie' | 'maintenance'
+export type StatutIntervention = 'programmee' | 'en_cours' | 'terminee' | 'deces_au_bloc' | 'annulee'
+/** @deprecated conservé pour compatibilité — utiliser StatutIntervention */
+export type StatutOperation = StatutIntervention
 
 export interface SalleBloc {
     id: number
     nom: string
     service: number
     service_nom?: string
-    actif: boolean
+    statut: StatutSalleBloc
+    statut_label?: string
 }
 
 export interface Operation {
@@ -472,18 +546,19 @@ export interface Operation {
     chirurgien_nom?: string
     chirurgien_prenom?: string
     equipe: number[]
-    type_intervention: string
-    date_heure_prevue: string
-    duree_estimee_min: number
+    type_acte: string
+    heure_debut: string
+    heure_fin: string
     date_debut_reelle: string | null
     date_fin_reelle: string | null
-    statut: StatutOperation
+    statut: StatutIntervention
     statut_label: string
     compte_rendu_operatoire: string
     complications: string
     date_creation: string
     date_modification: string
 }
+
 
 export type TypeEvenementRdv = 'consultation' | 'intervention' | 'reunion' | 'garde' | 'visite_postoperatoire' | 'autre'
 
@@ -593,7 +668,7 @@ export interface InterventionRecenteReelle {
     type: string
     chirurgien: string
     duree: string | null
-    issue: 'succes' | 'complication'
+    issue: 'succes' | 'deces_au_bloc'
 }
 
 export interface ChirurgienPerfReelle {
@@ -610,7 +685,7 @@ export interface OperationStats {
     nb_interventions: number
     duree_moyenne_min: number | null
     taux_succes: number | null
-    repartition_par_type: { type_intervention: string; nb: number }[]
+    repartition_par_type: { type_acte: string; nb: number }[]
     evolution_hebdo: { semaine: string; nb: number }[]
     dernieres_interventions: InterventionRecenteReelle[]
     par_chirurgien: ChirurgienPerfReelle[]
