@@ -44,8 +44,13 @@ export default function EventDetailsPanel({ evenement, medecinLabel, onClose, on
                 >
                     <div className="ht-card-header justify-between" style={{ borderColor: 'var(--ht-border)' }}>
                         <div className="flex items-center gap-2">
-                            <cfg.Icon size={16} style={{ color: cfg.color }} />
-                            <h3>{cfg.label}</h3>
+                            <div
+                                className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ backgroundColor: cfg.bg }}
+                            >
+                                <cfg.Icon size={16} style={{ color: cfg.text }} />
+                            </div>
+                            <h3 className="text-base font-semibold">{cfg.label}</h3>
                         </div>
                         <button onClick={onClose} style={{ color: 'var(--ht-text-muted)' }}>
                             <X size={18} />
@@ -68,10 +73,10 @@ export default function EventDetailsPanel({ evenement, medecinLabel, onClose, on
                         </div>
 
                         <div className="ht-card p-3 space-y-2">
-                            <p className="text-sm font-medium" style={{ color: 'var(--ht-text)' }}>
+                            <p className="text-[15px] font-semibold capitalize" style={{ color: 'var(--ht-text)' }}>
                                 {debut.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}
                             </p>
-                            <p className="text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
+                            <p className="text-sm font-medium" style={{ color: 'var(--ht-text-secondary)' }}>
                                 {debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                 {' – '}
                                 {fin.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
