@@ -235,6 +235,26 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
         })
 
     @action(detail=True, methods=['post'])
+    def annuler(self, request, pk=None):
+        """
+        programmee → annulee. Volontairement restreint à 'programmee' : une
+        fois l'intervention en_cours, on ne l'« annule » plus, on la clôture
+        (terminee ou deces_au_bloc) — cf. cloturer().
+        """
+        intervention = self.get_object()
+        self.check_object_permissions(request, intervention)
+        if intervention.statut != StatutIntervention.PROGRAMMEE:
+            return Response({'detail': "Seule une intervention programmée peut être annulée."}, status=400)
+
+        intervention.statut = StatutIntervention.ANNULEE
+        motif = request.data.get('motif')
+        if motif:
+            intervention.complications = motif
+        intervention.save(update_fields=['statut', 'complications', 'date_modification'])
+
+        return Response(InterventionChirurgicaleSerializer(intervention).data)
+
+    @action(detail=True, methods=['post'])
     def demarrer(self, request, pk=None):
         """programmee → en_cours, horodate le début réel, occupe la salle."""
         intervention = self.get_object()

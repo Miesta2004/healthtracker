@@ -15,7 +15,7 @@ import CalendarBlocOperatoireView from '../components/calendrier/CalendarBlocOpe
 import OperationDetailsPanel from '../components/calendrier/OperationDetailsPanel'
 import EventFormDialog, { type EventFormInitial } from '../components/calendrier/EventFormDialog'
 import EventDetailsPanel from '../components/calendrier/EventDetailsPanel'
-import { useSallesBloc, useOperationsPlanning, useModifierOperation, useDemarrerOperation, useCloturerOperation } from '../hooks/useBlocOperatoire'
+import { useSallesBloc, useOperationsPlanning, useModifierOperation, useAnnulerOperation, useDemarrerOperation, useCloturerOperation } from '../hooks/useBlocOperatoire'
 import {
     TYPE_EVENEMENT_CONFIG, joursDeSemaine, joursGrilleMois, toISODate, AGENDA_JOURS_A_VENIR,
     extraireMessageErreur,
@@ -62,6 +62,7 @@ export default function CalendrierPage() {
     const { data: salles, isLoading: sallesEnChargement } = useSallesBloc(user?.service ?? undefined, enBloc)
     const { data: planningBloc, isLoading: blocEnChargement } = useOperationsPlanning(toISODate(ancre), toISODate(ancre), enBloc)
     const modifierOperation = useModifierOperation()
+    const annulerOp = useAnnulerOperation()
     const demarrer = useDemarrerOperation()
     const cloturer = useCloturerOperation()
     const [erreurOperation, setErreurOperation] = useState('')
@@ -192,6 +193,24 @@ export default function CalendrierPage() {
         })
     }
 
+    const annulerIntervention = () => {
+        if (!operationSelectionnee) return
+        setErreurOperation('')
+        annulerOp.mutate({ id: operationSelectionnee.id }, {
+            onSuccess: () => setOperationSelectionnee(null),
+            onError: (err) => setErreurOperation(extraireMessageErreur(err)),
+        })
+    }
+
+    const modifierEquipeOperation = (ids: number[]) => {
+        if (!operationSelectionnee) return
+        setErreurOperation('')
+        modifierOperation.mutate({ id: operationSelectionnee.id, data: { equipe: ids } }, {
+            onSuccess: (mise_a_jour) => setOperationSelectionnee(mise_a_jour),
+            onError: (err) => setErreurOperation(extraireMessageErreur(err)),
+        })
+    }
+
     const cloturerIntervention = (data: { resultat: 'terminee' | 'deces_au_bloc'; compte_rendu_operatoire: string; complications?: string }) => {
         if (!operationSelectionnee) return
         setErreurOperation('')
@@ -228,7 +247,7 @@ export default function CalendrierPage() {
                 </section>
 
                 {/* ===== SECTION 3 : CALENDRIER ===== */}
-                <section className="mb-6">
+                <section>
                     <PageHeader
                         title="Calendrier"
                         subtitle="Vue d'ensemble des consultations, interventions et gardes"
@@ -236,27 +255,29 @@ export default function CalendrierPage() {
                     />
 
                     {/* Filtres */}
-                    <div className="flex flex-wrap gap-2 mt-4">
-                        {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
-                            const cfg = TYPE_EVENEMENT_CONFIG[t]
-                            const actif = typesActifs.has(t)
-                            return (
-                                <button
-                                    key={t}
-                                    onClick={() => toggleType(t)}
-                                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
-                                    style={{
-                                        borderColor: actif ? cfg.text : 'var(--ht-border-input)',
-                                        backgroundColor: actif ? cfg.bg : 'transparent',
-                                        color: actif ? cfg.text : 'var(--ht-text-muted)',
-                                        opacity: actif ? 1 : 0.6,
-                                    }}
-                                >
-                                    <cfg.Icon size={12} /> {cfg.label}
-                                </button>
-                            )
-                        })}
-                    </div>
+                    {!enBloc && (
+                        <div className="flex flex-wrap gap-2 mt-4">
+                            {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
+                                const cfg = TYPE_EVENEMENT_CONFIG[t]
+                                const actif = typesActifs.has(t)
+                                return (
+                                    <button
+                                        key={t}
+                                        onClick={() => toggleType(t)}
+                                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-all"
+                                        style={{
+                                            borderColor: actif ? cfg.text : 'var(--ht-border-input)',
+                                            backgroundColor: actif ? cfg.bg : 'transparent',
+                                            color: actif ? cfg.text : 'var(--ht-text-muted)',
+                                            opacity: actif ? 1 : 0.6,
+                                        }}
+                                    >
+                                        <cfg.Icon size={12} /> {cfg.label}
+                                    </button>
+                                )
+                            })}
+                        </div>
+                    )}
 
                     {/* En-tête navigation */}
                     <div className="mt-4">
@@ -359,9 +380,11 @@ export default function CalendrierPage() {
                 <OperationDetailsPanel
                     operation={operationSelectionnee}
                     onClose={() => { setOperationSelectionnee(null); setErreurOperation('') }}
+                    onAnnuler={annulerIntervention}
                     onDemarrer={demarrerIntervention}
                     onCloturer={cloturerIntervention}
-                    enCours={demarrer.isPending || cloturer.isPending}
+                    onModifierEquipe={modifierEquipeOperation}
+                    enCours={demarrer.isPending || cloturer.isPending || annulerOp.isPending || modifierOperation.isPending}
                     erreur={erreurOperation}
                 />
             )}

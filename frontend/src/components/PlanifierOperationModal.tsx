@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { X, Stethoscope, Calendar, DoorOpen, AlertTriangle } from 'lucide-react'
 import { getServices, getServiceEmployes } from '../api/services'
 import { getSallesDisponibles, createOperation } from '../api/chirurgie'
+import EquipePicker from './EquipePicker'
 import type { Service, Employe, SalleBloc, Operation } from '../types'
 
 interface Props {
@@ -27,6 +28,8 @@ export default function PlanifierOperationModal({ patientId, consultationId, onC
     const [salles, setSalles] = useState<SalleBloc[]>([])
     const [loadingSalles, setLoadingSalles] = useState(false)
     const [salleId, setSalleId] = useState<number | null>(null)
+
+    const [equipeIds, setEquipeIds] = useState<number[]>([])
 
     const [submitting, setSubmitting] = useState(false)
     const [erreur, setErreur] = useState('')
@@ -77,7 +80,7 @@ export default function PlanifierOperationModal({ patientId, consultationId, onC
                 service_chirurgie: serviceId,
                 salle: salleId,
                 chirurgien_principal: chirurgienId,
-                equipe: [],
+                equipe: equipeIds,
                 type_acte: typeIntervention.trim(),
                 heure_debut: debutISO.toISOString(),
                 heure_fin: finISO.toISOString(),
@@ -181,6 +184,12 @@ export default function PlanifierOperationModal({ patientId, consultationId, onC
                                 ))}
                             </div>
                         )}
+                    </div>
+                )}
+
+                {serviceId && (
+                    <div className="ht-field">
+                        <EquipePicker serviceId={serviceId} selectionnes={equipeIds} onChange={setEquipeIds} />
                     </div>
                 )}
 

@@ -58,7 +58,7 @@ CAPACITES_PAR_ROLE = {
     },
     'infirmier': {
         Capacite.SIGNES_VITAUX_SAISIR, Capacite.DOSSIER_MEDICAL_LIRE,
-        Capacite.RDV_LIRE, Capacite.MORGUE_LIRE,
+        Capacite.RDV_LIRE,
     },
     'secretaire': {
         Capacite.PATIENTS_CREER, Capacite.RDV_LIRE, Capacite.MORGUE_LIRE,

@@ -12,6 +12,7 @@ class EmployeSerializer(serializers.ModelSerializer):
     type_contrat_label = serializers.CharField(source='get_type_contrat_display', read_only=True)
     age                = serializers.IntegerField(read_only=True)
     service_nom        = serializers.CharField(source='service.nom', default=None, read_only=True)
+    specialite_principale_nom = serializers.CharField(source='specialite_principale.nom', default=None, read_only=True)
     capacites          = serializers.SerializerMethodField()
     roles_effectifs    = serializers.ListField(read_only=True)
 
@@ -22,6 +23,7 @@ class EmployeSerializer(serializers.ModelSerializer):
             'nom', 'prenom', 'date_naissance', 'sexe', 'age',
             'telephone', 'adresse', 'photo_path',
             'role', 'role_label', 'specialite', 'matricule', 'actif', 'est_major',
+            'specialite_principale', 'specialite_principale_nom',
             'capacites', 'roles_effectifs',
             'service', 'service_nom',
             'type_contrat', 'type_contrat_label',
@@ -128,7 +130,7 @@ class HabilitationServiceSerializer(serializers.ModelSerializer):
     def validate_employe(self, employe):
         """
         Une habilitation n'a de sens que pour un profil pouvant opérer
-        (capacité ACTES_MEDICAUX_GERER) — cf. Operation.chirurgien_principal,
+        (capacité ACTES_MEDICAUX_GERER) — cf. InterventionChirurgicale.chirurgien_principal,
         qui utilise exactement le même filtre. On réutilise la capacité
         plutôt qu'un rôle en dur pour rester cohérent si de nouveaux rôles
         héritant de médecin apparaissent plus tard.

@@ -53,16 +53,26 @@ class ServiceAPITest(TestCase):
         self.service = Service.objects.create(nom="Urgences")
         self.admin_user, self.admin = creer_employe("admin1", "admin", service=self.service)
         self.medecin_user, self.medecin = creer_employe("medecin1", "medecin", service=self.service)
+        self.superuser = User.objects.create_user(
+            username="directeur", password="testpass123", is_superuser=True,
+        )
 
         self.client = APIClient()
         self.service_data = {"nom": "Pédiatrie", "description": "Service pédiatrie"}
 
-    def test_creer_service_admin(self):
-        """Vérifie qu'un admin peut créer un service"""
-        self.client.force_authenticate(user=self.admin_user)
+    def test_creer_service_superuser(self):
+        """Vérifie que le superuser (directeur d'hôpital) peut créer un service"""
+        self.client.force_authenticate(user=self.superuser)
         response = self.client.post('/api/services/', self.service_data)
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data['nom'], 'Pédiatrie')
+
+    def test_creer_service_admin_refuse(self):
+        """Vérifie qu'un chef de service (rôle admin, non superuser) ne peut pas créer de service —
+        seul le directeur d'hôpital (superuser) gère la liste des services."""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post('/api/services/', self.service_data)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_creer_service_non_admin_refuse(self):
         """Vérifie qu'un non-admin ne peut pas créer de service"""

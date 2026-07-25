@@ -32,7 +32,7 @@ from disponibilites.models import (
 )
 from morgue.models import Deces, Autopsie, LieuDeces, StatutDeces, TypeAutopsie
 from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
-from chirurgie.models import Operation, SalleBloc, StatutOperation
+from chirurgie.models import InterventionChirurgicale, SalleBloc, StatutIntervention
 
 @transaction.atomic
 def run_seed():
@@ -59,7 +59,7 @@ def run_seed():
         (AssignationPatient, "assignation(s) infirmier ↔ patient"),
         (DemandeAnalyse,  "demande(s) d'analyse"),
         (PassageUrgence,  "passage(s) urgences"),
-        (Operation,       "opération(s) chirurgicale(s)"),
+        (InterventionChirurgicale, "opération(s) chirurgicale(s)"),
         (SalleBloc,       "salle(s) de bloc"),
         (Antecedent,      "antécédent(s) détaillé(s)"),
         (Hospitalisation, "hospitalisation(s)"),
@@ -1441,12 +1441,29 @@ def run_seed():
 
     deja_hospitalises = set()
 
-    def creer_hospitalisation(patient, svc_h, medecin_h, offset_jours=0):
+    def creer_hospitalisation(patient, svc_h, medecin_h, offset_jours=0, forcer_active=False):
         nonlocal total_hosp
-        jours_ecoul = random.randint(5, JOURS_HISTORIQUE - 5)
-        d_admis = now - timedelta(days=max(jours_ecoul - offset_jours, 2))
-        duree = random.randint(3, 21)
-        est_terminee = (d_admis + timedelta(days=duree)) < now
+        if forcer_active:
+            # Garantit un séjour EN COURS aujourd'hui : admission récente (1 à
+            # 12 jours) + sortie prévue dans le futur. Sans ça, un tirage
+            # purement aléatoire de la durée (3-21j) sur un historique de 180
+            # jours ne laisse qu'environ 10% de chances qu'un séjour soit
+            # encore actif — la "couverture garantie par service" ne
+            # garantissait donc quasiment jamais de patients réellement
+            # hospitalisés aujourd'hui, seulement des séjours déjà clos.
+            jours_admis = random.randint(1, 12)
+            d_admis = now - timedelta(days=jours_admis)
+            duree = jours_admis + random.randint(2, 15)  # dépasse toujours "aujourd'hui"
+            statut = StatutHospitalisation.EN_COURS
+        else:
+            jours_ecoul = random.randint(5, JOURS_HISTORIQUE - 5)
+            d_admis = now - timedelta(days=max(jours_ecoul - offset_jours, 2))
+            duree = random.randint(3, 21)
+            statut = (
+                StatutHospitalisation.TERMINEE
+                if (d_admis + timedelta(days=duree)) < now
+                else StatutHospitalisation.EN_COURS
+            )
         hosp = Hospitalisation.objects.create(
             patient=patient, service=svc_h, medecin_responsable=medecin_h,
             chambre=random.choice(CHAMBRES), lit=random.choice(LITS),
@@ -1454,9 +1471,9 @@ def run_seed():
             diagnostic_entree=random.choice(DIAGNOSTICS),
             date_admission=d_admis,
             date_sortie_prevue=(d_admis + timedelta(days=duree)).date(),
-            statut=StatutHospitalisation.TERMINEE if est_terminee else StatutHospitalisation.EN_COURS,
+            statut=statut,
         )
-        if est_terminee:
+        if statut == StatutHospitalisation.TERMINEE:
             hosp.date_sortie = d_admis + timedelta(days=duree)
             hosp.diagnostic_sortie = random.choice(DIAG_HOSP_SORTIE)
             hosp.save()
@@ -1464,9 +1481,12 @@ def run_seed():
         deja_hospitalises.add(patient.id)
         return hosp
 
-    # Phase A — couverture garantie : au moins quelques hospitalisations dans
-    # CHAQUE service clinique (le Laboratoire n'admet pas de patients, il n'a
-    # pas de médecin donc pas de médecin_responsable possible).
+    # Phase A — couverture garantie : au moins MIN_HOSP_PAR_SERVICE patients
+    # RÉELLEMENT hospitalisés (statut EN_COURS) dans CHAQUE service clinique
+    # (le Laboratoire n'admet pas de patients, il n'a pas de médecin donc pas
+    # de médecin_responsable possible) — forcer_active=True pour que ça se
+    # traduise bien par des séjours actifs visibles dans les dashboards, pas
+    # par des séjours déjà clôturés.
     MIN_HOSP_PAR_SERVICE = 10
     for svc_nom, svc_obj in services.items():
         if svc_nom == "Laboratoire":
@@ -1482,7 +1502,7 @@ def run_seed():
             candidats = random.sample(patients_data, k=min(MIN_HOSP_PAR_SERVICE, len(patients_data)))
         n = min(MIN_HOSP_PAR_SERVICE, len(candidats))
         for pdata in random.sample(candidats, k=n):
-            creer_hospitalisation(pdata[0], svc_obj, random.choice(medecins_svc))
+            creer_hospitalisation(pdata[0], svc_obj, random.choice(medecins_svc), forcer_active=True)
 
     # Phase B — volume additionnel organique, réparti selon le médecin référent
     # du patient (peut cumuler 2 séjours pour les profils lourds).
@@ -1538,24 +1558,23 @@ def run_seed():
     total_operations = 0
 
     # Créer 2-3 salles par service chirurgical
+    # (SalleBloc n'a plus de champ `actif` — le statut par défaut est DISPONIBLE)
     services_chirurgie = [s for n, s in services.items() if n in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
     salles_bloc = {}
     for svc in services_chirurgie:
         nb_salles = random.randint(2, 3)
         for i in range(1, nb_salles + 1):
-            salle = SalleBloc.objects.create(
-                nom=f"Salle {i}", service=svc, actif=True
-            )
+            salle = SalleBloc.objects.create(nom=f"Salle {i}", service=svc)
             salles_bloc[svc.id] = salles_bloc.get(svc.id, []) + [salle]
             total_salles += 1
 
-    # Créer 30-50 opérations programmées liées aux hospitalisations
+    # Créer des interventions liées aux hospitalisations
     chirurgiens_list = [e for e in employes if e.role == 'medecin'
                         and e.service and e.service.nom in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
 
     operations_data = []
     for hosp in random.sample(list(Hospitalisation.objects.all()), k=min(40, Hospitalisation.objects.count())):
-        # Créer une opération pour environ 40% des hospitalisations
+        # Créer une intervention pour environ 40% des hospitalisations
         if not hosp.patient or not hosp.service or random.random() > 0.4:
             continue
         if not hosp.service.id in salles_bloc:
@@ -1563,7 +1582,8 @@ def run_seed():
 
         salle = random.choice(salles_bloc[hosp.service.id])
         chirurgien = None
-        # Trouver un chirurgien habilité
+        # Trouver un chirurgien du même service (cohérent avec la validation
+        # d'habilitation du modèle, même si .create() ne l'exécute pas)
         for chir in chirurgiens_list:
             if chir.service_id == hosp.service.id or chir.service is None:
                 chirurgien = chir
@@ -1573,64 +1593,71 @@ def run_seed():
         if not chirurgien:
             continue
 
-        # Date de l'opération pendant l'hospitalisation
+        # Date de l'intervention pendant l'hospitalisation
         date_fin = (hosp.date_sortie or now).date()
-
-        nb_jours = max(
-            1,
-            (date_fin - hosp.date_admission.date()).days
-        )
-
-        d_op = hosp.date_admission + timedelta(
-            days=random.randint(1, nb_jours)
-        )
-        heure_op = datetime.combine(d_op.date(), datetime.min.time()).replace(hour=random.randint(8, 16))
+        nb_jours = max(1, (date_fin - hosp.date_admission.date()).days)
+        d_op = hosp.date_admission + timedelta(days=random.randint(1, nb_jours))
+        heure_debut = datetime.combine(d_op.date(), datetime.min.time()).replace(hour=random.randint(8, 16))
 
         duree_prevue = random.randint(60, 180)
+        heure_fin = heure_debut + timedelta(minutes=duree_prevue)
+
+        # Plus de statut CONFIRMEE ni COMPLICATION dans le nouveau modèle :
+        # PROGRAMMEE, EN_COURS, TERMINEE, DECES_AU_BLOC, ANNULEE.
         statut_op = random.choices(
-            [StatutOperation.TERMINEE, StatutOperation.EN_COURS, StatutOperation.CONFIRMEE, StatutOperation.COMPLICATION],
-            weights=[0.65, 0.15, 0.15, 0.05]
+            [StatutIntervention.TERMINEE, StatutIntervention.EN_COURS,
+             StatutIntervention.PROGRAMMEE, StatutIntervention.ANNULEE,
+             StatutIntervention.DECES_AU_BLOC],
+            weights=[0.65, 0.15, 0.15, 0.03, 0.02]
         )[0]
 
-        # date_debut_reelle/date_fin_reelle : uniquement pour les opérations
-        # effectivement passées au bloc — alimente le "temps opératoire moyen"
-        # réel (Analytics > Qualité). Une complication rallonge un peu la durée
-        # réelle par rapport à l'estimation, ce qui reste réaliste.
+        # date_debut_reelle/date_fin_reelle : uniquement pour les interventions
+        # effectivement passées au bloc.
         debut_reel = fin_reel = None
-        if statut_op in (StatutOperation.TERMINEE, StatutOperation.COMPLICATION):
-            debut_reel = heure_op + timedelta(minutes=random.randint(-10, 20))
-            duree_reelle = duree_prevue + (random.randint(20, 60) if statut_op == StatutOperation.COMPLICATION else random.randint(-15, 15))
+        if statut_op in (StatutIntervention.TERMINEE, StatutIntervention.DECES_AU_BLOC):
+            debut_reel = heure_debut + timedelta(minutes=random.randint(-10, 20))
+            duree_reelle = duree_prevue + random.randint(-15, 30)
             fin_reel = debut_reel + timedelta(minutes=max(20, duree_reelle))
 
+        # Les complications sont un champ texte indépendant du statut (sauf
+        # DECES_AU_BLOC, où une cause est quasi systématique).
+        if statut_op == StatutIntervention.DECES_AU_BLOC:
+            complications_txt = random.choice([
+                "Arrêt cardio-circulatoire per-opératoire réfractaire à la réanimation.",
+                "Choc hémorragique incontrôlable malgré transfusion massive.",
+                "Complication anesthésique majeure ayant conduit au décès au bloc.",
+            ])
+        elif statut_op == StatutIntervention.TERMINEE and random.random() < 0.12:
+            complications_txt = random.choice([
+                "Hémorragie post-opératoire nécessitant reprise partielle de l'hémostase.",
+                "Infection du site opératoire, mise sous antibiothérapie.",
+                "Complication anesthésique mineure, surveillance rapprochée en SSPI.",
+                "Déhiscence partielle de la plaie, reprise au bloc.",
+            ])
+        else:
+            complications_txt = ""
+
         try:
-            op = Operation.objects.create(
+            op = InterventionChirurgicale.objects.create(
                 patient=hosp.patient,
                 consultation_indication=random.choice(consultations_par_patient.get(hosp.patient.id, [])) if consultations_par_patient.get(hosp.patient.id) else None,
                 hospitalisation=hosp,
                 service_chirurgie=hosp.service,
                 salle=salle,
                 chirurgien_principal=chirurgien,
-                type_intervention=random.choice(MOTIFS_OPERATION),
-                date_heure_prevue=heure_op,
-                duree_estimee_min=duree_prevue,
+                type_acte=random.choice(MOTIFS_OPERATION),
+                heure_debut=heure_debut,
+                heure_fin=heure_fin,
                 date_debut_reelle=debut_reel,
                 date_fin_reelle=fin_reel,
                 statut=statut_op,
-                compte_rendu_operatoire="Acte chirurgical réalisé sans incident majeur. Suites opératoires simples attendues." if statut_op == StatutOperation.TERMINEE and random.random() > 0.2 else "",
-                complications=(
-                    random.choice([
-                        "Hémorragie post-opératoire nécessitant reprise partielle de l'hémostase.",
-                        "Infection du site opératoire, mise sous antibiothérapie.",
-                        "Complication anesthésique mineure, surveillance rapprochée en SSPI.",
-                        "Déhiscence partielle de la plaie, reprise au bloc.",
-                    ]) if statut_op == StatutOperation.COMPLICATION
-                    else ("Saignement contrôlé per-opératoire, hémostase complète." if random.random() < 0.05 else "")
-                ),
+                compte_rendu_operatoire="Acte chirurgical réalisé sans incident majeur. Suites opératoires simples attendues." if statut_op == StatutIntervention.TERMINEE and not complications_txt else "",
+                complications=complications_txt,
             )
             operations_data.append(op)
             total_operations += 1
 
-            # Assigner une équipe à l'opération
+            # Assigner une équipe à l'intervention
             if random.random() > 0.4:
                 assistants = random.sample(
                     [e for e in employes if e.role in ['medecin', 'infirmier'] and e.service_id == hosp.service.id],
@@ -1639,9 +1666,9 @@ def run_seed():
                 for asst in assistants:
                     op.equipe.add(asst)
         except Exception as e:
-            pass  # Conflit de salle ou autre constraint - skip silencieusement
+            pass  # Conflit de salle ou autre contrainte - skip silencieusement
 
-    print(f"✅ {total_salles} salles de bloc, {total_operations} opérations chirurgicales\n")
+    print(f"✅ {total_salles} salles de bloc, {total_operations} interventions chirurgicales\n")
 
     # ─── URGENCES ─────────────────────────────────────────────────────────────────
     print("🚑 Urgences...")
@@ -1851,6 +1878,11 @@ def run_seed():
     print(f"✅ {total_assignations} assignations (matin/après-midi/nuit) sur "
           f"{len(hospitalisations_actives)} hospitalisations en cours et "
           f"{len(hospitalisations_recentes)} sorties récentes\n")
+    print("   ℹ️  Ces assignations couvrent la journée du seed. Si tu relances la démo\n"
+          "      un autre jour sans reseed complet, topup les postes du jour avec :\n"
+          "      python manage.py assigner_shifts_jour --tous-les-postes\n"
+          "      (idempotent, ne touche pas aux données existantes — et de toute façon,\n"
+          "      la vue infirmier s'auto-assigne aussi toute seule si besoin.)\n")
 
     # ─── MORGUE (DÉCÈS / AUTOPSIES) ─────────────────────────────────────────────────
     # Reproduit volontairement la logique de DecesViewSet.perform_create (seul

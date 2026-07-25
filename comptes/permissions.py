@@ -39,8 +39,10 @@ def same_service(emp, obj):
     """
     Vérifie qu'un objet appartient au même service qu'un employé (chef de
     service). `obj` peut être : un Service (son id fait foi), un Employe ou
-    tout modèle avec un champ `service`, ou tout modèle avec un champ
-    `employe` (ex. CreneauDisponibilite, ExceptionDisponibilite).
+    tout modèle avec un champ `service`, un modèle avec un champ `employe`
+    (ex. CreneauDisponibilite, ExceptionDisponibilite), ou un modèle sans
+    service propre mais rattaché à un patient (ex. RendezVous), dont le
+    service se déduit alors de `obj.patient.service`.
     """
     from services.models import Service
 
@@ -50,6 +52,8 @@ def same_service(emp, obj):
         target_service_id = obj.service_id
     elif hasattr(obj, 'employe'):
         target_service_id = obj.employe.service_id
+    elif hasattr(obj, 'patient') and obj.patient is not None:
+        target_service_id = obj.patient.service_id
     else:
         target_service_id = None
 

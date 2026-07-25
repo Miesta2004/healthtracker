@@ -62,6 +62,11 @@ export const deleteOperation = async (id: number): Promise<void> => {
 // Pas de confirmerOperation() : le statut 'confirmee' n'existe plus dans le
 // nouveau modèle très simplifié (programmee → en_cours → terminee|deces_au_bloc).
 
+export const annulerOperation = async (id: number, motif?: string): Promise<Operation> => {
+    const response = await api.post(`/operations/${id}/annuler/`, motif ? { motif } : {})
+    return response.data
+}
+
 export const demarrerOperation = async (id: number): Promise<Operation> => {
     const response = await api.post(`/operations/${id}/demarrer/`)
     return response.data

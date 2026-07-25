@@ -1,19 +1,24 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Stethoscope, Building2, Users, PlayCircle, TriangleAlert } from 'lucide-react'
+import { X, Stethoscope, Building2, PlayCircle, TriangleAlert, Ban } from 'lucide-react'
 import type { Operation } from '../../types'
-import { STATUT_INTERVENTION_CONFIG } from '../../utils/blocOperatoireConfig.ts'
+import { STATUT_INTERVENTION_CONFIG } from '../../utils/blocOperatoireConfig'
+import EquipePicker from '../EquipePicker'
 
 interface Props {
     operation: Operation
     onClose: () => void
+    onAnnuler: () => void
     onDemarrer: () => void
     onCloturer: (data: { resultat: 'terminee' | 'deces_au_bloc'; compte_rendu_operatoire: string; complications?: string }) => void
+    onModifierEquipe: (ids: number[]) => void
     enCours?: boolean
     erreur?: string
 }
 
-export default function OperationDetailsPanel({ operation, onClose, onDemarrer, onCloturer, enCours, erreur }: Props) {
+export default function OperationDetailsPanel({
+                                                  operation, onClose, onAnnuler, onDemarrer, onCloturer, onModifierEquipe, enCours, erreur,
+                                              }: Props) {
     const cfg = STATUT_INTERVENTION_CONFIG[operation.statut]
     const debut = new Date(operation.heure_debut)
     const fin = new Date(operation.heure_fin)
@@ -37,6 +42,11 @@ export default function OperationDetailsPanel({ operation, onClose, onDemarrer, 
         )
         if (!confirmation) return
         onCloturer({ resultat: 'deces_au_bloc', compte_rendu_operatoire: compteRendu, complications })
+    }
+
+    const annuler = () => {
+        if (!window.confirm("Annuler cette intervention programmée ?")) return
+        onAnnuler()
     }
 
     return (
@@ -105,19 +115,30 @@ export default function OperationDetailsPanel({ operation, onClose, onDemarrer, 
                             </p>
                         </div>
 
-                        {operation.equipe.length > 0 && (
-                            <div className="flex items-start gap-2">
-                                <Users size={15} style={{ color: 'var(--ht-text-muted)', marginTop: 2 }} />
-                                <p className="text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
-                                    {operation.equipe.length} membre{operation.equipe.length > 1 ? 's' : ''} d'équipe assigné{operation.equipe.length > 1 ? 's' : ''}
-                                </p>
-                            </div>
+                        {(operation.statut === 'programmee' || operation.statut === 'en_cours') ? (
+                            <EquipePicker
+                                serviceId={operation.service_chirurgie}
+                                selectionnes={operation.equipe}
+                                onChange={onModifierEquipe}
+                            />
+                        ) : operation.equipe.length > 0 && (
+                            <p className="text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
+                                {operation.equipe.length} membre{operation.equipe.length > 1 ? 's' : ''} d'équipe assigné{operation.equipe.length > 1 ? 's' : ''}
+                            </p>
                         )}
 
                         {operation.statut === 'programmee' && (
-                            <button onClick={onDemarrer} disabled={enCours} className="btn btn-primary w-full justify-center gap-1.5">
-                                <PlayCircle size={15} /> Démarrer l'intervention
-                            </button>
+                            <div className="flex flex-col gap-2">
+                                <button onClick={onDemarrer} disabled={enCours} className="btn btn-primary w-full justify-center gap-1.5">
+                                    <PlayCircle size={15} /> Démarrer l'intervention
+                                </button>
+                                <button
+                                    onClick={annuler} disabled={enCours}
+                                    className="btn btn-secondary w-full justify-center gap-1.5"
+                                >
+                                    <Ban size={14} /> Annuler l'intervention
+                                </button>
+                            </div>
                         )}
 
                         {operation.statut === 'en_cours' && (

@@ -5,7 +5,7 @@ from rest_framework.response import Response
 from comptes.permissions import IsAdminOuMajor, is_major, get_employe
 from .models import CreneauDisponibilite, ExceptionDisponibilite, StatutException, AssignationPatient
 from .serializers import CreneauSerializer, ExceptionSerializer, AssignationPatientSerializer
-from .shifts import shift_et_date_actuels
+from .shifts import shift_et_date_actuels, repartir_patients_hospitalises
 
 
 class CreneauViewSet(viewsets.ModelViewSet):
@@ -196,9 +196,24 @@ class AssignationPatientViewSet(viewsets.ModelViewSet):
         assignations = AssignationPatient.objects.select_related('patient', 'service').filter(
             infirmier=emp, date=date_courante, shift=shift_courant,
         )
+
+        # Fallback démo/test : si la majeure ou le chef de service n'a pas
+        # encore assigné ce poste, on ne bloque pas la vue infirmier — on
+        # répartit automatiquement les patients actuellement hospitalisés du
+        # service entre ses infirmiers (round-robin, idempotent) et on relit
+        # ensuite les assignations de CETTE infirmière.
+        auto_assigne = False
+        if not assignations.exists() and emp.service_id:
+            if repartir_patients_hospitalises(emp.service_id, date_courante, shift_courant):
+                auto_assigne = True
+                assignations = AssignationPatient.objects.select_related('patient', 'service').filter(
+                    infirmier=emp, date=date_courante, shift=shift_courant,
+                )
+
         return Response({
             'date': date_courante,
             'shift': shift_courant,
             'shift_label': dict(AssignationPatient._meta.get_field('shift').choices)[shift_courant],
+            'auto_assigne': auto_assigne,
             'assignations': AssignationPatientSerializer(assignations, many=True).data,
         })

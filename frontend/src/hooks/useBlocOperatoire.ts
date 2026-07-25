@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getSallesBloc, getOperationsPlanning, updateOperation, demarrerOperation, cloturerOperation } from '../api/chirurgie'
+import { getSallesBloc, getOperationsPlanning, updateOperation, annulerOperation, demarrerOperation, cloturerOperation } from '../api/chirurgie'
 import type { Operation } from '../types'
 
 const BLOC_PLANNING_KEY = 'bloc-operatoire-planning'
@@ -26,6 +26,14 @@ export function useModifierOperation() {
     const queryClient = useQueryClient()
     return useMutation({
         mutationFn: ({ id, data }: { id: number; data: Partial<Operation> }) => updateOperation(id, data),
+        onSuccess: () => queryClient.invalidateQueries({ queryKey: [BLOC_PLANNING_KEY] }),
+    })
+}
+
+export function useAnnulerOperation() {
+    const queryClient = useQueryClient()
+    return useMutation({
+        mutationFn: ({ id, motif }: { id: number; motif?: string }) => annulerOperation(id, motif),
         onSuccess: () => queryClient.invalidateQueries({ queryKey: [BLOC_PLANNING_KEY] }),
     })
 }

@@ -14,8 +14,10 @@ from rest_framework.test import APIClient
 from comptes.models import Employe
 from disponibilites.models import AssignationPatient
 from disponibilites.shifts import shift_et_date_actuels
+from hospitalisations.models import Hospitalisation, StatutHospitalisation
 from patients.models import Patient
 from services.models import Service
+from django.utils import timezone
 
 
 def creer_employe(username, role, service=None, password="testpass123"):
@@ -122,3 +124,63 @@ class AssignationPatientTest(TestCase):
         self.client.force_authenticate(user=self.inf_a_user)
         response = self.client.get('/api/assignations/?patient=' + str(self.patient_b.id))
         self.assertEqual(len(response.data), 0)
+
+    def test_mes_patients_auto_assigne_si_aucun_shift_defini(self):
+        """
+        Fallback démo : sans aucune assignation faite par la majeure/chef de
+        service, une infirmière connectée doit quand même voir les patients
+        hospitalisés de son service pour le poste en cours.
+        """
+        Hospitalisation.objects.create(
+            patient=self.patient_a, service=self.service_a,
+            medecin_responsable=None, motif_admission="Test",
+            date_admission=timezone.now(), statut=StatutHospitalisation.EN_COURS,
+        )
+
+        self.client.force_authenticate(user=self.inf_a_user)
+        response = self.client.get('/api/assignations/mes-patients/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertTrue(response.data['auto_assigne'])
+        self.assertEqual(len(response.data['assignations']), 1)
+        self.assertEqual(response.data['assignations'][0]['patient'], self.patient_a.id)
+        self.assertEqual(AssignationPatient.objects.count(), 1)
+
+    def test_mes_patients_pas_auto_assigne_si_deja_assigne(self):
+        date_courante, shift_courant = shift_et_date_actuels()
+        AssignationPatient.objects.create(
+            infirmier=self.inf_a, patient=self.patient_a, service=self.service_a,
+            date=date_courante, shift=shift_courant,
+        )
+        self.client.force_authenticate(user=self.inf_a_user)
+        response = self.client.get('/api/assignations/mes-patients/')
+        self.assertFalse(response.data['auto_assigne'])
+        self.assertEqual(len(response.data['assignations']), 1)
+
+    def test_mes_patients_vide_si_aucun_patient_hospitalise(self):
+        """Aucune hospitalisation en cours dans le service : pas d'auto-assignation possible, liste vide."""
+        self.client.force_authenticate(user=self.inf_a_user)
+        response = self.client.get('/api/assignations/mes-patients/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertFalse(response.data['auto_assigne'])
+        self.assertEqual(len(response.data['assignations']), 0)
+
+    def test_auto_assignation_repartit_entre_plusieurs_infirmiers(self):
+        """Deux infirmiers du service, deux patients hospitalisés → un chacun (round-robin)."""
+        _, inf_a2 = creer_employe("infA2", "infirmier", service=self.service_a)
+        patient_a2 = Patient.objects.create(
+            nom="Diop", prenom="Moussa", date_naissance=date(1975, 5, 5),
+            sexe="M", adresse="Dakar", service=self.service_a,
+        )
+        for p in (self.patient_a, patient_a2):
+            Hospitalisation.objects.create(
+                patient=p, service=self.service_a, medecin_responsable=None,
+                motif_admission="Test", date_admission=timezone.now(),
+                statut=StatutHospitalisation.EN_COURS,
+            )
+
+        self.client.force_authenticate(user=self.inf_a_user)
+        response = self.client.get('/api/assignations/mes-patients/')
+        self.assertTrue(response.data['auto_assigne'])
+        # inf_a ne doit récupérer qu'une partie des patients, pas les deux
+        self.assertEqual(len(response.data['assignations']), 1)
+        self.assertEqual(AssignationPatient.objects.count(), 2)

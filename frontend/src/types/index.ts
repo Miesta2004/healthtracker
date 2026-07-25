@@ -213,6 +213,7 @@ export interface Employe {
     preferences?: Record<string, unknown>
     capacites?: string[]
     roles_effectifs?: RoleEmploye[]
+    specialite_principale_nom?: string
 }
 
 export interface Service {
@@ -513,6 +514,9 @@ export interface MesPatientsAssignesResponse {
     date: string
     shift: Shift
     shift_label: string
+    // true si l'assignation n'avait pas encore été faite par la majeure/chef
+    // de service et a été générée automatiquement (mode démo/fallback)
+    auto_assigne: boolean
     assignations: AssignationPatient[]
 }
 

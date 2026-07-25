@@ -7,7 +7,7 @@ import Sidebar from '../components/Sidebar.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { SkeletonKpiGrid, SkeletonChartCard, SkeletonTable, SkeletonSimpleList } from '../components/Skeleton'
 import Pagination from '../components/Pagination'
-import { Users, AlertTriangle, ClipboardList, UserPlus, Building2, Search, SearchX, Droplet, UserX, Clock, ClipboardCheck } from 'lucide-react'
+import { Users, AlertTriangle, ClipboardList, UserPlus, Building2, Search, SearchX, Droplet, UserX, Clock, ClipboardCheck, Sparkles } from 'lucide-react'
 import PageHeader from '../components/PageHeader.tsx'
 
 const PAGE_SIZE = 20
@@ -219,6 +219,15 @@ export default function Patients() {
                                     </span>
                                 </div>
                             )}
+                            {assignation?.auto_assigne && (
+                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: 'var(--ht-primary-light)' }}
+                                     title="Aucune assignation n'avait encore été faite par la majeure/le chef de service : les patients hospitalisés de ton service ont été répartis automatiquement.">
+                                    <Sparkles size={14} style={{ color: 'var(--ht-primary)' }} />
+                                    <span className="text-xs font-medium" style={{ color: 'var(--ht-primary)' }}>
+                                        Assignation automatique
+                                    </span>
+                                </div>
+                            )}
                         </div>
 
                         {/* Bascule assignés / recherche */}
@@ -245,10 +254,10 @@ export default function Patients() {
                                     <div className="px-6 py-16 text-center">
                                         <ClipboardCheck size={36} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
                                         <p className="text-[var(--ht-text-muted)] text-sm">
-                                            Aucun patient ne t'est assigné pour ce poste{assignation ? ` (${assignation.shift_label.toLowerCase()})` : ''}.
+                                            Aucun patient hospitalisé dans ton service pour le moment{assignation ? ` (poste : ${assignation.shift_label.toLowerCase()})` : ''}.
                                         </p>
                                         <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
-                                            Ton chef de service fait l'assignation en début de poste — sinon, utilise la recherche.
+                                            Dès qu'un patient sera hospitalisé dans ton service, il apparaîtra ici automatiquement — sinon, utilise la recherche.
                                         </p>
                                     </div>
                                 ) : (

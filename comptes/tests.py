@@ -5,9 +5,10 @@ from rest_framework import status
 from datetime import date
 
 from .models import Employe
+from services.models import Service
 
 
-def creer_employe(username, role, password="testpass123"):
+def creer_employe(username, role, service=None, password="testpass123"):
     """Helper — crée un User + Employe lié, avec un rôle donné."""
     user = User.objects.create_user(username=username, password=password)
     employe = Employe.objects.create(
@@ -17,6 +18,7 @@ def creer_employe(username, role, password="testpass123"):
         date_naissance=date(1990, 1, 1),
         sexe="F",
         role=role,
+        service=service,
     )
     return user, employe
 
@@ -57,8 +59,11 @@ class EmployeAPITest(TestCase):
     """Tests de l'API employés"""
 
     def setUp(self):
-        self.admin_user, self.admin = creer_employe("admin1", "admin")
-        self.infirmier_user, self.infirmier = creer_employe("infirmier1", "infirmier", password="ancienMdp123")
+        self.service = Service.objects.create(nom="Médecine générale")
+        self.admin_user, self.admin = creer_employe("admin1", "admin", service=self.service)
+        self.infirmier_user, self.infirmier = creer_employe(
+            "infirmier1", "infirmier", service=self.service, password="ancienMdp123"
+        )
 
         self.client = APIClient()
         self.employe_data = {
