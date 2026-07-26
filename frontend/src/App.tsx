@@ -1,12 +1,11 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import PatientDetail from './pages/PatientDetail'
-import AddPatient from './pages/AddPatient'
 import ConsultationDetail from './pages/ConsultationDetail'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
@@ -24,6 +23,26 @@ import Laboratoire from './pages/Laboratoire'
 import Settings from './pages/Settings'
 import DemandesConges from './pages/DemandesConges'
 import SuperPresentation from './pages/SuperPresentation'
+import Admissions from './pages/Admissions'
+import NouvelleAdmission from './pages/NouvelleAdmission'
+import FileAttenteService from './pages/FileAttenteService'
+import RechercheAdmission from './pages/RechercheAdmission'
+import BraceletsAdmission from './pages/BraceletsAdmission'
+import ControleAccompagnants from './pages/ControleAccompagnants'
+
+/**
+ * Remplace un simple <Navigate to="/dashboard" /> pour "/" et le catch-all :
+ * l'agent d'admission n'a pas de lien "Dashboard" dans sa sidebar dédiée
+ * (voir Sidebar.tsx), donc l'y renvoyer par défaut serait une impasse de
+ * navigation. Les autres rôles gardent le comportement d'origine.
+ */
+function DefaultRedirect() {
+    const { user, hasRole } = useAuth()
+    if (user && hasRole('agent_admission') && !hasRole('admin')) {
+        return <Navigate to="/admissions/recherche" replace />
+    }
+    return <Navigate to="/dashboard" replace />
+}
 
 
 function App() {
@@ -33,7 +52,7 @@ function App() {
                 {/* ── Publique ── */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/acces-refuse" element={<AccesRefuse />} />
-                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/" element={<DefaultRedirect />} />
                 <Route path="/presentation" element={<SuperPresentation />} />
 
                 {/* ── Tous les employés connectés ── */}
@@ -82,12 +101,41 @@ function App() {
                     </ProtectedRoute>
                 } />
 
-                {/* ── Admin, médecin, secrétaire ── */}
-                <Route path="/patients/newPatient" element={
-                    <ProtectedRoute roles={['admin', 'medecin', 'secretaire']}>
-                        <AddPatient />
+                {/* ── Service des Admissions ── */}
+                <Route path="/admissions" element={
+                    <ProtectedRoute roles={['admin', 'agent_admission']}>
+                        <Admissions />
                     </ProtectedRoute>
                 } />
+                <Route path="/admissions/nouvelle" element={
+                    <ProtectedRoute roles={['admin', 'agent_admission']}>
+                        <NouvelleAdmission />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admissions/recherche" element={
+                    <ProtectedRoute roles={['admin', 'agent_admission']}>
+                        <RechercheAdmission />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admissions/bracelets" element={
+                    <ProtectedRoute roles={['admin', 'agent_admission']}>
+                        <BraceletsAdmission />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admissions/accompagnants" element={
+                    <ProtectedRoute roles={['admin', 'agent_admission']}>
+                        <ControleAccompagnants />
+                    </ProtectedRoute>
+                } />
+
+                {/* ── Secrétariat de service : file d'attente des patients orientés ── */}
+                <Route path="/file-attente" element={
+                    <ProtectedRoute roles={['admin', 'secretaire']}>
+                        <FileAttenteService />
+                    </ProtectedRoute>
+                } />
+
+                {/* ── Admin, médecin, secrétaire ── */}
                 <Route path="/rendez_vous" element={
                     <ProtectedRoute roles={['admin', 'medecin', 'infirmier', 'secretaire']}>
                         <RendezVousPage />
@@ -137,7 +185,7 @@ function App() {
                 } />
 
                 {/* ── Fallback ── */}
-                <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="*" element={<DefaultRedirect />} />
             </Routes>
         </AuthProvider>
     )

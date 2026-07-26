@@ -27,6 +27,12 @@ import {
     ClipboardCheck,
     CalendarClock,
     CalendarDays,
+    ClipboardList,
+    Inbox,
+    Search,
+    RefreshCw,
+    Tag,
+    ShieldCheck,
 } from "lucide-react";
 
 const STORAGE_KEY = "ht_sidebar_compact";
@@ -216,6 +222,13 @@ export default function Sidebar() {
 
     const isActive = (path: string) => location.pathname.startsWith(path);
 
+    // L'agent d'admission a une sidebar dédiée, réduite aux 5 écrans de son
+    // métier (recherche/identitovigilance, admissions, orientations, badges,
+    // contrôle accompagnants) — pas le reste du menu hospitalier qui ne le
+    // concerne pas. Un admin qui a AUSSI le rôle agent_admission garde le
+    // menu complet (il a besoin de la vue d'ensemble), d'où le `&& !hasRole("admin")`.
+    const sidebarAdmissionDediee = hasRole("agent_admission") && !hasRole("admin");
+
     const SidebarContent = () => (
         <div className="flex flex-col h-full bg-[var(--ht-brand-bg)] text-white select-none">
             <div className="flex items-center justify-between p-4 border-b border-[rgba(255,255,255,0.08)] min-h-[65px]">
@@ -240,107 +253,169 @@ export default function Sidebar() {
             )}
 
             <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-none">
-                <SidebarItem
-                    icon={Home}
-                    label="Dashboard"
-                    active={location.pathname === "/dashboard"}
-                    onClick={() => navigate("/dashboard")}
-                    collapsed={collapsed}
-                />
-
-                {hasRole("admin", "medecin", "infirmier", "secretaire") && (
-                    <SidebarItem
-                        icon={CalendarDays}
-                        label="Calendrier"
-                        active={isActive("/calendrier")}
-                        onClick={() => navigate("/calendrier")}
-                        collapsed={collapsed}
-                    />
-                )}
-
-                {hasRole("admin", "medecin", "infirmier", "secretaire") && (
-                    <SidebarItem
-                        icon={Users}
-                        label="Patients"
-                        active={isActive("/patients")}
-                        onClick={() => navigate("/patients")}
-                        collapsed={collapsed}
-                    />
-                )}
-
-                {hasRole("admin", "medecin", "infirmier", "secretaire") && (
-                    <SidebarItem
-                        icon={Calendar}
-                        label="Rendez-vous"
-                        active={isActive("/rendez_vous")}
-                        onClick={() => navigate("/rendez_vous")}
-                        collapsed={collapsed}
-                    />
-                )}
-
-
-                {hasRole("admin", "medecin", "infirmier") && (
-                    <SidebarItem
-                        icon={TriangleAlert}
-                        label="Urgences"
-                        active={isActive("/urgences")}
-                        onClick={() => navigate("/urgences")}
-                        collapsed={collapsed}
-                        danger
-                    />
-                )}
-
-                {hasRole("admin", "laborantin") && (
-                    <SidebarItem
-                        icon={FlaskConical}
-                        label="Laboratoire"
-                        active={isActive("/laboratoire")}
-                        onClick={() => navigate("/laboratoire")}
-                        collapsed={collapsed}
-                    />
-                )}
-
-                <SidebarItem
-                    icon={CalendarClock}
-                    label="Mes disponibilités"
-                    active={isActive("/settings") && location.search.includes("tab=disponibilites")}
-                    onClick={() => navigate("/settings?tab=disponibilites")}
-                    collapsed={collapsed}
-                />
-
-                {hasRole("admin") && (
+                {sidebarAdmissionDediee ? (
                     <>
-                        <div className={`pt-4 pb-1 pl-3 text-[10px] font-bold tracking-widest uppercase text-[rgba(255,255,255,0.35)] ${collapsed ? "hidden" : "block"}`}>
-                            Administration
-                        </div>
                         <SidebarItem
-                            icon={UserCog}
-                            label="Employés"
-                            active={isActive("/employes")}
-                            onClick={() => navigate("/employes")}
+                            icon={Search}
+                            label="Recherche & Identitovigilance"
+                            active={isActive("/admissions/recherche")}
+                            onClick={() => navigate("/admissions/recherche")}
                             collapsed={collapsed}
                         />
                         <SidebarItem
-                            icon={Building2}
-                            label="Services"
-                            active={isActive("/services")}
-                            onClick={() => navigate("/services")}
+                            icon={Inbox}
+                            label="Nouvelles Admissions"
+                            active={isActive("/admissions/nouvelle")}
+                            onClick={() => navigate("/admissions/nouvelle")}
                             collapsed={collapsed}
                         />
                         <SidebarItem
-                            icon={BarChart3}
-                            label="Analytics"
-                            active={isActive("/analytics")}
-                            onClick={() => navigate("/analytics")}
+                            icon={RefreshCw}
+                            label="Orientations & Transferts"
+                            active={isActive("/admissions") && !isActive("/admissions/nouvelle") && !isActive("/admissions/recherche") && !isActive("/admissions/bracelets") && !isActive("/admissions/accompagnants")}
+                            onClick={() => navigate("/admissions")}
                             collapsed={collapsed}
                         />
                         <SidebarItem
-                            icon={ClipboardCheck}
-                            label="Demandes de congé"
-                            active={isActive("/conges")}
-                            onClick={() => navigate("/conges")}
+                            icon={Tag}
+                            label="Bracelets & Pass"
+                            active={isActive("/admissions/bracelets")}
+                            onClick={() => navigate("/admissions/bracelets")}
                             collapsed={collapsed}
                         />
+                        <SidebarItem
+                            icon={ShieldCheck}
+                            label="Contrôle Accompagnants"
+                            active={isActive("/admissions/accompagnants")}
+                            onClick={() => navigate("/admissions/accompagnants")}
+                            collapsed={collapsed}
+                        />
+                    </>
+                ) : (
+                    <>
+                        <SidebarItem
+                            icon={Home}
+                            label="Dashboard"
+                            active={location.pathname === "/dashboard"}
+                            onClick={() => navigate("/dashboard")}
+                            collapsed={collapsed}
+                        />
+
+                        {hasRole("admin", "medecin", "infirmier", "secretaire") && (
+                            <SidebarItem
+                                icon={CalendarDays}
+                                label="Calendrier"
+                                active={isActive("/calendrier")}
+                                onClick={() => navigate("/calendrier")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "medecin", "infirmier", "secretaire") && (
+                            <SidebarItem
+                                icon={Users}
+                                label="Patients"
+                                active={isActive("/patients")}
+                                onClick={() => navigate("/patients")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "agent_admission") && (
+                            <SidebarItem
+                                icon={ClipboardList}
+                                label="Admissions"
+                                active={isActive("/admissions")}
+                                onClick={() => navigate("/admissions")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "secretaire") && (
+                            <SidebarItem
+                                icon={Inbox}
+                                label="Patients orientés en attente d'accueil"
+                                active={isActive("/file-attente")}
+                                onClick={() => navigate("/file-attente")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "medecin", "infirmier", "secretaire") && (
+                            <SidebarItem
+                                icon={Calendar}
+                                label="Rendez-vous"
+                                active={isActive("/rendez_vous")}
+                                onClick={() => navigate("/rendez_vous")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+
+                        {hasRole("admin", "medecin", "infirmier") && (
+                            <SidebarItem
+                                icon={TriangleAlert}
+                                label="Urgences"
+                                active={isActive("/urgences")}
+                                onClick={() => navigate("/urgences")}
+                                collapsed={collapsed}
+                                danger
+                            />
+                        )}
+
+                        {hasRole("admin", "laborantin") && (
+                            <SidebarItem
+                                icon={FlaskConical}
+                                label="Laboratoire"
+                                active={isActive("/laboratoire")}
+                                onClick={() => navigate("/laboratoire")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        <SidebarItem
+                            icon={CalendarClock}
+                            label="Mes disponibilités"
+                            active={isActive("/settings") && location.search.includes("tab=disponibilites")}
+                            onClick={() => navigate("/settings?tab=disponibilites")}
+                            collapsed={collapsed}
+                        />
+
+                        {hasRole("admin") && (
+                            <>
+                                <div className={`pt-4 pb-1 pl-3 text-[10px] font-bold tracking-widest uppercase text-[rgba(255,255,255,0.35)] ${collapsed ? "hidden" : "block"}`}>
+                                    Administration
+                                </div>
+                                <SidebarItem
+                                    icon={UserCog}
+                                    label="Employés"
+                                    active={isActive("/employes")}
+                                    onClick={() => navigate("/employes")}
+                                    collapsed={collapsed}
+                                />
+                                <SidebarItem
+                                    icon={Building2}
+                                    label="Services"
+                                    active={isActive("/services")}
+                                    onClick={() => navigate("/services")}
+                                    collapsed={collapsed}
+                                />
+                                <SidebarItem
+                                    icon={BarChart3}
+                                    label="Analytics"
+                                    active={isActive("/analytics")}
+                                    onClick={() => navigate("/analytics")}
+                                    collapsed={collapsed}
+                                />
+                                <SidebarItem
+                                    icon={ClipboardCheck}
+                                    label="Demandes de congé"
+                                    active={isActive("/conges")}
+                                    onClick={() => navigate("/conges")}
+                                    collapsed={collapsed}
+                                />
+                            </>
+                        )}
                     </>
                 )}
             </div>

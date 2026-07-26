@@ -18,8 +18,13 @@ export default function Login() {
         setLoading(true)
         setError('')
         try {
-            await login({ username, password })
-            navigate('/dashboard')
+            const me = await login({ username, password })
+            // L'agent d'admission a une sidebar dédiée sans lien "Dashboard" —
+            // on l'envoie directement sur son écran de travail plutôt que sur
+            // une page qu'il ne peut plus atteindre depuis son propre menu.
+            const rolesEffectifs = me?.roles_effectifs ?? (me ? [me.role] : [])
+            const estAgentAdmissionSeul = rolesEffectifs.includes('agent_admission') && !rolesEffectifs.includes('admin')
+            navigate(estAgentAdmissionSeul ? '/admissions/recherche' : '/dashboard')
         } catch {
             setError('Identifiants incorrects. Réessaie')
         } finally {

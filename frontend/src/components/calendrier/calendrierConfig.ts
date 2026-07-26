@@ -1,6 +1,6 @@
 import type { TypeEvenementRdv, StatutRendezVous, EvenementPlanning } from '../../types'
 import {
-    Stethoscope, Scissors, Users, ShieldAlert, HeartPulse, CalendarClock,
+    Stethoscope, Scissors, Users, ShieldAlert, HeartPulse, CalendarClock, GraduationCap,
     type LucideIcon,
 } from 'lucide-react'
 
@@ -66,6 +66,13 @@ export const TYPE_EVENEMENT_CONFIG: Record<TypeEvenementRdv, TypeConfig> = {
         text: '#6D28D9',
         bg: '#EDE9FE',
         border: '#C4B5FD',
+    },
+    formation: {
+        label: 'Formation',
+        Icon: GraduationCap,
+        text: '#0369A1',
+        bg: '#E0F2FE',
+        border: '#7DD3FC',
     },
     garde: {
         label: 'Garde chirurgicale',

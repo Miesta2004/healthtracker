@@ -1,7 +1,7 @@
 from datetime import date as date_cls
 from datetime import datetime, timedelta
 
-from django.db.models import Exists, OuterRef
+from django.db.models import Exists, OuterRef, Q
 from rest_framework import viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.decorators import action
@@ -13,8 +13,11 @@ from comptes.models import Employe
 from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, PeutVoirRendezVous, get_employe
 from disponibilites.models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
 from alertes.models import Alerte
-from .models import Consultation, RendezVous
-from .serializers import ConsultSerializer, RdvSerializer, RdvPlanningSerializer, IndisponibiliteSerializer
+from .models import Consultation, RendezVous, EvenementAdministratif
+from .serializers import (
+    ConsultSerializer, RdvSerializer, RdvPlanningSerializer, IndisponibiliteSerializer,
+    EvenementAdministratifSerializer, EvenementAdminPlanningSerializer,
+)
 from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
 from antecedents.serializers import AntecedentSerializer
 
@@ -568,9 +571,64 @@ class RdvViewSet(viewsets.ModelViewSet):
             date_fin__gte=debut,
         )
 
+        evenements_admin = EvenementAdministratif.objects.filter(
+            Q(service=employe.service) | Q(service__isnull=True) | Q(participants=employe),
+            date_heure_debut__date__lte=fin,
+            date_heure_fin__date__gte=debut,
+            ).distinct()
+
+        tous_evenements = (
+                list(RdvPlanningSerializer(rendez_vous, many=True).data) +
+                list(EvenementAdminPlanningSerializer(evenements_admin, many=True).data)
+        )
+        tous_evenements.sort(key=lambda e: e['start_time'])
+
         return Response({
             'debut': debut.isoformat(),
             'fin': fin.isoformat(),
-            'evenements': RdvPlanningSerializer(rendez_vous, many=True).data,
+            'evenements': tous_evenements,
             'indisponibilites': IndisponibiliteSerializer(exceptions, many=True).data,
         })
+
+class EvenementAdministratifViewSet(viewsets.ModelViewSet):
+    """
+    Réunions, formations, gardes administratives. Lecture ouverte à tout
+    employé authentifié (voir get_queryset — scopée à son propre service +
+    événements transversaux) ; création/modification/annulation réservées à
+    IsAdminRole (chef de service sur SON service, ou superuser sans
+    restriction) — c'est exactement le « Admin ou Chef de Service » demandé.
+    """
+    serializer_class = EvenementAdministratifSerializer
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsAuthenticated()]
+        return [IsAdminRole()]
+
+    def get_queryset(self):
+        qs = EvenementAdministratif.objects.select_related('service', 'organisateur').prefetch_related('participants')
+
+        if self.request.method not in SAFE_METHODS:
+            return qs
+
+        user = self.request.user
+        if user.is_superuser:
+            return qs
+
+        employe = get_employe(user)
+        if employe is None:
+            return EvenementAdministratif.objects.none()
+
+        return qs.filter(
+            Q(service=employe.service) | Q(service__isnull=True) | Q(participants=employe)
+        ).distinct()
+
+    def perform_create(self, serializer):
+        organisateur = get_employe(self.request.user)
+        if not self.request.user.is_superuser:
+            service_soumis = serializer.validated_data.get('service')
+            if service_soumis is None or service_soumis.id != organisateur.service_id:
+                raise ValidationError({
+                    'service': "Tu ne peux créer un événement que pour ton propre service."
+                })
+        serializer.save(organisateur=organisateur)

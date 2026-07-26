@@ -14,6 +14,7 @@ import CalendarAgendaView from '../components/calendrier/CalendarAgendaView'
 import CalendarBlocOperatoireView from '../components/calendrier/CalendarBlocOperatoireView'
 import OperationDetailsPanel from '../components/calendrier/OperationDetailsPanel'
 import EventFormDialog, { type EventFormInitial } from '../components/calendrier/EventFormDialog'
+import EventAdminFormDialog, { type EventAdminFormInitial } from '../components/calendrier/EventAdminFormDialog'
 import EventDetailsPanel from '../components/calendrier/EventDetailsPanel'
 import { useSallesBloc, useOperationsPlanning, useModifierOperation, useAnnulerOperation, useDemarrerOperation, useCloturerOperation } from '../hooks/useBlocOperatoire'
 import {
@@ -23,7 +24,12 @@ import {
 import type { EvenementPlanning, TypeEvenementRdv, Operation } from '../types'
 
 export default function CalendrierPage() {
-    const { user } = useAuth()
+    const { user, hasRole } = useAuth()
+    // « Admin ou Chef de Service » — IsAdminRole côté backend correspond
+    // exactement à hasRole('admin') côté frontend. Contrôle réel toujours
+    // fait côté serveur ; ceci évite juste d'afficher un bouton qui
+    // échouerait de toute façon.
+    const peutGererEvenementsAdmin = hasRole('admin')
 
     const [vue, setVue] = useState<VueCalendrier>('semaine')
     const [ancre, setAncre] = useState(new Date())
@@ -34,6 +40,7 @@ export default function CalendrierPage() {
     const [evenementSelectionne, setEvenementSelectionne] = useState<EvenementPlanning | null>(null)
     const [operationSelectionnee, setOperationSelectionnee] = useState<Operation | null>(null)
     const [formulaire, setFormulaire] = useState<EventFormInitial | null>(null)
+    const [formulaireAdmin, setFormulaireAdmin] = useState<EventAdminFormInitial | null>(null)
     const [erreurFormulaire, setErreurFormulaire] = useState('')
     const [erreurAction, setErreurAction] = useState('')
 
@@ -99,15 +106,37 @@ export default function CalendrierPage() {
         })
     }
 
+    const ouvrirCreationAdmin = () => {
+        setErreurFormulaire('')
+        setFormulaireAdmin({})
+    }
+
     const ouvrirEdition = (e: EvenementPlanning) => {
         const debutEvt = new Date(e.start_time)
         const finEvt = new Date(e.end_time)
         setErreurFormulaire('')
         setEvenementSelectionne(null)
+
+        if (e.source === 'administratif') {
+            setFormulaireAdmin({
+                id: e.id,
+                titre: e.motif,
+                type_evenement: e.type_evenement as EventAdminFormInitial['type_evenement'],
+                service: e.service ?? null,
+                date: toISODate(debutEvt),
+                heureDebut: debutEvt.toTimeString().slice(0, 5),
+                heureFin: finEvt.toTimeString().slice(0, 5),
+                lieu: e.lieu ?? '',
+                description: e.notes,
+                statut: e.statut === 'annule' ? 'annule' : e.statut === 'termine' ? 'termine' : 'planifie',
+            })
+            return
+        }
+
         setFormulaire({
             id: e.id,
-            patientId: e.patient.id,
-            patientLabel: e.patient.nom_complet,
+            patientId: e.patient?.id ?? null,
+            patientLabel: e.patient?.nom_complet,
             medecinId: e.medecin_id,
             medecinLabel: e.medecin_nom ? `Dr. ${e.medecin_prenom} ${e.medecin_nom}` : undefined,
             date: toISODate(debutEvt),
@@ -129,14 +158,29 @@ export default function CalendrierPage() {
             },
         }
         if (formulaire?.id) {
-            modifier.mutate({ id: formulaire.id, data }, options)
+            modifier.mutate({ id: formulaire.id, data, source: 'medical' }, options)
         } else {
-            creer.mutate(data, options)
+            creer.mutate({ data, source: 'medical' }, options)
+        }
+    }
+
+    const soumettreFormulaireAdmin = (data: Record<string, unknown>) => {
+        setErreurFormulaire('')
+        const options = {
+            onError: (err: unknown) => setErreurFormulaire(extraireMessageErreur(err)),
+            onSuccess: () => {
+                setFormulaireAdmin(null)
+            },
+        }
+        if (formulaireAdmin?.id) {
+            modifier.mutate({ id: formulaireAdmin.id, data, source: 'administratif' }, options)
+        } else {
+            creer.mutate({ data, source: 'administratif' }, options)
         }
     }
 
     const annulerEvenement = (e: EvenementPlanning) => {
-        modifier.mutate({ id: e.id, data: { statut: 'annule' } }, {
+        modifier.mutate({ id: e.id, data: { statut: 'annule' }, source: e.source }, {
             onSuccess: () => setEvenementSelectionne(null),
         })
     }
@@ -223,13 +267,24 @@ export default function CalendrierPage() {
     const supprimerEvenement = () => {
         if (!formulaire?.id) return
         if (!window.confirm('Supprimer définitivement cet événement ?')) return
-        supprimer.mutate(formulaire.id, {
+        supprimer.mutate({ id: formulaire.id, source: 'medical' }, {
             onSuccess: () => setFormulaire(null),
             onError: () => setErreurFormulaire("Suppression impossible (droits insuffisants)."),
         })
     }
 
+    const supprimerEvenementAdmin = () => {
+        if (!formulaireAdmin?.id) return
+        if (!window.confirm('Supprimer définitivement cet événement ?')) return
+        supprimer.mutate({ id: formulaireAdmin.id, source: 'administratif' }, {
+            onSuccess: () => setFormulaireAdmin(null),
+            onError: () => setErreurFormulaire("Suppression impossible (droits insuffisants)."),
+        })
+    }
+
     const peutModifier = user?.role !== 'laborantin'
+    const peutModifierEvenement = (e: EvenementPlanning) =>
+        e.source === 'administratif' ? peutGererEvenementsAdmin : peutModifier
 
     return (
         <div className="ht-page">
@@ -289,6 +344,7 @@ export default function CalendrierPage() {
                             onSuivant={() => naviguer(1)}
                             onAujourdhui={() => setAncre(new Date())}
                             onNouvelEvenement={() => ouvrirCreation(new Date())}
+                            onNouvelEvenementAdmin={peutGererEvenementsAdmin ? ouvrirCreationAdmin : undefined}
                         />
                     </div>
 
@@ -372,7 +428,7 @@ export default function CalendrierPage() {
                     onClose={() => setEvenementSelectionne(null)}
                     onModifier={() => ouvrirEdition(evenementSelectionne)}
                     onAnnuler={() => annulerEvenement(evenementSelectionne)}
-                    peutModifier={peutModifier}
+                    peutModifier={peutModifierEvenement(evenementSelectionne)}
                 />
             )}
 
@@ -395,6 +451,19 @@ export default function CalendrierPage() {
                     onClose={() => setFormulaire(null)}
                     onSubmit={soumettreFormulaire}
                     onDelete={formulaire.id ? supprimerEvenement : undefined}
+                    submitting={creer.isPending || modifier.isPending}
+                    erreur={erreurFormulaire}
+                />
+            )}
+
+            {formulaireAdmin && (
+                <EventAdminFormDialog
+                    initial={formulaireAdmin}
+                    serviceParDefaut={user?.service ?? null}
+                    peutChoisirService={false}
+                    onClose={() => setFormulaireAdmin(null)}
+                    onSubmit={soumettreFormulaireAdmin}
+                    onDelete={formulaireAdmin.id ? supprimerEvenementAdmin : undefined}
                     submitting={creer.isPending || modifier.isPending}
                     erreur={erreurFormulaire}
                 />

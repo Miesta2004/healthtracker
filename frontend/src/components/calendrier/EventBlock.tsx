@@ -128,7 +128,7 @@ export default function EventBlock({
 
                 {!compact && (
                     <p className="text-[10.5px] truncate leading-tight" style={{ color: cfg.text, opacity: 0.75 }}>
-                        {evenement.patient.nom_complet}
+                        {evenement.patient ? evenement.patient.nom_complet : (evenement.lieu || evenement.motif)}
                     </p>
                 )}
 

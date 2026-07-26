@@ -28,6 +28,10 @@ export interface Patient {
     mutuelle?: string
     numero_mutuelle?: string
     accompagnants?: Accompagnant[]
+    identite_provisoire?: boolean
+    regularise_par?: number | null
+    regularise_par_nom?: string | null
+    date_regularisation?: string | null
 }
 
 // ─── Accompagnants ─────────────────────────────────────────────────────────
@@ -65,6 +69,7 @@ export interface PatientSearchResult {
     service_nom?: string | null
     statut_orientation: StatutOrientation
     statut_orientation_label?: string
+    identite_provisoire: boolean
     accompagnants_correspondants: Accompagnant[]
 }
 
@@ -78,18 +83,34 @@ export interface BadgePatient {
     sexe: 'M' | 'F'
     service_nom: string
     statut_orientation: StatutOrientation
+    identite_provisoire: boolean
     groupe_sanguin: string
     allergies: string
     qr_payload: string
     genere_le: string
 }
 
-// ─── Service des Admissions ───────────────────────────────────────────────
+// ─── Pass d'accès accompagnant ─────────────────────────────────────────────
+export interface BadgeAccompagnant {
+    accompagnant_id: number
+    nom: string
+    prenom: string
+    lien_parente: string
+    patient_nom: string
+    patient_prenom: string
+    patient_dossier: string
+    statut: StatutAccompagnant
+    qr_payload: string
+    genere_le: string
+}
+
+// ─── Service des Admissions — workflow d'orientation ───────────────────────
 export type StatutOrientation =
-    | 'en_attente_orientation'
-    | 'oriente'
+    | 'en_attente_validation_service'
+    | 'admis_dans_le_service'
     | 'en_consultation'
     | 'hospitalise'
+    | 'admis_urgences'
     | 'sorti'
 
 // ─── Rendez-vous ────────────────────────────────────────────────────────────
@@ -564,7 +585,9 @@ export interface Operation {
 }
 
 
-export type TypeEvenementRdv = 'consultation' | 'intervention' | 'reunion' | 'garde' | 'visite_postoperatoire' | 'autre'
+export type TypeEvenementRdv = 'consultation' | 'intervention' | 'reunion' | 'formation' | 'garde' | 'visite_postoperatoire' | 'autre'
+// Sous-ensemble utilisable pour un événement administratif (pas de patient) — reunion/formation/garde/autre.
+export type TypeEvenementAdmin = 'reunion' | 'formation' | 'garde' | 'autre'
 
 // ─── Planning médecin (calendrier Dashboard) ─────────────────────────────────
 export interface EvenementPlanning {
@@ -577,17 +600,41 @@ export interface EvenementPlanning {
     type_evenement_label: string
     motif: string
     notes: string
-    patient: {
+    source: 'medical' | 'administratif'
+    patient?: {
         id: number
         nom_complet: string
         numero_dossier: string
         age: number
     }
-    a_alerte_critique: boolean
+    alerte_critique: boolean
     consultation_id: number | null
     medecin_id: number | null
     medecin_nom: string | null
     medecin_prenom: string | null
+    lieu?: string
+    service?: number | null
+    service_nom?: string | null
+}
+
+export interface EvenementAdministratif {
+    id: number
+    titre: string
+    type_evenement: TypeEvenementAdmin
+    type_evenement_label: string
+    service: number | null
+    service_nom: string | null
+    date_heure_debut: string
+    date_heure_fin: string
+    lieu: string
+    description: string
+    participants: number[]
+    organisateur: number | null
+    organisateur_nom: string | null
+    organisateur_prenom: string | null
+    statut: 'planifie' | 'annule' | 'termine'
+    statut_label: string
+    date_creation: string
 }
 
 export interface IndisponibilitePlanning {

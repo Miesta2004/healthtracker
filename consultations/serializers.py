@@ -1,6 +1,6 @@
 from datetime import timedelta
 from rest_framework import serializers
-from .models import Consultation, RendezVous
+from .models import Consultation, RendezVous, EvenementAdministratif
 
 
 class ConsultSerializer(serializers.ModelSerializer):
@@ -107,6 +107,7 @@ class RdvPlanningSerializer(serializers.ModelSerializer):
     medecin_id = serializers.IntegerField(read_only=True, default=None)
     medecin_nom = serializers.CharField(source='medecin.nom', read_only=True, default=None)
     medecin_prenom = serializers.CharField(source='medecin.prenom', read_only=True, default=None)
+    source = serializers.SerializerMethodField()
 
     class Meta:
         model = RendezVous
@@ -114,8 +115,11 @@ class RdvPlanningSerializer(serializers.ModelSerializer):
             'id', 'start_time', 'end_time', 'statut', 'statut_label',
             'type_evenement', 'type_evenement_label',
             'motif', 'notes', 'patient', 'a_alerte_critique', 'consultation_id',
-            'medecin_id', 'medecin_nom', 'medecin_prenom',
+            'medecin_id', 'medecin_nom', 'medecin_prenom', 'source',
         ]
+
+    def get_source(self, obj):
+        return 'medical'
 
     def get_end_time(self, obj):
         return obj.date_heure + timedelta(minutes=obj.duree_minutes)
@@ -124,6 +128,54 @@ class RdvPlanningSerializer(serializers.ModelSerializer):
         # Alimenté via annotation Exists() en amont (RdvViewSet.mon_planning)
         # pour éviter une requête par ligne — cf. commentaire dans la vue.
         return getattr(obj, '_a_alerte_critique', False)
+
+
+class EvenementAdministratifSerializer(serializers.ModelSerializer):
+    """CRUD complet — utilisé par EvenementAdministratifViewSet."""
+    type_evenement_label = serializers.CharField(source='get_type_evenement_display', read_only=True)
+    statut_label = serializers.CharField(source='get_statut_display', read_only=True)
+    service_nom = serializers.CharField(source='service.nom', read_only=True, default=None)
+    organisateur_nom = serializers.CharField(source='organisateur.nom', read_only=True, default=None)
+    organisateur_prenom = serializers.CharField(source='organisateur.prenom', read_only=True, default=None)
+
+    class Meta:
+        model = EvenementAdministratif
+        fields = [
+            'id', 'titre', 'type_evenement', 'type_evenement_label',
+            'service', 'service_nom', 'date_heure_debut', 'date_heure_fin',
+            'lieu', 'description', 'participants',
+            'organisateur', 'organisateur_nom', 'organisateur_prenom',
+            'statut', 'statut_label', 'date_creation',
+        ]
+        read_only_fields = ['date_creation']
+
+
+class EvenementAdminPlanningSerializer(serializers.ModelSerializer):
+    """
+    Vue allégée d'EvenementAdministratif, format compatible avec
+    RdvPlanningSerializer (mêmes clés start_time/end_time/statut/...) pour
+    que le frontend fusionne les deux sources en une seule liste, distinguées
+    par `source`.
+    """
+    start_time = serializers.DateTimeField(source='date_heure_debut')
+    end_time = serializers.DateTimeField(source='date_heure_fin')
+    statut_label = serializers.CharField(source='get_statut_display', read_only=True)
+    type_evenement_label = serializers.CharField(source='get_type_evenement_display', read_only=True)
+    motif = serializers.CharField(source='titre')
+    notes = serializers.CharField(source='description', default='', read_only=True)
+    source = serializers.SerializerMethodField()
+    service_nom = serializers.CharField(source='service.nom', read_only=True, default=None)
+
+    class Meta:
+        model = EvenementAdministratif
+        fields = [
+            'id', 'start_time', 'end_time', 'statut', 'statut_label',
+            'type_evenement', 'type_evenement_label', 'motif', 'notes', 'source',
+            'lieu', 'service', 'service_nom',
+        ]
+
+    def get_source(self, obj):
+        return 'administratif'
 
 
 class IndisponibiliteSerializer(serializers.Serializer):

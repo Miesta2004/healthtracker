@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Plus, CalendarDays, Rows3, Grid3x3, List, Building2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, CalendarDays, Rows3, Grid3x3, List, Building2, Users2 } from 'lucide-react'
 import { joursDeSemaine } from './calendrierConfig'
 
 export type VueCalendrier = 'jour' | 'semaine' | 'mois' | 'agenda' | 'bloc'
@@ -11,6 +11,7 @@ interface Props {
     onSuivant: () => void
     onAujourdhui: () => void
     onNouvelEvenement: () => void
+    onNouvelEvenementAdmin?: () => void
 }
 
 const MOIS = [
@@ -44,7 +45,7 @@ function titreVue(ancre: Date, vue: VueCalendrier): string {
 }
 
 export default function CalendarHeader({
-                                           ancre, vue, onVueChange, onPrecedent, onSuivant, onAujourdhui, onNouvelEvenement,
+                                           ancre, vue, onVueChange, onPrecedent, onSuivant, onAujourdhui, onNouvelEvenement, onNouvelEvenementAdmin,
                                        }: Props) {
     // La vue Agenda est une liste "à venir" ancrée sur aujourd'hui : naviguer
     // par période n'a pas de sens, donc on masque prev/next/Aujourd'hui.
@@ -105,6 +106,11 @@ export default function CalendarHeader({
                 {vue !== 'bloc' && (
                     <button onClick={onNouvelEvenement} className="btn btn-primary gap-1.5">
                         <Plus size={16} /> Nouvel événement
+                    </button>
+                )}
+                {vue !== 'bloc' && onNouvelEvenementAdmin && (
+                    <button onClick={onNouvelEvenementAdmin} className="btn btn-secondary gap-1.5">
+                        <Users2 size={16} /> Réunion / événement admin
                     </button>
                 )}
             </div>

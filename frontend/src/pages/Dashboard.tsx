@@ -241,8 +241,8 @@ export default function Dashboard() {
                     decorIcons={[Stethoscope, BedDouble]}
                     actions={
                         <>
-                            {hasRole("admin", "medecin", "secretaire") && (
-                                <button onClick={() => navigate("/patients/newPatient")} className="btn btn-primary">
+                            {hasRole("admin") && (
+                                <button onClick={() => navigate("/admissions/nouvelle")} className="btn btn-primary">
                                     <Plus size={16} /> Nouveau patient
                                 </button>
                             )}

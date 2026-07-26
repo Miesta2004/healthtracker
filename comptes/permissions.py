@@ -168,20 +168,33 @@ class PeutCreerPatient(RequiertCapacite):
 
 class PeutAdmettrePatient(RequiertCapacite):
     """
-    Création du dossier administratif de base par le Service des Admissions
-    (POST /patients/admission/) : agent d'admission (ou tout rôle héritant),
-    au niveau global — aucune restriction de service, à la différence de
-    PeutCreerPatient qui reste rattachée au service du créateur.
+    Formulaire unique de création d'un dossier patient par le Service des
+    Admissions (POST /patients/admission/, y compris le mode 'Urgence Vitale
+    / Identité Provisoire') et régularisation ultérieure d'une identité
+    provisoire (PATCH /patients/{id}/regulariser/) — agent d'admission (ou
+    tout rôle héritant), au niveau global, sans restriction de service.
     """
     capacite = Capacite.ADMISSIONS_GERER
 
 
-class PeutOrienterPatient(RequiertCapacite):
+class PeutTransfererPatient(RequiertCapacite):
     """
-    Affectation d'un patient admis à un service (PATCH /patients/{id}/orienter/)
-    — réservée à l'agent d'admission (ou tout rôle héritant).
+    Affecte/réaffecte un patient à un service de destination
+    (PATCH /patients/{id}/transferer/) — que ce soit un premier routage par
+    l'agent d'admission (avant confirmation par le service) ou un transfert
+    mi-parcours par un médecin/secrétaire suite à un examen ou une
+    coordination téléphonique entre services.
     """
-    capacite = Capacite.PATIENTS_ORIENTER
+    capacite = Capacite.PATIENTS_TRANSFERER
+
+
+class PeutConfirmerArrivee(RequiertCapacite):
+    """
+    « Confirmer l'arrivée » d'un patient orienté vers son service
+    (PATCH /patients/{id}/confirmer-arrivee/) — réservée au secrétariat du
+    service receveur (+ médecin, admin).
+    """
+    capacite = Capacite.PATIENTS_CONFIRMER_ARRIVEE
 
 
 class PeutGererAccompagnants(RequiertCapacite):

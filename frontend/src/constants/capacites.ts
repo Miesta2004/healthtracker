@@ -19,6 +19,10 @@ export const Capacite = {
     AUTOPSIE_VALIDER_PERIOP: 'autopsie.valider_perioperatoire',
     RH_GERER: 'rh.gerer',
     SERVICE_GERER: 'service.gerer',
+    ADMISSIONS_GERER: 'admissions.gerer',
+    PATIENTS_TRANSFERER: 'patients.transferer',
+    PATIENTS_CONFIRMER_ARRIVEE: 'patients.confirmer_arrivee',
+    ACCOMPAGNANTS_GERER: 'accompagnants.gerer',
 } as const
 
 export type CapaciteValue = typeof Capacite[keyof typeof Capacite]

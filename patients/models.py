@@ -80,24 +80,42 @@ class Patient(Personne):
     )
 
     class StatutOrientation(models.TextChoices):
-        EN_ATTENTE_ORIENTATION = 'en_attente_orientation', "En attente d'orientation"
-        ORIENTE                = 'oriente',                'Orienté'
-        EN_CONSULTATION        = 'en_consultation',         'En consultation'
-        HOSPITALISE            = 'hospitalise',             'Hospitalisé'
-        SORTI                  = 'sorti',                   'Sorti'
+        EN_ATTENTE_VALIDATION_SERVICE = 'en_attente_validation_service', "En attente de validation par le service"
+        ADMIS_DANS_LE_SERVICE         = 'admis_dans_le_service',         'Admis dans le service'
+        EN_CONSULTATION               = 'en_consultation',               'En consultation'
+        HOSPITALISE                  = 'hospitalise',                   'Hospitalisé'
+        ADMIS_URGENCES                = 'admis_urgences',                'Admis aux urgences'
+        SORTI                         = 'sorti',                         'Sorti'
 
     statut_orientation = models.CharField(
-        max_length=25,
+        max_length=30,
         choices=StatutOrientation.choices,
-        default=StatutOrientation.EN_ATTENTE_ORIENTATION,
-        help_text="Parcours administratif du patient depuis son admission. "
-                  "Un patient créé par le Service des Admissions démarre à "
-                  "'en_attente_orientation' (pas encore de service) puis passe "
-                  "à 'oriente' une fois affecté à un service via l'action "
-                  "PATCH /patients/{id}/orienter/. Un patient créé directement "
-                  "par un service (secrétaire/médecin, hors admissions) est "
-                  "considéré 'oriente' d'emblée puisqu'il a déjà un service.",
+        default=StatutOrientation.EN_ATTENTE_VALIDATION_SERVICE,
+        help_text="Parcours administratif du patient depuis son admission : "
+                  "'en_attente_validation_service' (créé + orienté par les Admissions, "
+                  "en attente que le secrétariat du service confirme l'arrivée) → "
+                  "'admis_dans_le_service' (confirmé) → 'en_consultation' / 'hospitalise' "
+                  "(mis à jour AUTOMATIQUEMENT par les apps consultations/hospitalisations "
+                  "à la création d'un enregistrement, voir leurs save()) → 'sorti'. Chemin "
+                  "parallèle : 'admis_urgences' pour une admission d'urgence vitale à "
+                  "identité provisoire (voir identite_provisoire), avant régularisation.",
     )
+
+    # ── Admission d'urgence / identité provisoire ───────────────────────────
+    identite_provisoire = models.BooleanField(
+        default=False,
+        help_text="Patient créé en mode 'Urgence Vitale / Identité Provisoire' "
+                  "(inconscient, seul, sans papiers) : état civil non fiable tant que "
+                  "ce champ est True. Passé à False par l'action de régularisation, qui "
+                  "NE modifie que l'identité — l'historique médical déjà créé pendant "
+                  "l'urgence (consultations, signes vitaux…) n'est jamais altéré.",
+    )
+    regularise_par = models.ForeignKey(
+        'comptes.Employe', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='patients_regularises',
+        help_text="Agent d'admission ayant effectué la régularisation d'identité.",
+    )
+    date_regularisation = models.DateTimeField(null=True, blank=True)
 
     # ── Contact d'urgence ────────────────────────────────────────────────────
     contact_urgence_nom       = models.CharField(max_length=150, blank=True)
@@ -122,13 +140,6 @@ class Patient(Personne):
         if not self.numero_dossier:
             from healthtracker.identifiers import generer_identifiant_unique
             self.numero_dossier = generer_identifiant_unique(Patient, 'numero_dossier', 'P', 6)
-        # Un patient créé directement avec un service (flux historique : secrétaire/
-        # médecin d'un service, hors Admissions) est déjà "orienté" de fait — il ne
-        # doit pas rester bloqué au statut par défaut 'en_attente_orientation', qui
-        # est réservé au flux du Service des Admissions (création sans service via
-        # POST /patients/admission/, orientation ultérieure via /orienter/).
-        if self._state.adding and self.service_id and self.statut_orientation == self.StatutOrientation.EN_ATTENTE_ORIENTATION:
-            self.statut_orientation = self.StatutOrientation.ORIENTE
         super().save(*args, **kwargs)
 
     class Meta:

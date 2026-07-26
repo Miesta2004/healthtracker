@@ -192,8 +192,8 @@ export default function Patients() {
                         ? 'Vos patients assignés pour le poste en cours'
                         : "Gérez les dossiers des patients de l'établissement"}
                     icon={Users}
-                    ctaLabel={hasRole('admin', 'medecin', 'secretaire') ? 'Nouveau patient' : undefined}
-                    onCtaClick={() => navigate('/patients/newPatient')}
+                    ctaLabel={hasRole('admin') ? 'Nouveau patient' : undefined}
+                    onCtaClick={() => navigate('/admissions/nouvelle')}
                 />
 
                 {/* ══════════════ VUE INFIRMIER ══════════════ */}

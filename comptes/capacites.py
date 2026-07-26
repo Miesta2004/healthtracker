@@ -23,10 +23,11 @@ class Capacite:
     RDV_LIRE                = 'rdv.lire'
     MORGUE_LIRE             = 'morgue.lire'
 
-    # Service des Admissions
-    ADMISSIONS_GERER        = 'admissions.gerer'           # créer un dossier administratif global (sans service)
-    PATIENTS_ORIENTER       = 'patients.orienter'           # affecter un patient admis à un service
-    ACCOMPAGNANTS_GERER     = 'accompagnants.gerer'         # traçabilité des accompagnants (contrôle d'accès)
+    # Service des Admissions & circuit d'orientation
+    ADMISSIONS_GERER          = 'admissions.gerer'            # créer le dossier (formulaire unique) + régulariser une identité provisoire
+    PATIENTS_TRANSFERER       = 'patients.transferer'          # affecter/réaffecter un patient à un service (initial ou mi-parcours)
+    PATIENTS_CONFIRMER_ARRIVEE = 'patients.confirmer_arrivee'  # secrétariat de service : "Confirmer l'arrivée"
+    ACCOMPAGNANTS_GERER       = 'accompagnants.gerer'          # traçabilité des accompagnants (contrôle d'accès)
 
     # Exclusives au Chef de Chirurgie
     BLOC_GERER              = 'bloc.gerer'                # transversal, indépendant du service
@@ -50,11 +51,21 @@ CAPACITES_PAR_ROLE = {
         Capacite.ACTES_MEDICAUX_GERER, Capacite.SIGNES_VITAUX_SAISIR,
         Capacite.PATIENTS_CREER, Capacite.DOSSIER_MEDICAL_LIRE,
         Capacite.RDV_LIRE, Capacite.MORGUE_LIRE,
+        # Le chef de service doit pouvoir superviser/dépanner le circuit
+        # d'admission comme n'importe quel autre processus de son périmètre —
+        # sans ça, un compte 'admin' non-superuser se heurtait à un 403 sur
+        # ces actions malgré un accès frontend qui semblait l'y autoriser.
+        Capacite.ADMISSIONS_GERER, Capacite.PATIENTS_TRANSFERER,
+        Capacite.PATIENTS_CONFIRMER_ARRIVEE, Capacite.ACCOMPAGNANTS_GERER,
     },
     'medecin': {
         Capacite.ACTES_MEDICAUX_GERER, Capacite.SIGNES_VITAUX_SAISIR,
         Capacite.PATIENTS_CREER, Capacite.DOSSIER_MEDICAL_LIRE,
         Capacite.RDV_LIRE, Capacite.MORGUE_LIRE,
+        # Un médecin peut réorienter un patient déjà pris en charge vers un
+        # autre service (suite à un examen) — pas la création/régularisation,
+        # qui reste le métier des Admissions.
+        Capacite.PATIENTS_TRANSFERER,
     },
     'infirmier': {
         Capacite.SIGNES_VITAUX_SAISIR, Capacite.DOSSIER_MEDICAL_LIRE,
@@ -62,16 +73,18 @@ CAPACITES_PAR_ROLE = {
     },
     'secretaire': {
         Capacite.PATIENTS_CREER, Capacite.RDV_LIRE, Capacite.MORGUE_LIRE,
+        # La secrétaire de service confirme l'arrivée des patients orientés
+        # vers son service, et peut les transférer ailleurs si besoin.
+        Capacite.PATIENTS_CONFIRMER_ARRIVEE, Capacite.PATIENTS_TRANSFERER,
     },
     'laborantin': {
         Capacite.DOSSIER_MEDICAL_LIRE,
     },
     'agent_admission': {
-        # Création globale (sans restriction de service) via /patients/admission/
-        # + affectation ultérieure d'un service via /patients/{id}/orienter/.
-        # PATIENTS_CREER est conservée pour compatibilité (ex. endpoint générique
-        # /patients/ encore accessible), mais le flux normal passe par ADMISSIONS_GERER.
-        Capacite.ADMISSIONS_GERER, Capacite.PATIENTS_ORIENTER,
+        # Formulaire unique de création (avec orientation incluse dès la
+        # création) + régularisation d'une identité provisoire d'urgence,
+        # via /patients/admission/ et /patients/{id}/regulariser/.
+        Capacite.ADMISSIONS_GERER, Capacite.PATIENTS_TRANSFERER,
         Capacite.PATIENTS_CREER, Capacite.RDV_LIRE,
         Capacite.ACCOMPAGNANTS_GERER,
     },

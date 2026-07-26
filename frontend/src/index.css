@@ -37,12 +37,13 @@
     --ht-muted:            #6b7280;
     --ht-muted-bg:         #f3f4f6;
 
-    --role-admin:          #003152;
-    --role-medecin:        #0e7490;
-    --role-infirmier:      #16a34a;
-    --role-secretaire:     #9333ea;
-    --role-laborantin:     #ea580c;
-    --role-chef_chirurgie: #9f1239;
+    --role-admin:           #003152;
+    --role-medecin:         #0e7490;
+    --role-infirmier:       #16a34a;
+    --role-secretaire:      #9333ea;
+    --role-laborantin:      #ea580c;
+    --role-agent_admission: #f59e0b;
+    --role-chef_chirurgie:  #9f1239;
 
     --tri-1-bg: #dc2626; --tri-1-text: #ffffff;
     --tri-2-bg: #ea580c; --tri-2-text: #ffffff;
@@ -157,6 +158,7 @@ body {
 .badge-role-infirmier { background-color: rgba(22,163,74,0.12); color: var(--role-infirmier); }
 .badge-role-secretaire { background-color: rgba(147,51,234,0.12); color: var(--role-secretaire); }
 .badge-role-laborantin { background-color: rgba(234,88,12,0.12); color: var(--role-laborantin); }
+.badge-role-agent_admission { background-color: rgba(245,158,11,0.12); color: var(--role-agent_admission); }
 .badge-role-chef_chirurgie { background-color: rgba(159,18,57,0.12); color: var(--role-chef_chirurgie); }
 
 .badge-gravite {

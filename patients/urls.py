@@ -1,9 +1,10 @@
 from django.urls import path,include
 from rest_framework.routers import DefaultRouter
-from .views import PatientViewSet
+from .views import PatientViewSet, AccompagnantViewSet
 
 router = DefaultRouter()
 router.register(r'patients',PatientViewSet,basename='patients')
+router.register(r'accompagnants', AccompagnantViewSet, basename='accompagnants')
 
 #Le DefaultRouter génère automatiquement toutes les URLs à partir de ton ViewSet.
 # C'est lui qui crée :

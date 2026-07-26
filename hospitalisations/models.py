@@ -51,6 +51,18 @@ class Hospitalisation(models.Model):
     date_creation      = models.DateTimeField(auto_now_add=True)
     date_modification  = models.DateTimeField(auto_now=True)
 
+    def save(self, *args, **kwargs):
+        # Même principe que Consultation.save() : la création d'une
+        # Hospitalisation met AUTOMATIQUEMENT à jour le parcours administratif
+        # du patient — pas d'action manuelle séparée à faire côté service.
+        est_nouvelle = self._state.adding
+        super().save(*args, **kwargs)
+        if est_nouvelle:
+            from patients.models import Patient
+            Patient.objects.filter(pk=self.patient_id).update(
+                statut_orientation=Patient.StatutOrientation.HOSPITALISE
+            )
+
     def __str__(self):
         return f"Hospitalisation {self.patient} — {self.date_admission.strftime('%d/%m/%Y')}"
 

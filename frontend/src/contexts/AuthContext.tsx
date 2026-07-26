@@ -10,7 +10,7 @@ interface AuthContextValue {
     loading: boolean
     hasRole: (...roles: RoleEmploye[]) => boolean
     hasCapacite: (...capacites: CapaciteValue[]) => boolean
-    login: (credentials: LoginCredentials) => Promise<void>
+    login: (credentials: LoginCredentials) => Promise<CurrentUser | null>
     logout: () => Promise<void>
 }
 
@@ -19,7 +19,7 @@ const AuthContext = createContext<AuthContextValue>({
     loading: true,
     hasRole: () => false,
     hasCapacite: () => false,
-    login: async () => {},
+    login: async () => null,
     logout: async () => {},
 })
 
@@ -27,7 +27,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<CurrentUser | null>(null)
     const [loading, setLoading] = useState(true)
 
-    const loadUser = async () => {
+    const loadUser = async (): Promise<CurrentUser | null> => {
         // Avec des cookies httpOnly, le JS ne peut plus savoir s'il existe un
         // token sans demander au serveur — on tente systématiquement getMe()
         // au démarrage plutôt que de vérifier un flag local d'abord (comme
@@ -37,8 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
             const me = await getMe()
             setUser(me)
+            return me
         } catch {
             setUser(null)
+            return null
         } finally {
             setLoading(false)
         }
@@ -68,7 +70,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const login = async (credentials: LoginCredentials) => {
         await loginApi(credentials)
-        await loadUser()
+        return loadUser()
     }
 
     const logout = async () => {

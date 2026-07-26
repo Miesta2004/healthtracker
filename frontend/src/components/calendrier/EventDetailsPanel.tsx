@@ -20,6 +20,7 @@ export default function EventDetailsPanel({ evenement, medecinLabel, onClose, on
     const fin = new Date(evenement.end_time)
 
     const demarrerConsultation = () => {
+        if (!evenement.patient) return
         if (evenement.consultation_id) {
             navigate(`/patients/${evenement.patient.id}/consultations/${evenement.consultation_id}`)
         } else {
@@ -59,12 +60,26 @@ export default function EventDetailsPanel({ evenement, medecinLabel, onClose, on
 
                     <div className="p-5 space-y-5">
                         <div>
-                            <p className="text-lg font-bold" style={{ color: 'var(--ht-text)' }}>
-                                {evenement.patient.nom_complet}
-                            </p>
-                            <p className="text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
-                                Dossier {evenement.patient.numero_dossier} · {evenement.patient.age} ans
-                            </p>
+                            {evenement.patient ? (
+                                <>
+                                    <p className="text-lg font-bold" style={{ color: 'var(--ht-text)' }}>
+                                        {evenement.patient.nom_complet}
+                                    </p>
+                                    <p className="text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
+                                        Dossier {evenement.patient.numero_dossier} · {evenement.patient.age} ans
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <p className="text-lg font-bold" style={{ color: 'var(--ht-text)' }}>
+                                        {evenement.motif}
+                                    </p>
+                                    <p className="text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
+                                        {evenement.service_nom ?? "Tout l'hôpital"}
+                                        {evenement.lieu && ` · ${evenement.lieu}`}
+                                    </p>
+                                </>
+                            )}
                             {evenement.a_alerte_critique && (
                                 <p className="flex items-center gap-1 text-xs mt-1" style={{ color: 'var(--ht-danger)' }}>
                                     <TriangleAlert size={13} /> Alerte critique en cours sur ce patient
@@ -117,7 +132,7 @@ export default function EventDetailsPanel({ evenement, medecinLabel, onClose, on
                             )}
                             {peutModifier && evenement.statut !== 'annule' && (
                                 <button onClick={onAnnuler} className="btn btn-secondary gap-1.5">
-                                    <Ban size={14} /> Annuler ce rendez-vous
+                                    <Ban size={14} /> {evenement.patient ? 'Annuler ce rendez-vous' : "Annuler l'événement"}
                                 </button>
                             )}
                         </div>
