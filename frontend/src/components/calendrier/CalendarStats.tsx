@@ -26,8 +26,8 @@ export default function CalendarStats({ evenements }: Props) {
     const actifs = evenements.filter(e => e.statut !== 'annule')
     const consultations = actifs.filter(e => e.type_evenement === 'consultation').length
     const interventions = actifs.filter(e => e.type_evenement === 'intervention').length
-    const patientsUniques = new Set(actifs.map(e => e.patient.id)).size
-    const alertes = actifs.filter(e => e.a_alerte_critique).length
+    const patientsUniques = new Set(actifs.filter(e => e.patient).map(e => e.patient!.id)).size
+    const alertes = actifs.filter(e => e.alerte_critique).length
 
     return (
         <div className="flex flex-wrap gap-3">

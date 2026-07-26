@@ -17,11 +17,13 @@ import EventFormDialog, { type EventFormInitial } from '../components/calendrier
 import EventAdminFormDialog, { type EventAdminFormInitial } from '../components/calendrier/EventAdminFormDialog'
 import EventDetailsPanel from '../components/calendrier/EventDetailsPanel'
 import { useSallesBloc, useOperationsPlanning, useModifierOperation, useAnnulerOperation, useDemarrerOperation, useCloturerOperation } from '../hooks/useBlocOperatoire'
+import { useGardesPlanning } from '../hooks/useGardesPlanning'
+import GardeDetailsPanel from '../components/calendrier/GardeDetailsPanel'
 import {
     TYPE_EVENEMENT_CONFIG, joursDeSemaine, joursGrilleMois, toISODate, AGENDA_JOURS_A_VENIR,
     extraireMessageErreur,
 } from '../components/calendrier/calendrierConfig'
-import type { EvenementPlanning, TypeEvenementRdv, Operation } from '../types'
+import type { EvenementPlanning, TypeEvenementRdv, Operation, GardeOccurrence } from '../types'
 
 export default function CalendrierPage() {
     const { user, hasRole } = useAuth()
@@ -39,6 +41,7 @@ export default function CalendrierPage() {
 
     const [evenementSelectionne, setEvenementSelectionne] = useState<EvenementPlanning | null>(null)
     const [operationSelectionnee, setOperationSelectionnee] = useState<Operation | null>(null)
+    const [gardeSelectionnee, setGardeSelectionnee] = useState<GardeOccurrence | null>(null)
     const [formulaire, setFormulaire] = useState<EventFormInitial | null>(null)
     const [formulaireAdmin, setFormulaireAdmin] = useState<EventAdminFormInitial | null>(null)
     const [erreurFormulaire, setErreurFormulaire] = useState('')
@@ -64,6 +67,8 @@ export default function CalendrierPage() {
     const creer = useCreerEvenement()
     const modifier = useModifierEvenement()
     const supprimer = useSupprimerEvenement()
+
+    const { data: gardesPlanning } = useGardesPlanning(toISODate(debut), toISODate(fin), vue !== 'bloc')
 
     const enBloc = vue === 'bloc'
     const { data: salles, isLoading: sallesEnChargement } = useSallesBloc(user?.service ?? undefined, enBloc)
@@ -387,9 +392,11 @@ export default function CalendrierPage() {
                             <CalendarWeekView
                                 ancre={ancre}
                                 evenements={evenements}
+                                gardes={gardesPlanning?.gardes ?? []}
                                 onSelectEvenement={setEvenementSelectionne}
+                                onSelectGarde={setGardeSelectionnee}
                                 onSelectCreneau={ouvrirCreation}
-                                onSelectJour={(d) => { setAncre(d); setVue('jour') }}
+                                onSelectJour={(d: Date) => { setAncre(d); setVue('jour') }}
                                 deplacable={peutModifier}
                                 onDeplacerEvenement={deplacerEvenement}
                                 onRedimensionnerEvenement={redimensionnerEvenement}
@@ -398,18 +405,23 @@ export default function CalendrierPage() {
                             <CalendarMonthView
                                 ancre={ancre}
                                 evenements={evenements}
-                                onSelectJour={(d) => { setAncre(d); setVue('jour') }}
+                                gardes={gardesPlanning?.gardes ?? []}
+                                onSelectJour={(d: Date) => { setAncre(d); setVue('jour') }}
                             />
                         ) : vue === 'agenda' ? (
                             <CalendarAgendaView
                                 evenements={evenements}
+                                gardes={gardesPlanning?.gardes ?? []}
                                 onSelectEvenement={setEvenementSelectionne}
+                                onSelectGarde={setGardeSelectionnee}
                             />
                         ) : (
                             <CalendarDayView
                                 ancre={ancre}
                                 evenements={evenements}
+                                gardes={gardesPlanning?.gardes ?? []}
                                 onSelectEvenement={setEvenementSelectionne}
+                                onSelectGarde={setGardeSelectionnee}
                                 onSelectCreneau={ouvrirCreation}
                                 deplacable={peutModifier}
                                 onDeplacerEvenement={deplacerEvenement}
@@ -442,6 +454,13 @@ export default function CalendrierPage() {
                     onModifierEquipe={modifierEquipeOperation}
                     enCours={demarrer.isPending || cloturer.isPending || annulerOp.isPending || modifierOperation.isPending}
                     erreur={erreurOperation}
+                />
+            )}
+
+            {gardeSelectionnee && (
+                <GardeDetailsPanel
+                    garde={gardeSelectionnee}
+                    onClose={() => setGardeSelectionnee(null)}
                 />
             )}
 

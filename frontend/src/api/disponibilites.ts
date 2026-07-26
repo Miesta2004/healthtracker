@@ -1,5 +1,12 @@
 import api from './client'
-import type { CreneauDisponibilite, ExceptionDisponibilite, AssignationPatient, MesPatientsAssignesResponse } from '../types'
+import type { CreneauDisponibilite, ExceptionDisponibilite, AssignationPatient, MesPatientsAssignesResponse, GardesPlanningResponse } from '../types'
+
+// Fusionne CreneauDisponibilite (récurrent) + ExceptionDisponibilite (validée)
+// en occurrences datées — alimente le module Calendrier.
+export const getGardesPlanning = async (debut: string, fin: string): Promise<GardesPlanningResponse> => {
+    const res = await api.get('/gardes-planning/', { params: { debut, fin } })
+    return res.data
+}
 
 // ─── Créneaux récurrents ─────────────────────────────────────────────────────
 export const getMesCreneaux = async (): Promise<CreneauDisponibilite[]> => {

@@ -80,7 +80,7 @@ export default function EventDetailsPanel({ evenement, medecinLabel, onClose, on
                                     </p>
                                 </>
                             )}
-                            {evenement.a_alerte_critique && (
+                            {evenement.alerte_critique && (
                                 <p className="flex items-center gap-1 text-xs mt-1" style={{ color: 'var(--ht-danger)' }}>
                                     <TriangleAlert size={13} /> Alerte critique en cours sur ce patient
                                 </p>

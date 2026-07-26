@@ -1,6 +1,6 @@
 import { LineChart, Line, ResponsiveContainer } from 'recharts'
 import { TrendingUp, TrendingDown, Circle } from 'lucide-react'
-import type { KpiData } from '../../types'
+import type { KpiData } from './types'
 
 export function Puce({ estime }: { estime?: boolean }) {
     if (!estime) return null
@@ -40,7 +40,7 @@ export function KpiCard({ label, valeur, delta, hausse, sparkline, estime }: Kpi
                 {sparkline && sparkline.length > 1 && (
                     <div className="w-16 h-8 flex-shrink-0">
                         <ResponsiveContainer width="100%" height="100%">
-                            <LineChart data={sparkline.map((v, i) => ({ i, v }))}>
+                            <LineChart data={sparkline.map((v: number, i: number) => ({ i, v }))}>
                                 <Line
                                     type="monotone" dataKey="v" dot={false} strokeWidth={2}
                                     stroke={hausse ? 'var(--ht-primary)' : 'var(--ht-danger)'}

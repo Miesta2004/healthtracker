@@ -8,6 +8,13 @@ import {
 // l'utilisateur peut naviguer par Semaine/Mois pour aller plus loin.
 export const AGENDA_JOURS_A_VENIR = 60
 
+// Gardes fusionnées (module Disponibilités) — une seule couleur pour rester
+// simple, distincte de la palette des types de RendezVous puisque ce n'est
+// pas la même nature d'information (planning du personnel, pas un acte
+// patient). Trait plein pour une garde récurrente, pointillé pour une
+// exception (déclarée au cas par cas, pas encore "la norme").
+export const GARDE_COULEUR = '#4F46E5' // indigo-600
+
 // ─── Grille horaire ──────────────────────────────────────────────────────────
 // Grille complète 00:00 – 24:00, avec un pas de 30 minutes pour la création
 // de créneaux (les vues par défaut scrollent automatiquement vers les heures

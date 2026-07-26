@@ -541,6 +541,27 @@ export interface MesPatientsAssignesResponse {
     assignations: AssignationPatient[]
 }
 
+// ─── Gardes (fusion CreneauDisponibilite récurrent + ExceptionDisponibilite validée) ──
+export interface GardeOccurrence {
+    id: string
+    source: 'recurrent' | 'exception'
+    employe_id: number
+    employe_nom: string
+    employe_prenom: string
+    employe_role_label: string
+    type: 'garde' | 'astreinte'
+    type_label: string
+    start_time: string
+    end_time: string
+    motif: string
+}
+
+export interface GardesPlanningResponse {
+    debut: string
+    fin: string
+    gardes: GardeOccurrence[]
+}
+
 // ─── Chirurgie / Opérations ──────────────────────────────────────────────────
 export type StatutSalleBloc = 'disponible' | 'occupe' | 'desinfection_approfondie' | 'maintenance'
 export type StatutIntervention = 'programmee' | 'en_cours' | 'terminee' | 'deces_au_bloc' | 'annulee'

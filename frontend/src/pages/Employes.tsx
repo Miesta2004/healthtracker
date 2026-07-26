@@ -22,6 +22,7 @@ const ROLE_LABELS: Record<RoleEmploye, string> = {
     secretaire: 'Secrétaire',
     laborantin: 'Laborantin',
     chef_chirurgie: 'Chef de Chirurgie',
+    agent_admission: "Agent d'Admission",
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
     admin: 'var(--ht-primary)',
@@ -30,8 +31,9 @@ const ROLE_COLORS: Record<RoleEmploye, string> = {
     secretaire: 'var(--role-secretaire)',
     laborantin: 'var(--role-laborantin)',
     chef_chirurgie: 'var(--role-chef_chirurgie)',
+    agent_admission: 'var(--role-agent_admission)',
 }
-const ROLES: RoleEmploye[] = ['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin', 'chef_chirurgie']
+const ROLES: RoleEmploye[] = ['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin', 'chef_chirurgie', 'agent_admission']
 
 // ─── Mini barre ───────────────────────────────────────────────────────────────
 function MiniBar({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {

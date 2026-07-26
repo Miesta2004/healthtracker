@@ -114,7 +114,7 @@ export default function EventBlock({
                         {debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                         {!compact && ` – ${fin.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
                     </span>
-                    {evenement.a_alerte_critique && (
+                    {evenement.alerte_critique && (
                         <TriangleAlert size={10} style={{ color: 'var(--ht-danger)', flexShrink: 0 }} />
                     )}
                 </div>

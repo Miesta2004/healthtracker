@@ -1,15 +1,16 @@
-import type { EvenementPlanning, TypeEvenementRdv } from '../../types'
-import { TYPE_EVENEMENT_CONFIG, joursGrilleMois, memeJour, estAujourdhui } from './calendrierConfig'
+import type { EvenementPlanning, TypeEvenementRdv, GardeOccurrence } from '../../types'
+import { TYPE_EVENEMENT_CONFIG, GARDE_COULEUR, joursGrilleMois, memeJour, estAujourdhui } from './calendrierConfig'
 
 interface Props {
     ancre: Date
     evenements: EvenementPlanning[]
+    gardes?: GardeOccurrence[]
     onSelectJour: (date: Date) => void
 }
 
 const JOURS_SEMAINE = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
-export default function CalendarMonthView({ ancre, evenements, onSelectJour }: Props) {
+export default function CalendarMonthView({ ancre, evenements, gardes = [], onSelectJour }: Props) {
     const jours = joursGrilleMois(ancre)
     const moisCourant = ancre.getMonth()
 
@@ -34,6 +35,12 @@ export default function CalendarMonthView({ ancre, evenements, onSelectJour }: P
 
                     const parType = new Map<TypeEvenementRdv, number>()
                     evtsJour.forEach(e => parType.set(e.type_evenement, (parType.get(e.type_evenement) ?? 0) + 1))
+
+                    // Nombre d'employés distincts de garde ce jour-là (pas le
+                    // nombre d'occurrences — un même employé peut apparaître
+                    // dans les deux sources, on ne veut compter qu'une fois).
+                    const gardesJour = gardes.filter(g => memeJour(new Date(g.start_time), jour))
+                    const employesGarde = new Set(gardesJour.map(g => g.employe_id)).size
 
                     return (
                         <button
@@ -65,6 +72,16 @@ export default function CalendarMonthView({ ancre, evenements, onSelectJour }: P
                                         </span>
                                     )
                                 })}
+                                {employesGarde > 0 && (
+                                    <span
+                                        className="flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded-full"
+                                        style={{ backgroundColor: `${GARDE_COULEUR}1A`, color: GARDE_COULEUR }}
+                                        title={`${employesGarde} de garde`}
+                                    >
+                                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: GARDE_COULEUR }} />
+                                        {employesGarde}
+                                    </span>
+                                )}
                             </div>
                         </button>
                     )

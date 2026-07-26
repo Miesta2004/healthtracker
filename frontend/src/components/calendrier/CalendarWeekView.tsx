@@ -1,123 +1,72 @@
-import { useEffect, useRef } from 'react'
-import type { EvenementPlanning } from '../../types'
-import EventBlock from './EventBlock'
-import CurrentTimeLine from './CurrentTimeLine'
-import CalendarSlotCell from './CalendarSlotCell'
-import {
-    heuresGrille, PX_PAR_HEURE, PX_PAR_DEMI_HEURE, HEURE_SCROLL_INITIAL,
-    joursDeSemaine, estAujourdhui, memeJour, disposerEvenements, dateACreneauHoraire,
-} from './calendrierConfig'
+import type { EvenementPlanning, GardeOccurrence } from '../../types'
+import { joursDeSemaine, memeJour, TYPE_EVENEMENT_CONFIG } from './calendrierConfig'
 
 interface Props {
     ancre: Date
     evenements: EvenementPlanning[]
+    gardes?: GardeOccurrence[]
     onSelectEvenement: (e: EvenementPlanning) => void
-    onSelectCreneau: (date: Date) => void
-    onSelectJour: (date: Date) => void
-    /** Autorise le glisser-déposer et le redimensionnement (droits insuffisants → lecture seule) */
+    onSelectGarde?: (g: GardeOccurrence) => void
+    onSelectCreneau?: (date: Date) => void
+    onSelectJour?: (date: Date) => void
     deplacable?: boolean
     onDeplacerEvenement?: (id: number, nouvelleDate: Date) => void
     onRedimensionnerEvenement?: (id: number, dureeMinutes: number) => void
 }
 
 export default function CalendarWeekView({
-                                             ancre, evenements, onSelectEvenement, onSelectCreneau, onSelectJour,
-                                             deplacable = false, onDeplacerEvenement, onRedimensionnerEvenement,
-                                         }: Props) {
+    ancre,
+    evenements,
+    gardes = [],
+    onSelectEvenement,
+    onSelectGarde,
+    onSelectCreneau,
+    onSelectJour,
+}: Props) {
     const jours = joursDeSemaine(ancre)
-    const heures = heuresGrille()
-    const hauteurGrille = heures.length * PX_PAR_HEURE
-    const scrollRef = useRef<HTMLDivElement>(null)
-
-    // Ouvre la grille sur les heures ouvrées plutôt que de partir de minuit —
-    // la grille couvre bien 00:00–24:00 mais on ne veut pas forcer à scroller
-    // à chaque fois pour voir la journée de travail.
-    useEffect(() => {
-        scrollRef.current?.scrollTo({ top: HEURE_SCROLL_INITIAL * PX_PAR_HEURE - 12 })
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [])
 
     return (
         <div className="ht-card overflow-hidden">
-            {/* En-tête : jours de la semaine */}
-            <div className="grid" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
-                <div className="border-b" style={{ borderColor: 'var(--ht-border)' }} />
+            <div className="grid grid-cols-7 border-b" style={{ borderColor: 'var(--ht-border)' }}>
                 {jours.map(jour => (
-                    <button
-                        key={jour.toISOString()}
-                        onClick={() => onSelectJour(jour)}
-                        className="flex flex-col items-center py-2 border-b border-l transition-colors hover:bg-[var(--ht-bg)]"
-                        style={{ borderColor: 'var(--ht-border)' }}
-                    >
-                        <span className="text-[11px] uppercase font-medium" style={{ color: 'var(--ht-text-muted)' }}>
-                            {jour.toLocaleDateString('fr-FR', { weekday: 'short' })}
-                        </span>
-                        <span
-                            className="text-sm font-semibold w-7 h-7 flex items-center justify-center rounded-full mt-0.5"
-                            style={{
-                                backgroundColor: estAujourdhui(jour) ? 'var(--ht-primary)' : 'transparent',
-                                color: estAujourdhui(jour) ? 'var(--ht-primary-contrast)' : 'var(--ht-text)',
-                            }}
-                        >
-                            {jour.getDate()}
-                        </span>
-                    </button>
+                    <div key={jour.toISOString()} className="p-3 text-xs font-medium text-center">
+                        <div style={{ color: 'var(--ht-text-muted)' }}>{jour.toLocaleDateString('fr-FR', { weekday: 'short' })}</div>
+                        <div className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>{jour.getDate()}</div>
+                    </div>
                 ))}
             </div>
 
-            {/* Grille horaire */}
-            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 640 }}>
-                <div className="grid" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
-                    <div>
-                        {heures.map(h => (
-                            <div key={h} style={{ height: PX_PAR_HEURE }} className="relative">
-                                <span className="absolute -top-2 right-2 text-[10px]" style={{ color: 'var(--ht-text-muted)' }}>
-                                    {String(h).padStart(2, '0')}:00
-                                </span>
-                            </div>
-                        ))}
-                    </div>
+            <div className="grid grid-cols-7 gap-2 p-3">
+                {jours.map(jour => {
+                    const evts = evenements.filter(e => memeJour(new Date(e.start_time), jour) && e.statut !== 'annule')
+                    const gardesJour = gardes.filter(g => memeJour(new Date(g.start_time), jour))
+                    return (
+                        <div key={jour.toISOString()} className="border p-2 rounded-lg" style={{ borderColor: 'var(--ht-border)', minHeight: 140 }}>
+                            <div className="flex flex-col gap-2">
+                                {evts.map(e => {
+                                    const cfg = TYPE_EVENEMENT_CONFIG[e.type_evenement]
+                                    const debut = new Date(e.start_time)
+                                    return (
+                                        <button key={e.id} onClick={() => onSelectEvenement(e)} className="text-sm text-left truncate" style={{ color: cfg.text }}>
+                                            {debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })} · {e.patient ? e.patient.nom_complet : (e.lieu || e.motif)}
+                                        </button>
+                                    )
+                                })}
 
-                    {jours.map(jour => {
-                        const evtsJour = evenements.filter(e => memeJour(new Date(e.start_time), jour))
-                        const disposes = disposerEvenements(evtsJour)
-                        return (
-                            <div
-                                key={jour.toISOString()}
-                                className="relative border-l"
-                                style={{ borderColor: 'var(--ht-border)', height: hauteurGrille }}
-                            >
-                                {heures.map(h => (
-                                    <div key={h} style={{ height: PX_PAR_HEURE }}>
-                                        <CalendarSlotCell
-                                            hauteur={PX_PAR_DEMI_HEURE}
-                                            pointille
-                                            onClick={() => onSelectCreneau(dateACreneauHoraire(jour, h, 0))}
-                                            onDrop={(id) => onDeplacerEvenement?.(id, dateACreneauHoraire(jour, h, 0))}
-                                        />
-                                        <CalendarSlotCell
-                                            hauteur={PX_PAR_DEMI_HEURE}
-                                            onClick={() => onSelectCreneau(dateACreneauHoraire(jour, h, 30))}
-                                            onDrop={(id) => onDeplacerEvenement?.(id, dateACreneauHoraire(jour, h, 30))}
-                                        />
+                                {gardesJour.map(g => (
+                                    <div key={g.id} className="text-xs text-muted" onClick={() => onSelectGarde?.(g)}>
+                                        {g.type_label} · {g.employe_prenom}
                                     </div>
                                 ))}
-                                {disposes.map(({ evenement, colonnes, indexColonne }) => (
-                                    <EventBlock
-                                        key={evenement.id}
-                                        evenement={evenement}
-                                        colonnes={colonnes}
-                                        indexColonne={indexColonne}
-                                        onClick={() => onSelectEvenement(evenement)}
-                                        deplacable={deplacable}
-                                        onRedimensionner={(duree) => onRedimensionnerEvenement?.(evenement.id, duree)}
-                                    />
-                                ))}
-                                {estAujourdhui(jour) && <CurrentTimeLine />}
                             </div>
-                        )
-                    })}
-                </div>
+
+                            <div className="mt-3 flex gap-2">
+                                <button className="text-xs underline" onClick={() => onSelectJour?.(jour)}>Ouvrir jour</button>
+                                <button className="text-xs underline" onClick={() => onSelectCreneau?.(jour)}>Nouveau</button>
+                            </div>
+                        </div>
+                    )
+                })}
             </div>
         </div>
     )

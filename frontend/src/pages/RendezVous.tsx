@@ -74,6 +74,7 @@ const DUREE_PAR_DEFAUT_TYPE: Record<TypeEvenementRdv, number> = {
     consultation: 30,
     intervention: 60,
     reunion: 30,
+    formation: 120,
     garde: 480,
     visite_postoperatoire: 15,
     autre: 30,

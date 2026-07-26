@@ -18,9 +18,7 @@ const ROLE_LABELS: Record<RoleEmploye, string> = {
 const ROLE_COLORS: Record<RoleEmploye, string> = {
     admin: 'var(--ht-primary)', medecin: 'var(--role-medecin)', infirmier: 'var(--role-infirmier)',
     secretaire: 'var(--role-secretaire)', laborantin: 'var(--role-laborantin)', chef_chirurgie: 'var(--role-chef_chirurgie)',
-    // Pas de teinte dédiée définie pour ce rôle dans le thème — repli sur la couleur secrétaire,
-    // rôle administratif le plus proche visuellement. À affiner si une teinte --role-agent_admission est ajoutée au thème.
-    agent_admission: 'var(--role-secretaire)',
+    agent_admission: 'var(--role-agent_admission)',
 }
 const CONTRAT_LABELS: Record<string, string> = {
     cdi: 'CDI', cdd: 'CDD', stage: 'Stage', vacation: 'Vacation', benevolat: 'Bénévolat',

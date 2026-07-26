@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
-import type { EvenementPlanning } from '../../types'
+import type { EvenementPlanning, GardeOccurrence } from '../../types'
 import EventBlock from './EventBlock'
+import GardeStrip from './GardeStrip'
 import CurrentTimeLine from './CurrentTimeLine'
 import CalendarSlotCell from './CalendarSlotCell'
 import {
@@ -11,7 +12,9 @@ import {
 interface Props {
     ancre: Date
     evenements: EvenementPlanning[]
+    gardes?: GardeOccurrence[]
     onSelectEvenement: (e: EvenementPlanning) => void
+    onSelectGarde?: (g: GardeOccurrence) => void
     onSelectCreneau: (date: Date) => void
     deplacable?: boolean
     onDeplacerEvenement?: (id: number, nouvelleDate: Date) => void
@@ -19,13 +22,14 @@ interface Props {
 }
 
 export default function CalendarDayView({
-                                            ancre, evenements, onSelectEvenement, onSelectCreneau,
+                                            ancre, evenements, gardes = [], onSelectEvenement, onSelectGarde, onSelectCreneau,
                                             deplacable = false, onDeplacerEvenement, onRedimensionnerEvenement,
                                         }: Props) {
     const heures = heuresGrille()
     const hauteurGrille = heures.length * PX_PAR_HEURE
     const evtsJour = evenements.filter(e => memeJour(new Date(e.start_time), ancre))
     const disposes = disposerEvenements(evtsJour)
+    const gardesJour = gardes.filter(g => memeJour(new Date(g.start_time), ancre))
     const scrollRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
@@ -61,6 +65,9 @@ export default function CalendarDayView({
                                     onDrop={(id) => onDeplacerEvenement?.(id, dateACreneauHoraire(ancre, h, 30))}
                                 />
                             </div>
+                        ))}
+                        {gardesJour.map((g, i) => (
+                            <GardeStrip key={g.id} garde={g} decalage={i * 5} onClick={() => onSelectGarde?.(g)} />
                         ))}
                         {disposes.map(({ evenement, colonnes, indexColonne }) => (
                             <EventBlock

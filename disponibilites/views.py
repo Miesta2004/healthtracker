@@ -1,11 +1,157 @@
+from datetime import datetime, timedelta, date as date_cls, time
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.utils import timezone
 from comptes.permissions import IsAdminOuMajor, is_major, get_employe
-from .models import CreneauDisponibilite, ExceptionDisponibilite, StatutException, AssignationPatient
+from .models import CreneauDisponibilite, ExceptionDisponibilite, StatutException, AssignationPatient, TypeCreneau, TypeException
 from .serializers import CreneauSerializer, ExceptionSerializer, AssignationPatientSerializer
 from .shifts import shift_et_date_actuels, repartir_patients_hospitalises
+
+
+# Convention pour une garde exceptionnelle (ExceptionDisponibilite) : le
+# modèle ne stocke que des dates, pas d'heures — contrairement à
+# CreneauDisponibilite qui a de vraies heure_debut/heure_fin. On adopte la
+# convention hospitalière la plus courante en France (garde de 24h, relève à
+# 8h) plutôt que d'inventer une heure arbitraire.
+HEURE_RELEVE_GARDE = time(8, 0)
+
+
+def _employes_visibles_gardes(request):
+    """
+    Même logique de portée que CreneauViewSet/ExceptionViewSet : qui peut
+    voir les gardes de qui. Retourne un queryset d'Employe, ou None si
+    aucune restriction par employé ne s'applique (superuser = déjà large).
+    """
+    from comptes.models import Employe
+
+    emp = get_employe(request.user)
+    if emp is None:
+        return Employe.objects.none()
+
+    if request.user.is_superuser:
+        return None  # pas de restriction
+
+    if emp.role == 'admin':
+        return Employe.objects.filter(service_id=emp.service_id)
+
+    if is_major(emp):
+        return Employe.objects.filter(service_id=emp.service_id, role='infirmier')
+
+    return Employe.objects.filter(pk=emp.pk)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def gardes_planning(request):
+    """
+    Fusionne les deux sources de garde en occurrences datées pour une plage
+    donnée — alimente le Calendrier (Jour/Semaine/Mois/Agenda), qui n'a
+    sinon aucune visibilité sur les gardes déclarées dans Disponibilités.
+
+    Query params : debut/fin (AAAA-MM-JJ, défaut semaine courante),
+    employe (filtre optionnel, doit rester dans le périmètre visible).
+    """
+    debut_str = request.query_params.get('debut')
+    fin_str = request.query_params.get('fin')
+    if debut_str and fin_str:
+        try:
+            debut = date_cls.fromisoformat(debut_str)
+            fin = date_cls.fromisoformat(fin_str)
+        except ValueError:
+            raise ValidationError({'detail': "Dates 'debut'/'fin' invalides (format AAAA-MM-JJ)."})
+    else:
+        aujourdhui = timezone.localdate()
+        debut = aujourdhui - timedelta(days=aujourdhui.weekday())
+        fin = debut + timedelta(days=6)
+
+    employes_visibles = _employes_visibles_gardes(request)
+    employe_filtre = request.query_params.get('employe')
+
+    def dans_perimetre(employe_id):
+        if employes_visibles is not None and not employes_visibles.filter(pk=employe_id).exists():
+            return False
+        if employe_filtre and str(employe_id) != employe_filtre:
+            return False
+        return True
+
+    occurrences = []
+
+    # ─── Créneaux récurrents (type garde/astreinte) ─────────────────────────
+    creneaux = CreneauDisponibilite.objects.select_related('employe').filter(
+        type__in=[TypeCreneau.GARDE, TypeCreneau.ASTREINTE], actif=True,
+    )
+    if employes_visibles is not None:
+        creneaux = creneaux.filter(employe__in=employes_visibles)
+    if employe_filtre:
+        creneaux = creneaux.filter(employe_id=employe_filtre)
+
+    jour = debut
+    while jour <= fin:
+        jour_semaine = jour.weekday()  # 0=lundi, cohérent avec JourSemaine
+        for creneau in creneaux:
+            if creneau.jour != jour_semaine:
+                continue
+            debut_dt = timezone.make_aware(datetime.combine(jour, creneau.heure_debut))
+            fin_brute = datetime.combine(jour, creneau.heure_fin)
+            if creneau.heure_fin <= creneau.heure_debut:
+                fin_brute += timedelta(days=1)  # garde de nuit à cheval sur deux jours
+            fin_dt = timezone.make_aware(fin_brute)
+            occurrences.append({
+                'id': f'creneau-{creneau.id}-{jour.isoformat()}',
+                'source': 'recurrent',
+                'employe_id': creneau.employe_id,
+                'employe_nom': creneau.employe.nom,
+                'employe_prenom': creneau.employe.prenom,
+                'employe_role_label': creneau.employe.get_role_display(),
+                'type': creneau.type,
+                'type_label': creneau.get_type_display(),
+                'start_time': debut_dt.isoformat(),
+                'end_time': fin_dt.isoformat(),
+                'motif': '',
+            })
+        jour += timedelta(days=1)
+
+    # ─── Exceptions validées (garde exceptionnelle) ─────────────────────────
+    exceptions = ExceptionDisponibilite.objects.select_related('employe').filter(
+        type=TypeException.GARDE, statut=StatutException.VALIDE,
+        date_debut__lte=fin, date_fin__gte=debut,
+    )
+    if employes_visibles is not None:
+        exceptions = exceptions.filter(employe__in=employes_visibles)
+    if employe_filtre:
+        exceptions = exceptions.filter(employe_id=employe_filtre)
+
+    for exception in exceptions:
+        jour = max(exception.date_debut, debut)
+        borne = min(exception.date_fin, fin)
+        while jour <= borne:
+            debut_dt = timezone.make_aware(datetime.combine(jour, HEURE_RELEVE_GARDE))
+            fin_dt = timezone.make_aware(datetime.combine(jour + timedelta(days=1), HEURE_RELEVE_GARDE))
+            occurrences.append({
+                'id': f'exception-{exception.id}-{jour.isoformat()}',
+                'source': 'exception',
+                'employe_id': exception.employe_id,
+                'employe_nom': exception.employe.nom,
+                'employe_prenom': exception.employe.prenom,
+                'employe_role_label': exception.employe.get_role_display(),
+                'type': 'garde',
+                'type_label': 'Garde exceptionnelle',
+                'start_time': debut_dt.isoformat(),
+                'end_time': fin_dt.isoformat(),
+                'motif': exception.motif,
+            })
+            jour += timedelta(days=1)
+
+    occurrences.sort(key=lambda o: o['start_time'])
+
+    return Response({
+        'debut': debut.isoformat(),
+        'fin': fin.isoformat(),
+        'gardes': occurrences,
+    })
 
 
 class CreneauViewSet(viewsets.ModelViewSet):
