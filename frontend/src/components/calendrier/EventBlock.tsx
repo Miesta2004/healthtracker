@@ -92,6 +92,7 @@ export default function EventBlock({
                 draggable={deplacable && !annule}
                 onDragStart={deplacable ? demarrerDeplacement : undefined}
                 onDragEnd={() => setEnGlissement(false)}
+                title={evenement.patient ? evenement.patient.nom_complet : undefined}
                 className="relative w-full h-full text-left rounded-lg px-2 py-1.5 overflow-hidden group"
                 style={{
                     backgroundColor: cfg.bg,
@@ -126,9 +127,15 @@ export default function EventBlock({
                     {cfg.label}
                 </p>
 
-                {!compact && (
-                    <p className="text-[10.5px] truncate leading-tight" style={{ color: cfg.text, opacity: 0.75 }}>
-                        {evenement.patient ? evenement.patient.nom_complet : (evenement.lieu || evenement.motif)}
+                {!compact && evenement.motif && (
+                    <p className="text-[10.5px] truncate leading-tight" style={{ color: cfg.text, opacity: 0.85 }}>
+                        {evenement.motif}
+                    </p>
+                )}
+
+                {!compact && evenement.lieu && (
+                    <p className="text-[10.5px] truncate leading-tight" style={{ color: cfg.text, opacity: 0.65 }}>
+                        {evenement.lieu}
                     </p>
                 )}
 

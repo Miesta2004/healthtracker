@@ -1,7 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CalendarClock } from 'lucide-react'
 import Sidebar from '../components/Sidebar.tsx'
-import PageHeader from '../components/PageHeader.tsx'
 import RappelsPanel from '../components/RappelsPanel.tsx'
 import { useAuth } from '../contexts/AuthContext'
 import { usePlanning, useCreerEvenement, useModifierEvenement, useSupprimerEvenement } from '../hooks/useCalendrier'
@@ -12,6 +10,8 @@ import CalendarDayView from '../components/calendrier/CalendarDayView'
 import CalendarMonthView from '../components/calendrier/CalendarMonthView'
 import CalendarAgendaView from '../components/calendrier/CalendarAgendaView'
 import CalendarBlocOperatoireView from '../components/calendrier/CalendarBlocOperatoireView'
+import MiniMonthCalendar from '../components/calendrier/MiniMonthCalendar'
+import UpcomingEventsToday from '../components/calendrier/UpcomingEventsToday'
 import OperationDetailsPanel from '../components/calendrier/OperationDetailsPanel'
 import EventFormDialog, { type EventFormInitial } from '../components/calendrier/EventFormDialog'
 import EventAdminFormDialog, { type EventAdminFormInitial } from '../components/calendrier/EventAdminFormDialog'
@@ -296,27 +296,24 @@ export default function CalendrierPage() {
             <Sidebar />
 
             <main className="ht-page-content max-w-7xl mx-auto">
-                {/* ===== SECTION 1 : KPI ===== */}
-                <section className="mb-8">
+                {/* ===== SECTION 1 : SALUTATION + KPI ===== */}
+                <section className="mb-8 flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>
+                            Bonjour {user?.prenom ?? ''} 👋
+                        </h1>
+                        <p className="text-sm mt-1" style={{ color: 'var(--ht-text-secondary)' }}>
+                            Voici votre planning et vos activités du jour.
+                        </p>
+                    </div>
                     {!enBloc && <CalendarStats evenements={evenements} />}
                 </section>
 
-                {/* ===== SECTION 2 : RAPPELS ===== */}
-                <section className="mb-10">
-                    <RappelsPanel />
-                </section>
-
-                {/* ===== SECTION 3 : CALENDRIER ===== */}
+                {/* ===== SECTION 2 : CALENDRIER ===== */}
                 <section>
-                    <PageHeader
-                        title="Calendrier"
-                        subtitle="Vue d'ensemble des consultations, interventions et gardes"
-                        icon={CalendarClock}
-                    />
-
                     {/* Filtres */}
                     {!enBloc && (
-                        <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="flex flex-wrap gap-2">
                             {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
                                 const cfg = TYPE_EVENEMENT_CONFIG[t]
                                 const actif = typesActifs.has(t)
@@ -430,6 +427,19 @@ export default function CalendrierPage() {
                         )}
                     </div>
                 </section>
+
+                {/* ===== SECTION 3 : ÉVÉNEMENTS À VENIR / RAPPELS / MINI-CALENDRIER ===== */}
+                {!enBloc && (
+                    <section className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        <UpcomingEventsToday evenements={evenements} onSelect={setEvenementSelectionne} />
+                        <RappelsPanel />
+                        <MiniMonthCalendar
+                            ancre={ancre}
+                            evenements={evenements}
+                            onSelectDate={(d: Date) => { setAncre(d); setVue('jour') }}
+                        />
+                    </section>
+                )}
             </main>
 
             {/* ===== PANNEAUX MODAUX ===== */}
