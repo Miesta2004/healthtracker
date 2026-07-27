@@ -39,10 +39,10 @@ def occupation_service(service):
 # nulle part dans la base actuelle, et l'inventer produirait des données
 # tout aussi fictives qu'avant, juste stockées différemment. Ce qui EST
 # réellement tracé :
-#   - chirurgie.Operation.statut='complication' + le champ texte
-#     `complications` → taux de complications post-opératoires réel
-#   - chirurgie.Operation.date_debut_reelle/date_fin_reelle → temps
-#     opératoire moyen réel
+#   - chirurgie.InterventionChirurgicale.complications (champ texte non vide)
+#     et/ou statut='deces_au_bloc' → taux de complications post-opératoires réel
+#   - chirurgie.InterventionChirurgicale.date_debut_reelle/date_fin_reelle →
+#     temps opératoire moyen réel
 #   - hospitalisations.Hospitalisation → taux de réadmission à 30 jours,
 #     calculé (pas stocké), à partir des vraies admissions/sorties
 #   - consultations.RendezVous.statut='annule' → taux d'annulation réel
@@ -55,14 +55,21 @@ def occupation_service(service):
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _taux_complications(services_qs, depuis, jusqu_a):
-    from chirurgie.models import Operation, StatutOperation
-    ops = Operation.objects.filter(
+    from chirurgie.models import InterventionChirurgicale, StatutIntervention
+    # Une intervention "évaluable" est une intervention qui est bien allée au
+    # bout (terminée ou décès au bloc) — une intervention encore programmée
+    # ou annulée n'a pas de suite opératoire à évaluer.
+    ops = InterventionChirurgicale.objects.filter(
         service_chirurgie__in=services_qs,
-        date_heure_prevue__date__range=(depuis, jusqu_a),
-        statut__in=[StatutOperation.TERMINEE, StatutOperation.COMPLICATION],
+        heure_debut__date__range=(depuis, jusqu_a),
+        statut__in=[StatutIntervention.TERMINEE, StatutIntervention.DECES_AU_BLOC],
     )
     total = ops.count()
-    complications = ops.filter(statut=StatutOperation.COMPLICATION).count()
+    # Complication = champ texte renseigné, ou décès au bloc (toujours une
+    # complication au sens de cet indicateur, même sans texte renseigné).
+    complications = ops.filter(
+        Q(statut=StatutIntervention.DECES_AU_BLOC) | ~Q(complications='')
+    ).count()
     taux = round(complications / total * 100, 1) if total else None
     return taux, complications, total
 
@@ -103,11 +110,11 @@ def _taux_annulation(services_qs, depuis, jusqu_a):
 
 
 def _temps_operatoire_moyen(services_qs, depuis, jusqu_a):
-    from chirurgie.models import Operation, StatutOperation
-    ops = Operation.objects.filter(
+    from chirurgie.models import InterventionChirurgicale, StatutIntervention
+    ops = InterventionChirurgicale.objects.filter(
         service_chirurgie__in=services_qs,
-        date_heure_prevue__date__range=(depuis, jusqu_a),
-        statut__in=[StatutOperation.TERMINEE, StatutOperation.COMPLICATION],
+        heure_debut__date__range=(depuis, jusqu_a),
+        statut__in=[StatutIntervention.TERMINEE, StatutIntervention.DECES_AU_BLOC],
         date_debut_reelle__isnull=False, date_fin_reelle__isnull=False,
     )
     durees = [(o.date_fin_reelle - o.date_debut_reelle).total_seconds() / 60 for o in ops]
@@ -188,24 +195,26 @@ def evolution_qualite_hebdomadaire(services_qs, nb_semaines=8):
 
 def evenements_qualite_recents(services_qs, limite=15):
     """
-    Table "Événements récents" : les opérations réellement terminées avec
-    complication — pas d'incidents inventés (chute, erreur médicamenteuse…),
-    faute d'un modèle qui les tracerait aujourd'hui.
+    Table "Événements récents" : les interventions réellement terminées avec
+    complication (texte renseigné) ou décès au bloc — pas d'incidents
+    inventés (chute, erreur médicamenteuse…), faute d'un modèle qui les
+    tracerait aujourd'hui.
     """
-    from chirurgie.models import Operation, StatutOperation
+    from chirurgie.models import InterventionChirurgicale, StatutIntervention
     ops = (
-        Operation.objects
-        .filter(service_chirurgie__in=services_qs, statut=StatutOperation.COMPLICATION)
+        InterventionChirurgicale.objects
+        .filter(service_chirurgie__in=services_qs)
+        .filter(Q(statut=StatutIntervention.DECES_AU_BLOC) | ~Q(complications=''))
         .select_related('service_chirurgie', 'chirurgien_principal', 'patient')
-        .order_by('-date_heure_prevue')[:limite]
+        .order_by('-heure_debut')[:limite]
     )
     return [
         {
-            'date': o.date_heure_prevue.date().isoformat(),
-            'intervention': o.type_intervention,
+            'date': o.heure_debut.date().isoformat(),
+            'intervention': o.type_acte,
             'service': o.service_chirurgie.nom,
             'chirurgien': f"Dr {o.chirurgien_principal.prenom} {o.chirurgien_principal.nom}",
-            'description': o.complications,
+            'description': o.complications or "Décès au bloc opératoire.",
         }
         for o in ops
     ]

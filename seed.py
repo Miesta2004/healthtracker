@@ -17,7 +17,7 @@ from django.contrib.auth.models import User
 from datetime import timedelta, date, datetime
 from collections import defaultdict
 
-from patients.models import Patient
+from patients.models import Patient, Accompagnant
 from consultations.models import Consultation, RendezVous
 from signes_vitaux.models import SignesVitaux
 from alertes.models import Alerte
@@ -62,6 +62,7 @@ def run_seed():
         (InterventionChirurgicale, "opération(s) chirurgicale(s)"),
         (SalleBloc,       "salle(s) de bloc"),
         (Antecedent,      "antécédent(s) détaillé(s)"),
+        (Accompagnant,    "accompagnant(s)"),
         (Hospitalisation, "hospitalisation(s)"),
         (Alerte,          "alerte(s)"),
         (RendezVous,      "rendez-vous"),
@@ -142,6 +143,9 @@ def run_seed():
         ("Pédiatrie",                "Suivi médical des enfants, nourrissons et adolescents"),
         ("Diabétologie-Endocrinologie", "Suivi des patients diabétiques, thyroïdiens et endocriniens"),
         ("Urgences",                 "Accueil, triage et prise en charge des urgences médicales"),
+        ("Consultation Externe / Triage", "Service de repli quand le motif d'admission n'est pas encore défini : "
+                                          "l'agent d'admission y oriente le patient en attendant qu'un premier avis "
+                                          "médical précise vers quel service spécialisé le rediriger."),
         ("Chirurgie générale",       "Interventions chirurgicales programmées et urgentes"),
         ("Gynécologie-Obstétrique",  "Suivi de grossesse, accouchement et santé de la femme"),
         ("Neurologie",               "Pathologies du système nerveux central et périphérique"),
@@ -304,6 +308,12 @@ def run_seed():
          "cdd", date(2024, 1, 8), "Infirmière ORL et ophtalmologie. Préparation des consultations spécialisées, instillations oculaires, soins post-opératoires ORL, audiométrie de dépistage."),
         ("Alioune",   "Diagne",   "M", "secretaire", "",                           "sec.adiagne",    "secretaire123", 30, "ORL-Ophtalmologie",
          "cdi", date(2021, 6, 1), "Secrétaire médical en ORL-ophtalmologie. Prise de rendez-vous de consultation, gestion des dossiers d'audiométrie et d'examens de la vue, coordination des interventions programmées."),
+
+        # Service des Admissions
+        ("Ndèye Fatou", "Sarr",   "F", "agent_admission", "",                     "adm.nsarr",      "admission123",  34, None,
+         "cdi", date(2019, 4, 1), "Agent d'admission. Accueil administratif des patients, création des dossiers via le formulaire unique, orientation vers les services, contrôle des accompagnants et régularisation des identités provisoires admises en urgence."),
+        ("Mamadou",     "Ba",     "M", "agent_admission", "",                     "adm.mba",        "admission123",  29, None,
+         "cdd", date(2022, 6, 1), "Agent d'admission. Accueil, création de dossiers patients et gestion du contrôle des accompagnants au Service des Admissions."),
 
         # Laboratoire
         ("Oumar",     "Thiam",    "M", "laborantin", "Biologie médicale",          "lab.othiam",     "labo123",       38, "Laboratoire",
@@ -650,6 +660,7 @@ def run_seed():
         ("Infirmier(e)", "inf.nba / inf.csarr / ...",    "infirmier123"),
         ("Secrétaire",   "sec.mbaye / sec.sba / ...",    "secretaire123"),
         ("Laborantin",   "lab.othiam / lab.dtall / ...", "labo123"),
+        ("Agent d'admission", "adm.nsarr / adm.mba",      "admission123"),
     ]:
         print(f"│ {rl:<16}│ {us:<25} │ {pw:<18} │")
     print("└──────────────────┴──────────────────────────┴────────────────────┘\n")
@@ -741,6 +752,15 @@ def run_seed():
     GROUPES_SANGUINS  = ['A+','A-','B+','B-','AB+','AB-','O+','O-']
     POIDS_GROUPES     = [0.43, 0.05, 0.10, 0.02, 0.03, 0.01, 0.32, 0.04]
 
+    LIENS_PROCHES = [
+        "Époux", "Épouse", "Fils", "Fille", "Frère", "Sœur",
+        "Père", "Mère", "Ami(e)", "Voisin(e)", "Cousin(e)",
+    ]
+    MUTUELLES_POOL = [
+        "IPM", "CMU (Couverture Maladie Universelle)", "NSIA Assurances",
+        "AXA Sénégal", "Sunu Assurances", "Mutuelle des Fonctionnaires",
+    ]
+
     ALLERGIES_POOL = [
         "Pénicilline", "Amoxicilline", "Aspirine", "Ibuprofène", "Diclofénac",
         "Sulfamides", "Codéine", "Tramadol", "Latex", "Arachides",
@@ -787,6 +807,25 @@ def run_seed():
 
         profil_key = choisir_profil(age, sexe, ant_str)
 
+        # Contact d'urgence : recueilli à l'admission pour la grande majorité
+        # des dossiers (reste vide pour une petite fraction — dossier ancien,
+        # patient seul, refus).
+        contact_nom = contact_tel = contact_lien = ""
+        if random.random() < 0.82:
+            sexe_contact = random.choice(['M', 'F'])
+            prenom_c, nom_c = prenom_nom(sexe_contact)
+            contact_nom  = f"{prenom_c} {nom_c}"
+            contact_tel  = tel()
+            contact_lien = random.choice(LIENS_PROCHES)
+
+        # Mutuelle : couverture partielle de la patientèle (IPM, CMU, assurance
+        # privée), cohérent avec le contexte sénégalais — la majorité paie
+        # encore de sa poche.
+        mutuelle_nom = mutuelle_num = ""
+        if random.random() < 0.32:
+            mutuelle_nom = random.choice(MUTUELLES_POOL)
+            mutuelle_num = f"{mutuelle_nom[:3].upper()}-{random.randint(100000, 999999)}"
+
         patient = Patient.objects.create(
             nom=nom, prenom=prenom, date_naissance=dnaiss, sexe=sexe,
             groupe_sanguin=groupe, telephone=tel(),
@@ -794,10 +833,83 @@ def run_seed():
             allergies=allergies_str, antecedents=ant_str,
             actif=random.random() > 0.06,
             service=svc_patient, medecin_referent=medecin_ref,
+            contact_urgence_nom=contact_nom,
+            contact_urgence_telephone=contact_tel,
+            contact_urgence_lien=contact_lien,
+            mutuelle=mutuelle_nom,
+            numero_mutuelle=mutuelle_num,
         )
         patients_data.append((patient, age, ant_str, profil_key))
 
     print(f"✅ {len(patients_data)} patients\n")
+
+    # ─── DOSSIERS "URGENCE VITALE" (IDENTITÉ PROVISOIRE) ───────────────────────────
+    # Reproduit le mode urgence du formulaire d'admission (AdmissionSerializer) :
+    # patient admis directement aux Urgences, identite_provisoire=True — puis,
+    # pour une partie d'entre eux, déjà régularisé depuis par un agent
+    # d'admission (RegularisationSerializer), pour couvrir les deux états du
+    # cycle de vie du dossier.
+    print("🆘 Dossiers 'urgence vitale' (identité provisoire)...")
+    agents_admission = [e for e in employes if e.role == 'agent_admission']
+    service_urgences_obj = services.get("Urgences")
+    echantillon_urgence_vitale = []
+    nb_regularises = 0
+    if agents_admission and service_urgences_obj:
+        echantillon_urgence_vitale = random.sample(patients_data, k=min(6, len(patients_data)))
+        for i, (patient, age, ant_str, profil_key) in enumerate(echantillon_urgence_vitale):
+            patient.service = service_urgences_obj
+            patient.statut_orientation = Patient.StatutOrientation.ADMIS_URGENCES
+            deja_regularise = i < 4  # 4 régularisés, 2 encore en attente de régularisation
+            if deja_regularise:
+                patient.identite_provisoire = False
+                patient.regularise_par = random.choice(agents_admission)
+                patient.date_regularisation = now - timedelta(days=random.randint(1, 60))
+                nb_regularises += 1
+            else:
+                patient.identite_provisoire = True
+            patient.save(update_fields=[
+                'service', 'statut_orientation', 'identite_provisoire',
+                'regularise_par', 'date_regularisation',
+            ])
+    print(f"✅ {len(echantillon_urgence_vitale)} dossiers en mode urgence vitale "
+          f"({nb_regularises} déjà régularisés, {len(echantillon_urgence_vitale) - nb_regularises} en attente)\n")
+
+    # ─── ACCOMPAGNANTS (CONTRÔLE D'ACCÈS) ──────────────────────────────────────────
+    print("🧑‍🤝‍🧑 Accompagnants...")
+    total_accompagnants = 0
+    if agents_admission:
+        # Quasi systématique sur les dossiers "urgence vitale" (souvent celui
+        # qui amène le patient) + une fraction de patients ordinaires.
+        candidats_accompagnants = list(echantillon_urgence_vitale) + random.sample(
+            patients_data, k=min(15, len(patients_data))
+        )
+        for patient, *_ in candidats_accompagnants:
+            proba = 0.9 if patient in [p for p, *_ in echantillon_urgence_vitale] else 0.4
+            if random.random() > proba:
+                continue
+            sexe_acc = random.choice(['M', 'F'])
+            prenom_acc, nom_acc = prenom_nom(sexe_acc)
+            statut_acc = random.choices(
+                [Accompagnant.Statut.PRESENT, Accompagnant.Statut.SORTI],
+                weights=[0.35, 0.65]
+            )[0]
+            acc = Accompagnant.objects.create(
+                patient=patient, nom=nom_acc, prenom=prenom_acc,
+                lien_parente=random.choice(LIENS_PROCHES),
+                cni=str(random.randint(1000000000000, 9999999999999)) if random.random() < 0.6 else "",
+                telephone=tel(),
+                statut=statut_acc,
+                enregistre_par=random.choice(agents_admission),
+            )
+            if statut_acc == Accompagnant.Statut.SORTI:
+                # date_sortie n'est pas auto_now : on la répartit dans les
+                # dernières heures pour rester cohérente avec date_entree
+                # (auto_now_add, donc fixée à "maintenant" à la création).
+                Accompagnant.objects.filter(pk=acc.pk).update(
+                    date_sortie=now - timedelta(hours=random.randint(1, 48))
+                )
+            total_accompagnants += 1
+    print(f"✅ {total_accompagnants} accompagnants enregistrés\n")
 
     # ─── SIGNES VITAUX ────────────────────────────────────────────────────────────
     print("📊 Signes vitaux...")
@@ -1975,6 +2087,41 @@ def run_seed():
 
     print(f"✅ {total_deces} décès enregistrés, {total_autopsies} autopsies\n")
 
+    # ─── AJUSTEMENT FINAL DU PARCOURS ADMINISTRATIF (STATUT_ORIENTATION) ───────────
+    # Consultation.save() et Hospitalisation.save() ont déjà positionné
+    # automatiquement 'en_consultation' / 'hospitalise' pour les patients
+    # concernés, plus haut dans ce script. Sans cette étape, tous les patients
+    # qui n'ont eu ni l'un ni l'autre depuis resteraient bloqués sur le statut
+    # par défaut 'en_attente_validation_service' — pas réaliste 6 mois après
+    # l'ouverture de leur dossier. On complète donc la répartition avec des
+    # sorties (majorité, dossier clos) et quelques confirmations, en laissant
+    # une petite fraction en attente réelle (la file d'accueil de la démo).
+    print("🧭 Ajustement du parcours administratif (statut_orientation)...")
+    ids_deja_avances = set(
+        Patient.objects.exclude(
+            statut_orientation=Patient.StatutOrientation.EN_ATTENTE_VALIDATION_SERVICE
+        ).values_list('id', flat=True)
+    )
+    patients_par_defaut = [p for p, *_ in patients_data if p.id not in ids_deja_avances]
+    random.shuffle(patients_par_defaut)
+
+    n_sortis = int(len(patients_par_defaut) * 0.75)
+    n_confirmes = int(len(patients_par_defaut) * 0.15)
+    # Le reste (~10%) reste 'en_attente_validation_service' : la file d'attente
+    # réelle de l'agent d'admission / du secrétariat dans la démo.
+
+    ids_sortis    = [p.id for p in patients_par_defaut[:n_sortis]]
+    ids_confirmes = [p.id for p in patients_par_defaut[n_sortis:n_sortis + n_confirmes]]
+
+    if ids_sortis:
+        Patient.objects.filter(id__in=ids_sortis).update(statut_orientation=Patient.StatutOrientation.SORTI)
+    if ids_confirmes:
+        Patient.objects.filter(id__in=ids_confirmes).update(statut_orientation=Patient.StatutOrientation.ADMIS_DANS_LE_SERVICE)
+
+    n_en_attente = len(patients_par_defaut) - len(ids_sortis) - len(ids_confirmes)
+    print(f"✅ {len(ids_sortis)} sortis, {len(ids_confirmes)} confirmés dans leur service, "
+          f"{n_en_attente} encore en attente d'accueil\n")
+
     # ─── RÉSUMÉ ───────────────────────────────────────────────────────────────────
     print("═" * 60)
     print("🏥  SEED TERMINÉ — Résumé complet :")
@@ -1983,6 +2130,8 @@ def run_seed():
     print(f"   👔 Employés           : {len(employes)}")
     print(f"   🔑 Habilitations      : {total_habilitations}")
     print(f"   👤 Patients           : {NB_PATIENTS}")
+    print(f"   🆘 Urgence vitale     : {len(echantillon_urgence_vitale)} ({nb_regularises} régularisés)")
+    print(f"   🧑‍🤝‍🧑 Accompagnants      : {total_accompagnants}")
     print(f"   📊 Signes vitaux      : {total_sv}")
     print(f"   🩺 Consultations      : {total_consult}")
     print(f"   📅 Rendez-vous        : {total_rdv} (dont {total_reunions_gardes} réunions/gardes)")
