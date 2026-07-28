@@ -14,6 +14,14 @@ export default function BraceletsAdmission() {
     const [query, setQuery] = useState('')
     const [resultats, setResultats] = useState<PatientSearchResult[]>([])
     const [patientSelectionne, setPatientSelectionne] = useState<PatientSearchResult | null>(null)
+    // Distinct de `patientSelectionne` (qui ne sert qu'au surlignage dans les
+    // résultats de recherche) : c'est CETTE valeur qui pilote le bouton
+    // "Patient" du switch Patient/Accompagnant. `patientSelectionne` n'est
+    // jamais renseigné quand on arrive directement via ?patient=<id> depuis
+    // "Nouvelle admission" (pas de recherche impliquée) — en s'appuyant dessus,
+    // le bouton "Patient" devenait un no-op silencieux après un premier passage
+    // sur l'onglet Accompagnant, dans ce cas d'arrivée précis.
+    const [patientIdActuel, setPatientIdActuel] = useState<number | null>(null)
     const [accompagnantsDuPatient, setAccompagnantsDuPatient] = useState<Accompagnant[]>([])
 
     const [cible, setCible] = useState<Cible>('patient')
@@ -34,6 +42,7 @@ export default function BraceletsAdmission() {
 
     const chargerBadgePatient = async (id: number) => {
         setCible('patient')
+        setPatientIdActuel(id)
         setLoadingBadge(true)
         setBadgePatient(null)
         setBadgeAccompagnant(null)
@@ -120,13 +129,13 @@ export default function BraceletsAdmission() {
                         )}
                     </div>
 
-                    {patientSelectionne && cible === 'accompagnant' && accompagnantsDuPatient.length === 0 && (
+                    {patientIdActuel && cible === 'accompagnant' && accompagnantsDuPatient.length === 0 && (
                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                             Aucun accompagnant enregistré pour ce patient — voir Contrôle Accompagnants pour en ajouter un.
                         </p>
                     )}
 
-                    {patientSelectionne && cible === 'accompagnant' && accompagnantsDuPatient.length > 1 && (
+                    {patientIdActuel && cible === 'accompagnant' && accompagnantsDuPatient.length > 1 && (
                         <div className="ht-card ht-card-padded">
                             <p className="text-xs font-semibold mb-2" style={{ color: 'var(--ht-text)' }}>Choisir l'accompagnant</p>
                             <div className="flex flex-wrap gap-2">
@@ -147,7 +156,7 @@ export default function BraceletsAdmission() {
                         <div className="flex items-center gap-3 flex-wrap">
                             <div className="ht-card flex p-1 gap-1">
                                 <button
-                                    onClick={() => patientSelectionne && chargerBadgePatient(patientSelectionne.id)}
+                                    onClick={() => patientIdActuel && chargerBadgePatient(patientIdActuel)}
                                     className={`btn btn-sm gap-1.5 ${cible === 'patient' ? 'btn-primary' : 'btn-ghost'}`}
                                 >
                                     <BadgeIcon size={14} /> Patient

@@ -28,9 +28,22 @@ class ServiceViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return qs
         try:
-            return qs.filter(id=user.employe.service_id)
+            emp = user.employe
         except Exception:
             return Service.objects.none()
+
+        # Un agent d'admission (ou tout rôle avec ADMISSIONS_GERER / PATIENTS_TRANSFERER,
+        # ex. médecin/secrétaire pour transférer un patient) doit voir tous les
+        # services actifs pour choisir une destination — que ce rôle soit lui-même
+        # rattaché à un service (médecin/secrétaire) ou à aucun (agent d'admission).
+        # Sans ce cas, le sélecteur de service du formulaire d'admission (et du
+        # transfert) restait vide pour l'agent d'admission (service_id = None →
+        # aucun match avec le filtre par défaut ci-dessous).
+        from comptes.capacites import Capacite
+        if emp.a_la_capacite(Capacite.ADMISSIONS_GERER) or emp.a_la_capacite(Capacite.PATIENTS_TRANSFERER):
+            return qs.filter(actif=True)
+
+        return qs.filter(id=emp.service_id)
 
     def get_permissions(self):
         if self.action == 'create':

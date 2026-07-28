@@ -23,7 +23,16 @@ export default function NouvelleAdmission() {
     const [serviceId, setServiceId] = useState<number | null>(null)
 
     useEffect(() => {
-        getServices().then(list => setServices(list.filter(s => s.actif))).catch(() => setServices([]))
+        getServices().then(list => {
+            const actifs = list.filter(s => s.actif)
+            setServices(actifs)
+            // Présélection : la majorité des admissions passent par le triage
+            // avant d'être affinées — ça évite à l'agent de choisir un service
+            // à chaque fois quand le motif n'est pas encore clair. Reste
+            // librement modifiable via le sélecteur juste en dessous.
+            const triage = actifs.find(s => s.nom === 'Consultation Externe / Triage')
+            if (triage) setServiceId(triage.id)
+        }).catch(() => setServices([]))
     }, [])
 
     const [form, setForm] = useState({
