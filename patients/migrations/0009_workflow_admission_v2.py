@@ -12,7 +12,6 @@ from django.db import migrations, models
 MAPPING_ANCIEN_VERS_NOUVEAU = {
     'en_attente_orientation': 'en_attente_validation_service',
     'oriente': 'admis_dans_le_service',
-    # 'en_consultation', 'hospitalise', 'sorti' : valeurs inchangées, rien à faire.
 }
 
 
@@ -36,32 +35,6 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Premièrement, augmenter la taille du champ existant afin que la mise à
-        # jour des anciens statuts vers le nouveau libellé long ne provoque pas
-        # d'erreur SQL (STRING TRUNCATION). Nous conservons ici les anciens
-        # choix pour la compatibilité avant d'appliquer les nouveaux choix.
-        migrations.AlterField(
-            model_name='patient',
-            name='statut_orientation',
-            field=models.CharField(
-                choices=[
-                    ('en_attente_orientation', "En attente d'orientation"),
-                    ('oriente', 'Orienté'),
-                    ('en_consultation', 'En consultation'),
-                    ('hospitalise', 'Hospitalisé'),
-                    ('sorti', 'Sorti'),
-                ],
-                default='en_attente_orientation',
-                max_length=40,
-            ),
-        ),
-
-        # Puis effectuer la migration des valeurs existantes vers les nouveaux
-        # statuts.
-        migrations.RunPython(migrer_anciens_statuts, migrer_anciens_statuts_arriere),
-
-        # Enfin, appliquer les nouveaux choix et aide-textes (en conservant la
-        # taille augmentée pour accueillir les nouveaux identifiants longs).
         migrations.AlterField(
             model_name='patient',
             name='statut_orientation',
@@ -75,7 +48,7 @@ class Migration(migrations.Migration):
                     ('sorti', 'Sorti'),
                 ],
                 default='en_attente_validation_service',
-                max_length=40,
+                max_length=30,
                 help_text=(
                     "Parcours administratif du patient depuis son admission : "
                     "'en_attente_validation_service' (créé + orienté par les Admissions, "
@@ -88,6 +61,11 @@ class Migration(migrations.Migration):
                 ),
             ),
         ),
+        # IMPORTANT : ce RunPython doit venir APRÈS l'AlterField ci-dessus.
+        # 'en_attente_validation_service' fait 30 caractères — sur l'ancienne
+        # colonne varchar(25) (avant élargissement), Postgres refuse la valeur
+        # avec un StringDataRightTruncation. L'ordre inverse plantait la migration.
+        migrations.RunPython(migrer_anciens_statuts, migrer_anciens_statuts_arriere),
         migrations.AddField(
             model_name='patient',
             name='identite_provisoire',

@@ -19,27 +19,57 @@ class TypeContrat(models.TextChoices):
     BENEVOLAT = 'benevolat', 'Bénévolat'
 
 
-class Specialite(models.Model):
+class Specialite(models.TextChoices):
     """
-    Référentiel des spécialités médicales. Remplace progressivement le champ
-    texte libre Employe.specialite_libre — permet des requêtes fiables
-    (ex. "tous les chirurgiens cardiaques") impossibles à faire correctement
-    sur un simple CharField non structuré.
+    Référentiel fixe des spécialités médicales — un enum plutôt qu'un modèle
+    à table séparée, cohérent avec Role/TypeContrat ci-dessus. Remplace
+    l'ancien modèle Specialite (table `comptes_specialite` + FK), qui
+    permettait d'ajouter des spécialités à la volée depuis l'admin — ce
+    qu'on ne veut justement pas ici : la liste doit rester une liste
+    fermée, revue en code, pas modifiable en production sans déploiement.
     """
-    nom = models.CharField(max_length=100, unique=True)
-    est_chirurgicale = models.BooleanField(
-        default=False,
-        help_text="Coché si cette spécialité pratique des actes chirurgicaux "
-                  "(conditionne l'affichage dans les listes de chirurgiens)."
-    )
+    CARDIOLOGIE_GENERALE           = 'cardiologie_generale',           'Cardiologie générale'
+    CARDIOLOGIE_INTERVENTIONNELLE  = 'cardiologie_interventionnelle',  'Cardiologie interventionnelle'
+    RYTHMOLOGIE                    = 'rythmologie',                    'Rythmologie'
+    MEDECINE_INTERNE               = 'medecine_interne',                'Médecine interne'
+    MALADIES_INFECTIEUSES          = 'maladies_infectieuses',          'Maladies infectieuses'
+    PEDIATRIE_GENERALE             = 'pediatrie_generale',              'Pédiatrie générale'
+    NEONATOLOGIE                   = 'neonatologie',                    'Néonatologie'
+    DIABETOLOGIE                   = 'diabetologie',                    'Diabétologie'
+    ENDOCRINOLOGIE                 = 'endocrinologie',                  'Endocrinologie'
+    MEDECINE_URGENCE                = 'medecine_urgence',                 "Médecine d'urgence"
+    REANIMATION_POLYVALENTE        = 'reanimation_polyvalente',        'Réanimation polyvalente'
+    CHIRURGIE_DIGESTIVE            = 'chirurgie_digestive',            'Chirurgie digestive'
+    CHIRURGIE_ORTHOPEDIQUE         = 'chirurgie_orthopedique',         'Chirurgie orthopédique'
+    CHIRURGIE_VASCULAIRE           = 'chirurgie_vasculaire',           'Chirurgie vasculaire'
+    CHIRURGIE_THORACIQUE           = 'chirurgie_thoracique',           'Chirurgie thoracique'
+    CHIRURGIE_CARDIAQUE            = 'chirurgie_cardiaque',            'Chirurgie cardiaque'
+    GYNECOLOGIE_OBSTETRIQUE        = 'gynecologie_obstetrique',        'Gynécologie-Obstétrique'
+    NEUROLOGIE_GENERALE            = 'neurologie_generale',             'Neurologie générale'
+    NEUROLOGIE_VASCULAIRE          = 'neurologie_vasculaire',          'Neurologie vasculaire'
+    PNEUMOLOGIE_GENERALE           = 'pneumologie_generale',           'Pneumologie générale'
+    PNEUMOLOGIE_INFECTIOLOGIE      = 'pneumologie_infectiologie',      'Pneumologie-Infectiologie'
+    NEPHROLOGIE                    = 'nephrologie',                     'Néphrologie'
+    DIALYSE_PERITONEALE            = 'dialyse_peritoneale',            'Dialyse péritonéale'
+    ORL_CHIRURGIE_CERVICO_FACIALE  = 'orl_chirurgie_cervico_faciale',  'ORL-Chirurgie cervico-faciale'
+    OPHTALMOLOGIE                  = 'ophtalmologie',                   'Ophtalmologie'
+    BIOLOGIE_MEDICALE              = 'biologie_medicale',              'Biologie médicale'
+    ANESTHESIE_REANIMATION         = 'anesthesie_reanimation',         'Anesthésie-Réanimation'
 
-    class Meta:
-        ordering = ['nom']
-        verbose_name = "Spécialité"
-        verbose_name_plural = "Spécialités"
-
-    def __str__(self):
-        return self.nom
+    @classmethod
+    def chirurgicales(cls):
+        """
+        Spécialités pratiquant des actes chirurgicaux — remplace l'ancien
+        champ booléen `est_chirurgicale` du modèle Specialite. Une méthode
+        de classe plutôt qu'un attribut, pour que la métaclasse de
+        TextChoices ne l'interprète pas à tort comme une 27e spécialité
+        (même piège que StatutOperation.actifs() dans chirurgie/models.py).
+        """
+        return {
+            cls.CARDIOLOGIE_INTERVENTIONNELLE, cls.CHIRURGIE_DIGESTIVE, cls.CHIRURGIE_ORTHOPEDIQUE,
+            cls.CHIRURGIE_VASCULAIRE, cls.CHIRURGIE_THORACIQUE, cls.CHIRURGIE_CARDIAQUE,
+            cls.GYNECOLOGIE_OBSTETRIQUE, cls.ORL_CHIRURGIE_CERVICO_FACIALE,
+        }
 
 
 class Employe(Personne):
@@ -53,9 +83,8 @@ class Employe(Personne):
         default=Role.INFIRMIER
     )
     specialite  = models.CharField(max_length=100, blank=True)
-    specialite_principale = models.ForeignKey(
-        Specialite, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name='employes',
+    specialite_principale = models.CharField(
+        max_length=40, choices=Specialite.choices, blank=True, default='',
         help_text="Version structurée de `specialite` (texte libre, conservé "
                   "pour compatibilité). À terme, migrer les valeurs de "
                   "`specialite` vers ce champ puis déprécier l'ancien."

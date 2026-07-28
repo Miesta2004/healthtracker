@@ -73,7 +73,6 @@ def run_seed():
         (CreneauDisponibilite,   "créneau(x) de disponibilité"),
         (HabilitationService,    "habilitation(s) service"),
         (Employe,         "employé(s)"),
-        (Specialite,      "spécialité(s)"),
         (Service,         "service(s)"),
     ]:
         nb = Model.objects.count()
@@ -85,55 +84,13 @@ def run_seed():
     print(f"   - {nb} user(s) Django supprimé(s)\n✅ Nettoyé.\n")
 
     # ─── SPÉCIALITÉS MÉDICALES ────────────────────────────────────────────────────
+    # Specialite est maintenant un enum (comptes/models.py), plus un modèle à
+    # table séparée — la liste n'est donc plus créée ici, juste utilisée pour
+    # retrouver la valeur enum correspondant au libellé encore utilisé tel
+    # quel dans EMPLOYES_DATA plus bas (ex. "Cardiologie générale").
     print("🏥 Spécialités médicales...")
-    SPECIALITES_DATA = [
-        # Cardiologie
-        ("Cardiologie générale", False),
-        ("Cardiologie interventionnelle", True),
-        ("Rythmologie", False),
-        # Médecine interne & infectiologie
-        ("Médecine interne", False),
-        ("Maladies infectieuses", False),
-        # Pédiatrie
-        ("Pédiatrie générale", False),
-        ("Néonatologie", False),
-        # Diabétologie
-        ("Diabétologie", False),
-        ("Endocrinologie", False),
-        # Urgences
-        ("Médecine d'urgence", False),
-        ("Réanimation polyvalente", False),
-        # Chirurgie
-        ("Chirurgie digestive", True),
-        ("Chirurgie orthopédique", True),
-        ("Chirurgie vasculaire", True),
-        ("Chirurgie thoracique", True),
-        ("Chirurgie cardiaque", True),
-        # Gynécologie-Obstétrique
-        ("Gynécologie-Obstétrique", True),
-        # Neurologie
-        ("Neurologie générale", False),
-        ("Neurologie vasculaire", False),
-        # Pneumologie
-        ("Pneumologie générale", False),
-        ("Pneumologie-Infectiologie", False),
-        # Néphro-dialyse
-        ("Néphrologie", False),
-        ("Dialyse péritonéale", False),
-        # ORL-Ophtalmo
-        ("ORL-Chirurgie cervico-faciale", True),
-        ("Ophtalmologie", False),
-        # Biologie & Anesthésie
-        ("Biologie médicale", False),
-        ("Anesthésie-Réanimation", False),
-    ]
-
-    specialites = {}
-    for nom, est_chirurgicale in SPECIALITES_DATA:
-        specialites[nom] = Specialite.objects.create(
-            nom=nom, est_chirurgicale=est_chirurgicale
-        )
-    print(f"✅ {len(specialites)} spécialités\n")
+    specialites = {label: valeur for valeur, label in Specialite.choices}
+    print(f"✅ {len(specialites)} spécialités (enum)\n")
 
     # ─── SERVICES ─────────────────────────────────────────────────────────────────
     print("🏥 Services...")
@@ -342,7 +299,7 @@ def run_seed():
         date_fin = date(date_debut.year + 2, date_debut.month, date_debut.day) if type_contrat == 'cdd' else None
 
         # Lier la specialite du modèle si elle existe
-        specialite_obj = specialites.get(specialite) if specialite else None
+        specialite_obj = specialites.get(specialite, '') if specialite else ''
 
         emp = Employe.objects.create(
             user=user, nom=nom, prenom=prenom, date_naissance=dnaiss,
