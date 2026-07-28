@@ -12,6 +12,7 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'healthtracker.settings')
 django.setup()
 
 from django.db import transaction
+from django.db.models import Max
 from django.utils import timezone
 from django.contrib.auth.models import User
 from datetime import timedelta, date, datetime
@@ -446,9 +447,9 @@ def run_seed():
         svc_nom = svc_nom[0]
         if svc_nom == "Laboratoire":
             continue  # pas de médecin au laboratoire, cf. logique chef de service plus haut
-        specialites = SPECIALITES_PAR_SERVICE.get(svc_nom, [""])
+        specialites_service = SPECIALITES_PAR_SERVICE.get(svc_nom, [""])
         for _ in range(EXTRA_MEDECINS_PAR_SERVICE):
-            creer_employe_genere('medecin', svc_nom, 'dr', 'medecin123', random.choice(specialites))
+            creer_employe_genere('medecin', svc_nom, 'dr', 'medecin123', random.choice(specialites_service))
             nb_medecins_generes += 1
 
     for svc_nom in SERVICES_DATA:
@@ -2045,39 +2046,60 @@ def run_seed():
     print(f"✅ {total_deces} décès enregistrés, {total_autopsies} autopsies\n")
 
     # ─── AJUSTEMENT FINAL DU PARCOURS ADMINISTRATIF (STATUT_ORIENTATION) ───────────
-    # Consultation.save() et Hospitalisation.save() ont déjà positionné
-    # automatiquement 'en_consultation' / 'hospitalise' pour les patients
-    # concernés, plus haut dans ce script. Sans cette étape, tous les patients
-    # qui n'ont eu ni l'un ni l'autre depuis resteraient bloqués sur le statut
-    # par défaut 'en_attente_validation_service' — pas réaliste 6 mois après
-    # l'ouverture de leur dossier. On complète donc la répartition avec des
-    # sorties (majorité, dossier clos) et quelques confirmations, en laissant
-    # une petite fraction en attente réelle (la file d'accueil de la démo).
+    # Consultation.save() et Hospitalisation.save() posent 'en_consultation' /
+    # 'hospitalise' à CHAQUE création, sans condition sur le statut de
+    # l'hospitalisation elle-même — y compris pour une hospitalisation créée
+    # ici directement comme 'terminee' avec sa sortie il y a plusieurs mois.
+    # Résultat : en fin de script, la quasi-totalité des patients se
+    # retrouvent figés sur 'hospitalise' ou 'en_consultation', y compris ceux
+    # dont le dossier est en réalité clos depuis longtemps — et plus personne
+    # ne reste au statut par défaut à corriger (d'où le "0 sortis" du premier
+    # essai). On recalcule donc ici l'état réel de chaque patient à partir des
+    # données elles-mêmes plutôt que du statut actuellement stocké :
+    #   - une hospitalisation encore EN_COURS prime toujours sur le reste,
+    #   - les dossiers 'urgence vitale' restent aux urgences,
+    #   - sinon, un événement (consultation ou sortie d'hospitalisation)
+    #     récent (< 5 jours) garde le dossier 'en_consultation',
+    #   - un événement plus ancien referme le dossier ('sorti'),
+    #   - l'absence totale d'événement laisse le statut par défaut.
     print("🧭 Ajustement du parcours administratif (statut_orientation)...")
-    ids_deja_avances = set(
-        Patient.objects.exclude(
-            statut_orientation=Patient.StatutOrientation.EN_ATTENTE_VALIDATION_SERVICE
-        ).values_list('id', flat=True)
+
+    hospitalises_en_cours_ids = set(
+        Hospitalisation.objects.filter(statut=StatutHospitalisation.EN_COURS)
+        .values_list('patient_id', flat=True)
     )
-    patients_par_defaut = [p for p, *_ in patients_data if p.id not in ids_deja_avances]
-    random.shuffle(patients_par_defaut)
+    urgence_vitale_ids = {p.id for p, *_ in echantillon_urgence_vitale}
+    dernieres_consultations = dict(
+        Consultation.objects.values('patient_id')
+        .annotate(derniere=Max('date')).values_list('patient_id', 'derniere')
+    )
+    dernieres_sorties_hosp = dict(
+        Hospitalisation.objects.filter(date_sortie__isnull=False).values('patient_id')
+        .annotate(derniere=Max('date_sortie')).values_list('patient_id', 'derniere')
+    )
+    seuil_recent = now - timedelta(days=5)
 
-    n_sortis = int(len(patients_par_defaut) * 0.75)
-    n_confirmes = int(len(patients_par_defaut) * 0.15)
-    # Le reste (~10%) reste 'en_attente_validation_service' : la file d'attente
-    # réelle de l'agent d'admission / du secrétariat dans la démo.
+    n_hospitalise = n_urgence = n_consult = n_sorti = n_attente = 0
+    for patient, age, ant_str, profil_key in patients_data:
+        if patient.id in hospitalises_en_cours_ids:
+            statut, n_hospitalise = Patient.StatutOrientation.HOSPITALISE, n_hospitalise + 1
+        elif patient.id in urgence_vitale_ids:
+            statut, n_urgence = Patient.StatutOrientation.ADMIS_URGENCES, n_urgence + 1
+        else:
+            dernier = max(
+                [d for d in (dernieres_consultations.get(patient.id), dernieres_sorties_hosp.get(patient.id)) if d],
+                default=None
+            )
+            if dernier and dernier >= seuil_recent:
+                statut, n_consult = Patient.StatutOrientation.EN_CONSULTATION, n_consult + 1
+            elif dernier:
+                statut, n_sorti = Patient.StatutOrientation.SORTI, n_sorti + 1
+            else:
+                statut, n_attente = Patient.StatutOrientation.EN_ATTENTE_VALIDATION_SERVICE, n_attente + 1
+        Patient.objects.filter(pk=patient.id).update(statut_orientation=statut)
 
-    ids_sortis    = [p.id for p in patients_par_defaut[:n_sortis]]
-    ids_confirmes = [p.id for p in patients_par_defaut[n_sortis:n_sortis + n_confirmes]]
-
-    if ids_sortis:
-        Patient.objects.filter(id__in=ids_sortis).update(statut_orientation=Patient.StatutOrientation.SORTI)
-    if ids_confirmes:
-        Patient.objects.filter(id__in=ids_confirmes).update(statut_orientation=Patient.StatutOrientation.ADMIS_DANS_LE_SERVICE)
-
-    n_en_attente = len(patients_par_defaut) - len(ids_sortis) - len(ids_confirmes)
-    print(f"✅ {len(ids_sortis)} sortis, {len(ids_confirmes)} confirmés dans leur service, "
-          f"{n_en_attente} encore en attente d'accueil\n")
+    print(f"✅ orientation recalculée : {n_hospitalise} hospitalisés, {n_urgence} aux urgences (urgence vitale), "
+          f"{n_consult} en consultation récente, {n_sorti} sortis, {n_attente} jamais vus\n")
 
     # ─── RÉSUMÉ ───────────────────────────────────────────────────────────────────
     print("═" * 60)

@@ -12,7 +12,11 @@ class EmployeSerializer(serializers.ModelSerializer):
     type_contrat_label = serializers.CharField(source='get_type_contrat_display', read_only=True)
     age                = serializers.IntegerField(read_only=True)
     service_nom        = serializers.CharField(source='service.nom', default=None, read_only=True)
-    specialite_principale_nom = serializers.CharField(source='specialite_principale.nom', default=None, read_only=True)
+    # specialite_principale est un CharField à choix (enum Specialite) depuis
+    # le refactor comptes/models.py — plus une FK vers un modèle, donc on lit le
+    # libellé via le get_FOO_display() auto-généré par Django, pas '.nom' (qui
+    # levait une AttributeError sur une simple string).
+    specialite_principale_nom = serializers.CharField(source='get_specialite_principale_display', read_only=True)
     capacites          = serializers.SerializerMethodField()
     roles_effectifs    = serializers.ListField(read_only=True)
 
