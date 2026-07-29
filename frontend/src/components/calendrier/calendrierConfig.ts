@@ -105,6 +105,16 @@ export const TYPE_EVENEMENT_CONFIG: Record<TypeEvenementRdv, TypeConfig> = {
     },
 }
 
+// Types sélectionnables dans le formulaire RDV classique (patient
+// obligatoire) — exclut 'reunion' et 'formation', réservés au formulaire
+// EventAdminFormDialog (événement administratif, sans patient). 'garde' est
+// conservé ici : dans ce contexte, c'est une garde chirurgicale (cf.
+// TYPE_EVENEMENT_CONFIG.garde → "Garde chirurgicale"), pas une garde
+// administrative — elle peut légitimement être rattachée à un patient.
+export const TYPES_EVENEMENT_MEDICAL: TypeEvenementRdv[] = [
+    'consultation', 'intervention', 'garde', 'visite_postoperatoire', 'autre',
+]
+
 export const STATUT_LABELS: Record<StatutRendezVous, string> = {
     planifie: 'Planifié',
     confirme: 'Confirmé',

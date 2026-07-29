@@ -4,8 +4,19 @@ import { getServices } from '../api/services'
 import { transfererPatient } from '../api/patients'
 import type { Service, Patient } from '../types'
 
+// Volontairement une forme minimale plutôt que `Patient` complet : ce modal
+// est aussi ouvert depuis la recherche (PatientSearchResult), qui n'a pas
+// tous les champs d'un Patient complet mais a bien ceux dont on a besoin ici.
+interface PatientPourTransfert {
+    id: number
+    prenom: string
+    nom: string
+    numero_dossier?: string
+    service_nom?: string | null
+}
+
 interface Props {
-    patient: Patient
+    patient: PatientPourTransfert
     onClose: () => void
     onTransfere: (patient: Patient) => void
 }

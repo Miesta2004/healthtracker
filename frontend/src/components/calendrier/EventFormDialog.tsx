@@ -7,7 +7,7 @@ import { X, Search } from 'lucide-react'
 import { getPatients } from '../../api/patients'
 import { getEmployes } from '../../api/comptes'
 import type { Patient, Employe, TypeEvenementRdv, StatutRendezVous } from '../../types'
-import { TYPE_EVENEMENT_CONFIG, STATUT_LABELS, toISODate } from './calendrierConfig'
+import { TYPE_EVENEMENT_CONFIG, TYPES_EVENEMENT_MEDICAL, STATUT_LABELS, toISODate } from './calendrierConfig'
 
 const schema = z.object({
     patientId: z.number({ error: 'Sélectionnez un patient' }).nullable().refine(v => v !== null, 'Sélectionnez un patient'),
@@ -217,7 +217,7 @@ export default function EventFormDialog({ initial, onClose, onSubmit, onDelete, 
                         <div>
                             <label className="ht-label">Type d'événement *</label>
                             <div className="grid grid-cols-3 gap-2">
-                                {(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[]).map(t => {
+                                {TYPES_EVENEMENT_MEDICAL.map(t => {
                                     const cfg = TYPE_EVENEMENT_CONFIG[t]
                                     const actif = typeChoisi === t
                                     return (

@@ -15,6 +15,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { Capacite } from '../constants/capacites'
 import { SkeletonDetailPage, SkeletonListRows } from '../components/Skeleton'
 import Sidebar from '../components/Sidebar.tsx'
+import RestrictedAccess from '../components/RestrictedAccess'
 import GraviteBadge from '../components/GraviteBadge'
 import {computeGravite} from '../utils/gravite'
 import { usePatientDossier, usePatientAssignations, type PatientDossierSectionErrors } from '../hooks/usePatientDossier'
@@ -261,12 +262,13 @@ function AddAntecedentModal({ onSave, onCancel, loading }: {
 }
 
 // ─── Panneau Antécédents (liste + actions) ───────────────────────────────────
-function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loading }: {
+function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loading, forbidden }: {
     antecedents: Antecedent[]
     onAdd: () => void
     onToggleStatut: (a: Antecedent) => void
     onDelete: (a: Antecedent) => void
     loading: boolean
+    forbidden?: boolean
 }) {
     const actifs = antecedents.filter(a => a.statut === 'actif')
 
@@ -274,18 +276,22 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loadin
         <div className="ht-card ht-card-padded-sm">
             <div className="ht-card-header !px-0 !pt-0 mb-4">
                 <h2 className="flex-1">Antécédents médicaux</h2>
-                <div className="flex items-center gap-2">
-                    {!loading && actifs.length > 0 && (
-                        <span className="badge badge-tint">
-                            {actifs.length} actif{actifs.length > 1 ? 's' : ''}
-                        </span>
-                    )}
-                    <button onClick={onAdd} className="btn btn-secondary btn-sm">
-                        <Plus size={12} /> Ajouter
-                    </button>
-                </div>
+                {!forbidden && (
+                    <div className="flex items-center gap-2">
+                        {!loading && actifs.length > 0 && (
+                            <span className="badge badge-tint">
+                                {actifs.length} actif{actifs.length > 1 ? 's' : ''}
+                            </span>
+                        )}
+                        <button onClick={onAdd} className="btn btn-secondary btn-sm">
+                            <Plus size={12} /> Ajouter
+                        </button>
+                    </div>
+                )}
             </div>
-            {loading ? (
+            {forbidden ? (
+                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les antécédents médicaux." />
+            ) : loading ? (
                 <SkeletonListRows rows={2} />
             ) : antecedents.length === 0 ? (
                 <div className="ht-empty">Aucun antécédent renseigné</div>
@@ -324,29 +330,34 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loadin
 }
 
 // ─── Panel historique des analyses ────────────────────────────────────────────
-function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats, loading }: {
+function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats, loading, forbidden }: {
     demandes: DemandeAnalyse[]
     canRequest: boolean
     onRequest: () => void
     onVoirResultats: (d: DemandeAnalyse) => void
     loading: boolean
+    forbidden?: boolean
 }) {
     return (
         <div className="ht-card ht-card-padded-sm">
             <div className="ht-card-header !px-0 !pt-0 mb-4">
                 <h2 className="flex-1">Analyses de laboratoire</h2>
-                <div className="flex items-center gap-2">
-                    {!loading && demandes.length > 0 && (
-                        <span className="badge badge-muted">{demandes.length}</span>
-                    )}
-                    {canRequest && (
-                        <button onClick={onRequest} className="btn btn-secondary btn-sm">
-                            <Plus size={12} /> Demander
-                        </button>
-                    )}
-                </div>
+                {!forbidden && (
+                    <div className="flex items-center gap-2">
+                        {!loading && demandes.length > 0 && (
+                            <span className="badge badge-muted">{demandes.length}</span>
+                        )}
+                        {canRequest && (
+                            <button onClick={onRequest} className="btn btn-secondary btn-sm">
+                                <Plus size={12} /> Demander
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
-            {loading ? (
+            {forbidden ? (
+                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les analyses." />
+            ) : loading ? (
                 <SkeletonListRows rows={2} />
             ) : demandes.length === 0 ? (
                 <div className="ht-empty">Aucune demande d'analyse</div>
@@ -431,7 +442,7 @@ type SuiviTab = 'alertes' | 'consultations' | 'rdv'
 function SuiviPatientTabs({
                               alertes, alertesLoading, onUpdateAlerteStatut, patientId,
                               consultations, consultationsLoading, onConsultationsUpdate,
-                              rendezVous, rdvsLoading, onVoirAgenda,
+                              rendezVous, rdvsLoading, onVoirAgenda, clinicalForbidden,
                           }: {
     alertes: Alerte[]
     alertesLoading: boolean
@@ -443,6 +454,11 @@ function SuiviPatientTabs({
     rendezVous: RendezVous[]
     rdvsLoading: boolean
     onVoirAgenda: () => void
+    // Distinct de "aucune donnée" : le rôle courant (ex. agent d'admission)
+    // n'a tout simplement pas la capacité DOSSIER_MEDICAL_LIRE — n'affecte
+    // QUE les onglets Alertes/Consultations, pas Rendez-vous (RDV_LIRE
+    // couvre ce rôle séparément, voir comptes/capacites.py).
+    clinicalForbidden?: boolean
 }) {
     const [tab, setTab] = useState<SuiviTab>('alertes')
     const nonLues = alertes.filter(a => a.statut === 'non_lue').length
@@ -473,12 +489,20 @@ function SuiviPatientTabs({
                 <TabButton value="rdv" icon={Calendar} label="Rendez-vous" count={rendezVous.length} />
             </div>
 
-            {tab === 'alertes' && <AlertesTab alertes={alertes} onUpdateStatut={onUpdateAlerteStatut} loading={alertesLoading} />}
+            {tab === 'alertes' && (
+                clinicalForbidden
+                    ? <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les alertes cliniques." />
+                    : <AlertesTab alertes={alertes} onUpdateStatut={onUpdateAlerteStatut} loading={alertesLoading} />
+            )}
 
             {tab === 'consultations' && (
-                consultationsLoading
-                    ? <SkeletonListRows rows={2} />
-                    : <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
+                clinicalForbidden ? (
+                    <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les consultations." />
+                ) : consultationsLoading ? (
+                    <SkeletonListRows rows={2} />
+                ) : (
+                    <Consultations patientId={patientId} consultations={consultations} onUpdate={onConsultationsUpdate} />
+                )
             )}
 
             {tab === 'rdv' && (
@@ -514,12 +538,14 @@ function SuiviPatientTabs({
 }
 
 // ─── Panel historique des passages aux urgences ──────────────────────────────
-function UrgencesPanel({ passages, loading }: { passages: PassageUrgence[]; loading: boolean }) {
+function UrgencesPanel({ passages, loading, forbidden }: { passages: PassageUrgence[]; loading: boolean; forbidden?: boolean }) {
     const tries = [...passages].sort((a, b) => new Date(b.date_arrivee).getTime() - new Date(a.date_arrivee).getTime())
     return (
         <div className="ht-card ht-card-padded-sm">
             <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Passages aux urgences</h2>
-            {loading ? (
+            {forbidden ? (
+                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les passages aux urgences." />
+            ) : loading ? (
                 <SkeletonListRows rows={2} />
             ) : tries.length === 0 ? (
                 <div className="ht-empty">Aucun passage aux urgences</div>
@@ -633,12 +659,14 @@ function AssignationsPanel({ assignations, infirmiers, onAssign, onDelete, loadi
 }
 
 // ─── Panel historique des hospitalisations ───────────────────────────────────
-function HospitalisationsPanel({ hospitalisations, loading }: { hospitalisations: Hospitalisation[]; loading: boolean }) {
+function HospitalisationsPanel({ hospitalisations, loading, forbidden }: { hospitalisations: Hospitalisation[]; loading: boolean; forbidden?: boolean }) {
     const tries = [...hospitalisations].sort((a, b) => new Date(b.date_admission).getTime() - new Date(a.date_admission).getTime())
     return (
         <div className="ht-card ht-card-padded-sm">
             <h2 className="text-sm font-semibold mb-4" style={{ color: 'var(--ht-text)' }}>Hospitalisations</h2>
-            {loading ? (
+            {forbidden ? (
+                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les hospitalisations." />
+            ) : loading ? (
                 <SkeletonListRows rows={2} />
             ) : tries.length === 0 ? (
                 <div className="ht-empty">Aucune hospitalisation enregistrée</div>
@@ -781,6 +809,12 @@ export default function PatientDetail() {
     // note sur analyses/views.py qui restreint déjà la création côté API).
     const canRequestLab = hasCapacite(Capacite.ACTES_MEDICAUX_GERER) || hasRole('infirmier')
     const canAssignInfirmier = hasRole('admin') || !!user?.est_major
+    // Un agent d'admission (pas de DOSSIER_MEDICAL_LIRE) n'a jamais accès aux
+    // sections cliniques (signes vitaux, antécédents, consultations, alertes,
+    // urgences, hospitalisations) — inutile de tenter ces fetches (ça évite
+    // une salve de 403), et RestrictedAccess remplace leur contenu ci-dessous
+    // plutôt que la bannière d'erreur générique "échec de chargement".
+    const clinicalForbidden = !hasCapacite(Capacite.DOSSIER_MEDICAL_LIRE)
 
     const patientId = id ? Number(id) : undefined
 
@@ -800,7 +834,7 @@ export default function PatientDetail() {
         sectionsLoading,
         sectionErrors,
         reload,
-    } = usePatientDossier(patientId)
+    } = usePatientDossier(patientId, { skipClinical: clinicalForbidden })
 
     const {
         assignations, setAssignations, infirmiersService,
@@ -1273,7 +1307,9 @@ export default function PatientDetail() {
                                     </button>
                                 )}
                             </div>
-                            {sectionsLoading.signes ? (
+                            {clinicalForbidden ? (
+                                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les constantes vitales." />
+                            ) : sectionsLoading.signes ? (
                                 <div className="ht-card ht-card-padded-sm">
                                     <SkeletonListRows rows={2} />
                                 </div>
@@ -1294,6 +1330,7 @@ export default function PatientDetail() {
                             rendezVous={rdvs}
                             rdvsLoading={sectionsLoading.rdvs}
                             onVoirAgenda={() => navigate('/rendez_vous')}
+                            clinicalForbidden={clinicalForbidden}
                         />
 
                         {/* ─── BLOC 4 : Antécédents & Analyses ─── */}
@@ -1304,6 +1341,7 @@ export default function PatientDetail() {
                                 onToggleStatut={handleToggleAntecedentStatut}
                                 onDelete={handleDeleteAntecedent}
                                 loading={sectionsLoading.antecedents}
+                                forbidden={clinicalForbidden}
                             />
                             <AnalysesPanel
                                 demandes={demandes}
@@ -1311,13 +1349,14 @@ export default function PatientDetail() {
                                 onRequest={() => setShowLabModal(true)}
                                 onVoirResultats={(d) => setSelectedAnalyse(d)}
                                 loading={sectionsLoading.demandes}
+                                forbidden={clinicalForbidden}
                             />
                         </div>
 
                         {/* ─── BLOC 5 : Urgences & Hospitalisations ─── */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <UrgencesPanel passages={urgences} loading={sectionsLoading.urgences}/>
-                            <HospitalisationsPanel hospitalisations={hospitalisations} loading={sectionsLoading.hospitalisations}/>
+                            <UrgencesPanel passages={urgences} loading={sectionsLoading.urgences} forbidden={clinicalForbidden} />
+                            <HospitalisationsPanel hospitalisations={hospitalisations} loading={sectionsLoading.hospitalisations} forbidden={clinicalForbidden} />
                         </div>
 
                         {/* ─── BLOC 6 : Infirmiers assignés (chef de service) ─── */}

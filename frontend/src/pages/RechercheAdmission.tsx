@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { searchPatients } from '../api/patients'
-import type { PatientSearchResult } from '../types'
+import type { PatientSearchResult, Patient } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
 import PageHeader from '../components/PageHeader.tsx'
-import { Search, SearchX, UserRoundSearch, UserPlus2, Contact, AlertTriangle } from 'lucide-react'
+import TransfererPatientModal from '../components/TransfererPatientModal.tsx'
+import { Search, SearchX, UserRoundSearch, UserPlus2, Contact, AlertTriangle, MapPinned, CheckCircle2 } from 'lucide-react'
 
 export default function RechercheAdmission() {
     const navigate = useNavigate()
@@ -12,6 +13,10 @@ export default function RechercheAdmission() {
     const [resultats, setResultats] = useState<PatientSearchResult[]>([])
     const [loading, setLoading] = useState(false)
     const [aCherche, setACherche] = useState(false)
+    const [aTransferer, setATransferer] = useState<PatientSearchResult | null>(null)
+    // Confirmation visuelle brève après un transfert réussi, sans quitter la
+    // page de recherche — l'agent enchaîne souvent plusieurs patients de suite.
+    const [dernierTransfertId, setDernierTransfertId] = useState<number | null>(null)
 
     useEffect(() => {
         const q = query.trim()
@@ -117,6 +122,20 @@ export default function RechercheAdmission() {
                                         </div>
                                     )}
                                 </div>
+
+                                {dernierTransfertId === p.id ? (
+                                    <span className="badge badge-tint text-[11px] flex items-center gap-1 flex-shrink-0">
+                                        <CheckCircle2 size={12} /> Orienté
+                                    </span>
+                                ) : (
+                                    <button
+                                        onClick={e => { e.stopPropagation(); setATransferer(p) }}
+                                        className="btn btn-secondary btn-sm gap-1.5 text-xs flex-shrink-0"
+                                        title="Le patient revient pour un nouveau motif : l'orienter vers un service sans recréer de dossier"
+                                    >
+                                        <MapPinned size={13} /> Nouvelle visite
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -131,6 +150,25 @@ export default function RechercheAdmission() {
                     </div>
                 )}
             </main>
+
+            {aTransferer && (
+                <TransfererPatientModal
+                    patient={aTransferer}
+                    onClose={() => setATransferer(null)}
+                    onTransfere={(updated: Patient) => {
+                        // Reflète le nouveau service/statut directement dans les
+                        // résultats affichés, sans relancer toute la recherche.
+                        setResultats(prev => prev.map(p => p.id === updated.id ? {
+                            ...p,
+                            service_nom: updated.service_nom ?? p.service_nom,
+                            statut_orientation: updated.statut_orientation ?? p.statut_orientation,
+                            statut_orientation_label: updated.statut_orientation_label ?? p.statut_orientation_label,
+                        } : p))
+                        setDernierTransfertId(updated.id)
+                        setATransferer(null)
+                    }}
+                />
+            )}
         </div>
     )
 }

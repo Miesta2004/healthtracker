@@ -33,7 +33,17 @@ const SECTIONS_INITIALES: Record<SectionKey, boolean> = {
     rdvs: true, urgences: true, hospitalisations: true, alertes: true,
 }
 
-export function usePatientDossier(patientId: number | undefined) {
+// Sections cliniques réservées à la capacité DOSSIER_MEDICAL_LIRE — un rôle
+// qui ne l'a pas (ex. agent d'admission) n'a pas à en tenter le chargement :
+// ça évite une salve de 403 en console ET une bannière d'erreur trompeuse
+// ("échec de chargement, réessayer") pour un accès qui ne sera JAMAIS accordé
+// par un nouvel essai. Voir PatientDetail.tsx pour l'affichage RestrictedAccess.
+const SECTIONS_CLINIQUES: SectionKey[] = [
+    'signes', 'antecedents', 'consultations', 'urgences', 'hospitalisations', 'alertes',
+]
+
+export function usePatientDossier(patientId: number | undefined, options?: { skipClinical?: boolean }) {
+    const skipClinical = options?.skipClinical ?? false
     const [patient, setPatient] = useState<Patient | null>(null)
     const [signes, setSignes] = useState<SignesVitaux[]>([])
     const [antecedents, setAntecedents] = useState<Antecedent[]>([])
@@ -61,7 +71,13 @@ export function usePatientDossier(patientId: number | undefined) {
         setPatientLoading(true)
         setError('')
         setSectionErrors({})
-        setSectionsLoading(SECTIONS_INITIALES)
+        // Une section cliniquement inaccessible n'est jamais "en cours de
+        // chargement" — elle ne sera tout simplement pas demandée.
+        setSectionsLoading(
+            skipClinical
+                ? { ...SECTIONS_INITIALES, ...Object.fromEntries(SECTIONS_CLINIQUES.map(k => [k, false])) }
+                : SECTIONS_INITIALES
+        )
 
         const markSectionDone = (key: SectionKey) =>
             setSectionsLoading(prev => ({ ...prev, [key]: false }))
@@ -88,22 +104,26 @@ export function usePatientDossier(patientId: number | undefined) {
                 // Les 8 sections partent en parallèle, mais chacune se
                 // termine et s'affiche à son propre rythme — plus de
                 // Promise.all qui attend la plus lente pour tout débloquer.
-                loadSection('signes', getSignesVitaux(patientId), setSignes)
-                loadSection('antecedents', getAntecedents(patientId), setAntecedents)
-                loadSection('consultations', getConsultations(patientId), setConsultations)
+                // Les sections cliniques sont sautées si le rôle n'y a de
+                // toute façon pas accès (voir SECTIONS_CLINIQUES ci-dessus).
+                if (!skipClinical) {
+                    loadSection('signes', getSignesVitaux(patientId), setSignes)
+                    loadSection('antecedents', getAntecedents(patientId), setAntecedents)
+                    loadSection('consultations', getConsultations(patientId), setConsultations)
+                    loadSection('urgences', getUrgencesPatient(patientId), setUrgences)
+                    loadSection('hospitalisations', getHospitalisations(patientId), setHospitalisations)
+                    loadSection('alertes', getAlertes(), (al) =>
+                        setAlertes(al.filter(x => x.patient === patientId))
+                    )
+                }
                 loadSection('demandes', getDemandesPatient(patientId), setDemandes)
                 loadSection('rdvs', getRendezVousPatient(patientId), setRdvs)
-                loadSection('urgences', getUrgencesPatient(patientId), setUrgences)
-                loadSection('hospitalisations', getHospitalisations(patientId), setHospitalisations)
-                loadSection('alertes', getAlertes(), (al) =>
-                    setAlertes(al.filter(x => x.patient === patientId))
-                )
             })
             .catch(() => {
                 setError('Impossible de charger les données du patient.')
             })
             .finally(() => setPatientLoading(false))
-    }, [patientId])
+    }, [patientId, skipClinical])
 
     useEffect(() => {
         reload()
