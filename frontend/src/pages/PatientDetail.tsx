@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { updatePatient, deletePatient } from '../api/patients'
+import { updatePatient, deletePatient, marquerSortiPatient } from '../api/patients'
 import { createAntecedent, updateAntecedent, deleteAntecedent } from '../api/antecedents'
 import { dateNaissanceDepuisAge } from '../utils/dateNaissance'
 import type { Patient, Consultation, Antecedent, TypeAntecedent, StatutAntecedent, Alerte, StatutAlerte } from '../types'
@@ -17,11 +17,11 @@ import { SkeletonDetailPage, SkeletonListRows } from '../components/Skeleton'
 import Sidebar from '../components/Sidebar.tsx'
 import RestrictedAccess from '../components/RestrictedAccess'
 import GraviteBadge from '../components/GraviteBadge'
-import {computeGravite} from '../utils/gravite'
+import { computeGravite } from '../utils/gravite'
 import { usePatientDossier, usePatientAssignations, type PatientDossierSectionErrors } from '../hooks/usePatientDossier'
 import {
     Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight,
-    User, Stethoscope, AlertTriangle, Bell, Calendar, Check,
+    User, Stethoscope, AlertTriangle, Bell, Calendar, Check, LogOut,
     Droplet, Thermometer, Heart, FileText, RefreshCw, type LucideIcon
 } from 'lucide-react'
 
@@ -62,9 +62,6 @@ const STATUT_URGENCE_CONFIG: Record<string, { label: string; badge: string }> = 
     sorti:           { label: 'Sorti',           badge: 'badge-muted' },
 }
 
-// Corrigé : les clés correspondent désormais au type StatutHospitalisation réel
-// ('terminee' / 'transferee'), pas aux anciennes clés 'sortie' / 'transfert'
-// qui ne matchaient jamais et retombaient silencieusement sur le badge gris générique.
 const STATUT_HOSPIT_CONFIG: Record<string, { label: string; badge: string }> = {
     en_cours:   { label: 'En cours',         badge: 'badge-tint' },
     terminee:   { label: 'Sortie effectuée', badge: 'badge-success' },
@@ -107,7 +104,6 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
     autre:             'Autre',
 }
 
-// Couleurs douces en thème clair, cohérentes avec la palette ht-*
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
     maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
     chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
@@ -149,7 +145,7 @@ function InfoRow({ label, value, mono = false }: { label: string; value: string;
     )
 }
 
-// ─── Bannière d'erreurs partielles (sections en échec, patient chargé) ──────
+// ─── Bannière d'erreurs partielles ──────────────────────────────────────────
 function SectionErrorsBanner({ errors, onRetry }: { errors: PatientDossierSectionErrors; onRetry: () => void }) {
     const failedKeys = (Object.keys(errors) as (keyof PatientDossierSectionErrors)[]).filter(k => errors[k])
     if (failedKeys.length === 0) return null
@@ -261,7 +257,7 @@ function AddAntecedentModal({ onSave, onCancel, loading }: {
     )
 }
 
-// ─── Panneau Antécédents (liste + actions) ───────────────────────────────────
+// ─── Panneau Antécédents ───────────────────────────────────────────────────
 function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loading, forbidden }: {
     antecedents: Antecedent[]
     onAdd: () => void
@@ -329,7 +325,7 @@ function AntecedentsPanel({ antecedents, onAdd, onToggleStatut, onDelete, loadin
     )
 }
 
-// ─── Panel historique des analyses ────────────────────────────────────────────
+// ─── Panel historique des analyses ──────────────────────────────────────────
 function AnalysesPanel({ demandes, canRequest, onRequest, onVoirResultats, loading, forbidden }: {
     demandes: DemandeAnalyse[]
     canRequest: boolean
@@ -454,10 +450,6 @@ function SuiviPatientTabs({
     rendezVous: RendezVous[]
     rdvsLoading: boolean
     onVoirAgenda: () => void
-    // Distinct de "aucune donnée" : le rôle courant (ex. agent d'admission)
-    // n'a tout simplement pas la capacité DOSSIER_MEDICAL_LIRE — n'affecte
-    // QUE les onglets Alertes/Consultations, pas Rendez-vous (RDV_LIRE
-    // couvre ce rôle séparément, voir comptes/capacites.py).
     clinicalForbidden?: boolean
 }) {
     const [tab, setTab] = useState<SuiviTab>('alertes')
@@ -568,7 +560,7 @@ function UrgencesPanel({ passages, loading, forbidden }: { passages: PassageUrge
     )
 }
 
-// ─── Panel assignation infirmier(ère) ↔ patient (chef de service) ───────────
+// ─── Panel assignation infirmier(ère) ↔ patient ───────────────────────────
 function AssignationsPanel({ assignations, infirmiers, onAssign, onDelete, loading }: {
     assignations: AssignationPatient[]
     infirmiers: { id: number; prenom: string; nom: string }[]
@@ -694,7 +686,7 @@ function HospitalisationsPanel({ hospitalisations, loading, forbidden }: { hospi
     )
 }
 
-// ─── Modale : demander une analyse (patient déjà connu) ───────────────────────
+// ─── Modale : demander une analyse ───────────────────────────────────────────
 function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
     onSave: (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => void
     onCancel: () => void
@@ -757,7 +749,7 @@ function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
     )
 }
 
-// ─── Modale : voir les résultats d'une analyse terminée ────────────────────────
+// ─── Modale : voir les résultats d'une analyse terminée ─────────────────────
 function ResultatsAnalyseModal({ demande, onClose }: { demande: DemandeAnalyse; onClose: () => void }) {
     return (
         <div className="ht-modal-overlay">
@@ -794,31 +786,20 @@ function ResultatsAnalyseModal({ demande, onClose }: { demande: DemandeAnalyse; 
 
 // ─── PAGE PRINCIPALE DETAIL PATIENT ───────────────────────────────────────────
 export default function PatientDetail() {
-    const {id} = useParams<{ id: string }>()
+    const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
-    const {hasRole, hasCapacite, user} = useAuth()
+    const { hasRole, hasCapacite, user } = useAuth()
 
-    // Mêmes rôles autorisés qu'avant (medecin/admin/secretaire), mais via la
-    // capacité PATIENTS_CREER — un chef_chirurgie (qui hérite de médecin
-    // côté backend) en bénéficie désormais aussi, sans lister son rôle ici.
+    // Permissions
     const canEdit = hasCapacite(Capacite.PATIENTS_CREER)
     const canDelete = hasRole('admin')
-    // ACTES_MEDICAUX_GERER couvre medecin/admin (+ chef_chirurgie par
-    // héritage) ; infirmier gardé explicitement pour ne pas changer le
-    // comportement existant (question distincte, non traitée ici — voir
-    // note sur analyses/views.py qui restreint déjà la création côté API).
     const canRequestLab = hasCapacite(Capacite.ACTES_MEDICAUX_GERER) || hasRole('infirmier')
     const canAssignInfirmier = hasRole('admin') || !!user?.est_major
-    // Un agent d'admission (pas de DOSSIER_MEDICAL_LIRE) n'a jamais accès aux
-    // sections cliniques (signes vitaux, antécédents, consultations, alertes,
-    // urgences, hospitalisations) — inutile de tenter ces fetches (ça évite
-    // une salve de 403), et RestrictedAccess remplace leur contenu ci-dessous
-    // plutôt que la bannière d'erreur générique "échec de chargement".
     const clinicalForbidden = !hasCapacite(Capacite.DOSSIER_MEDICAL_LIRE)
 
     const patientId = id ? Number(id) : undefined
 
-    // ── Fetching centralisé (voir hooks/usePatientDossier.ts) ──
+    // ── Fetching centralisé ──
     const {
         patient, setPatient,
         signes,
@@ -839,9 +820,13 @@ export default function PatientDetail() {
     const {
         assignations, setAssignations, infirmiersService,
     } = usePatientAssignations(patient, canAssignInfirmier)
-    const [assignLoading, setAssignLoading] = useState(false)
 
-    // Modales
+    const canMarquerSorti = hasCapacite(Capacite.PATIENTS_CONFIRMER_ARRIVEE) &&
+        patient?.statut_orientation !== 'sorti' &&
+        patient?.statut_orientation !== 'en_attente_validation_service'
+
+    // États locaux
+    const [assignLoading, setAssignLoading] = useState(false)
     const [showDelete, setShowDelete] = useState(false)
     const [deleteLoading, setDeleteLoading] = useState(false)
     const [showAddAntecedent, setShowAddAntecedent] = useState(false)
@@ -850,21 +835,19 @@ export default function PatientDetail() {
     const [labLoading, setLabLoading] = useState(false)
     const [labError, setLabError] = useState('')
     const [selectedAnalyse, setSelectedAnalyse] = useState<DemandeAnalyse | null>(null)
+    const [marquantSortie, setMarquantSortie] = useState(false)
 
-    // Mode édition complète du profil (façon EmployeDetail)
+    // Mode édition
     const [isEditing, setIsEditing] = useState(false)
     const [editForm, setEditForm] = useState<Partial<Patient>>({})
     const [updateLoading, setUpdateLoading] = useState(false)
     const [updateError, setUpdateError] = useState('')
-    const [services] = useState<{id: number; nom: string}[]>([])
-    const [medecins] = useState<{id: number; nom: string; prenom: string}[]>([])
-
-    // Corrigé : ces deux états étaient utilisés dans le JSX du mode édition
-    // (bascule "date connue" / "âge approximatif") sans jamais être déclarés,
-    // ce qui provoquait un crash (ReferenceError) dès l'ouverture du mode édition.
+    const [services] = useState<{ id: number; nom: string }[]>([])
+    const [medecins] = useState<{ id: number; nom: string; prenom: string }[]>([])
     const [modeDateNaissanceEdit, setModeDateNaissanceEdit] = useState<'date' | 'age'>('date')
     const [ageApproxEdit, setAgeApproxEdit] = useState('')
 
+    // ── Handlers ──
     const handleDelete = async () => {
         if (!id || !patient) return
         setDeleteLoading(true)
@@ -876,6 +859,22 @@ export default function PatientDetail() {
         } finally {
             setDeleteLoading(false)
             setShowDelete(false)
+        }
+    }
+
+    const handleMarquerSorti = async () => {
+        if (!patient) return
+        if (!window.confirm(`Marquer ${patient.prenom} ${patient.nom} comme sorti(e) ? Son épisode en cours sera clôturé.`)) {
+            return
+        }
+        setMarquantSortie(true)
+        try {
+            const updated = await marquerSortiPatient(patient.id)
+            setPatient(updated)
+        } catch {
+            window.alert("Erreur lors de la clôture de l'épisode. Réessayez.")
+        } finally {
+            setMarquantSortie(false)
         }
     }
 
@@ -899,7 +898,7 @@ export default function PatientDetail() {
         if (!id) return
         setAntecedentLoading(true)
         try {
-            const res = await createAntecedent({...data, patient: parseInt(id)})
+            const res = await createAntecedent({ ...data, patient: parseInt(id) })
             setAntecedents([res, ...antecedents])
             setShowAddAntecedent(false)
         } catch {
@@ -912,7 +911,7 @@ export default function PatientDetail() {
     const handleToggleAntecedentStatut = async (a: Antecedent) => {
         const nextStatut: StatutAntecedent = a.statut === 'actif' ? 'resolu' : 'actif'
         try {
-            const updated = await updateAntecedent(a.id, {statut: nextStatut})
+            const updated = await updateAntecedent(a.id, { statut: nextStatut })
             setAntecedents(antecedents.map(item => item.id === a.id ? updated : item))
         } catch {
             alert("Erreur lors du changement de statut.")
@@ -944,7 +943,7 @@ export default function PatientDetail() {
         setLabLoading(true)
         setLabError('')
         try {
-            const res = await createDemande({...data, patient: parseInt(id)})
+            const res = await createDemande({ ...data, patient: parseInt(id) })
             setDemandes([res, ...demandes])
             setShowLabModal(false)
         } catch {
@@ -977,16 +976,18 @@ export default function PatientDetail() {
         }
     }
 
-    if (patientLoading) return <SkeletonDetailPage/>
+    // ── Rendu ──
+    if (patientLoading) return <SkeletonDetailPage />
     if (error || !patient) {
         return (
             <div className="ht-page">
-                <Sidebar/>
+                <Sidebar />
                 <div className="ht-page-content flex flex-col items-center justify-center min-h-screen space-y-4">
-                    <p className="text-sm font-medium"
-                       style={{color: 'var(--ht-text-secondary)'}}>{error || "Patient introuvable."}</p>
+                    <p className="text-sm font-medium" style={{ color: 'var(--ht-text-secondary)' }}>
+                        {error || "Patient introuvable."}
+                    </p>
                     <button onClick={() => navigate('/patients')} className="btn btn-secondary btn-sm">
-                        <ArrowLeft size={14}/> Retour à la liste
+                        <ArrowLeft size={14} /> Retour à la liste
                     </button>
                 </div>
             </div>
@@ -998,34 +999,40 @@ export default function PatientDetail() {
 
     return (
         <div className="ht-page">
-            <Sidebar/>
+            <Sidebar />
 
             <main className="ht-page-content max-w-7xl space-y-6">
 
-                {/* ── Fil d'Ariane & Actions Générales ── */}
+                {/* ── Fil d'Ariane & Actions ── */}
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4"
-                     style={{borderBottom: '1px solid var(--ht-border)'}}>
+                     style={{ borderBottom: '1px solid var(--ht-border)' }}>
                     <button onClick={() => navigate('/patients')}
                             className="flex items-center gap-1.5 text-xs font-medium transition-colors w-fit"
-                            style={{color: 'var(--ht-text-secondary)'}}>
-                        <ArrowLeft size={14}/> Revenir aux patients
+                            style={{ color: 'var(--ht-text-secondary)' }}>
+                        <ArrowLeft size={14} /> Revenir aux patients
                     </button>
 
                     {!isEditing && (
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             {canEdit && (
                                 <button onClick={() => {
-                                    setEditForm(patient);
-                                    setModeDateNaissanceEdit(patient.date_naissance_estimee ? 'age' : 'date');
-                                    setAgeApproxEdit(patient.date_naissance_estimee ? String(calcAge(patient.date_naissance)) : '');
-                                    setIsEditing(true);
+                                    setEditForm(patient)
+                                    setModeDateNaissanceEdit(patient.date_naissance_estimee ? 'age' : 'date')
+                                    setAgeApproxEdit(patient.date_naissance_estimee ? String(calcAge(patient.date_naissance)) : '')
+                                    setIsEditing(true)
                                 }} className="btn btn-secondary btn-sm">
-                                    <Edit3 size={12}/> Modifier l'identité
+                                    <Edit3 size={12} /> Modifier l'identité
+                                </button>
+                            )}
+                            {canMarquerSorti && (
+                                <button onClick={handleMarquerSorti} disabled={marquantSortie}
+                                        className="btn btn-secondary btn-sm">
+                                    <LogOut size={12} /> {marquantSortie ? 'Clôture…' : 'Marquer sorti'}
                                 </button>
                             )}
                             {canDelete && (
                                 <button onClick={() => setShowDelete(true)} className="btn btn-danger btn-sm">
-                                    <Trash2 size={12}/> Supprimer le dossier
+                                    <Trash2 size={12} /> Supprimer le dossier
                                 </button>
                             )}
                         </div>
@@ -1033,10 +1040,9 @@ export default function PatientDetail() {
                 </div>
 
                 {isEditing ? (
-                    /* ── MODE ÉDITION DU PROFIL ── */
+                    /* ── MODE ÉDITION ── */
                     <form onSubmit={handleSaveProfile} className="space-y-5">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-
                             {/* Identité */}
                             <div className="ht-card ht-card-padded space-y-4">
                                 <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
@@ -1045,11 +1051,13 @@ export default function PatientDetail() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <div className="ht-field">
                                         <label className="ht-label">Prénom *</label>
-                                        <input required className="ht-input" value={editForm.prenom || ''} onChange={e => setEditForm({...editForm, prenom: e.target.value})} />
+                                        <input required className="ht-input" value={editForm.prenom || ''}
+                                               onChange={e => setEditForm({ ...editForm, prenom: e.target.value })} />
                                     </div>
                                     <div className="ht-field">
                                         <label className="ht-label">Nom *</label>
-                                        <input required className="ht-input" value={editForm.nom || ''} onChange={e => setEditForm({...editForm, nom: e.target.value})} />
+                                        <input required className="ht-input" value={editForm.nom || ''}
+                                               onChange={e => setEditForm({ ...editForm, nom: e.target.value })} />
                                     </div>
                                 </div>
                                 <div className="ht-field">
@@ -1081,30 +1089,24 @@ export default function PatientDetail() {
                                                    })
                                                }} />
                                     )}
-                                    {patient.date_naissance_estimee && modeDateNaissanceEdit === 'age' && (
-                                        <p className="text-xs mt-1.5" style={{ color: 'var(--ht-text-muted)' }}>
-                                            Date estimée au 1er juillet de l'année déduite. Passez sur « Date connue » dès que la vraie date est confirmée.
-                                        </p>
-                                    )}
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Sexe *</label>
-                                    <select className="ht-input" value={editForm.sexe || 'M'} onChange={e => setEditForm({...editForm, sexe: e.target.value as 'M' | 'F'})}>
+                                    <select className="ht-input" value={editForm.sexe || 'M'}
+                                            onChange={e => setEditForm({ ...editForm, sexe: e.target.value as 'M' | 'F' })}>
                                         <option value="M">Masculin</option>
                                         <option value="F">Féminin</option>
                                     </select>
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Téléphone</label>
-                                    <input className="ht-input" value={editForm.telephone || ''} onChange={e => setEditForm({...editForm, telephone: e.target.value})} placeholder="+221 7X XXX XX XX" />
+                                    <input className="ht-input" value={editForm.telephone || ''}
+                                           onChange={e => setEditForm({ ...editForm, telephone: e.target.value })} />
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Adresse</label>
-                                    <input className="ht-input" value={editForm.adresse || ''} onChange={e => setEditForm({...editForm, adresse: e.target.value})} />
-                                </div>
-                                <div className="ht-field">
-                                    <label className="ht-label">Photo (URL)</label>
-                                    <input className="ht-input" value={editForm.photo_path || ''} onChange={e => setEditForm({...editForm, photo_path: e.target.value})} placeholder="https://…" />
+                                    <input className="ht-input" value={editForm.adresse || ''}
+                                           onChange={e => setEditForm({ ...editForm, adresse: e.target.value })} />
                                 </div>
                             </div>
 
@@ -1115,34 +1117,39 @@ export default function PatientDetail() {
                                 </h3>
                                 <div className="ht-field">
                                     <label className="ht-label">Groupe sanguin</label>
-                                    <select className="ht-input" value={editForm.groupe_sanguin || ''} onChange={e => setEditForm({...editForm, groupe_sanguin: e.target.value})}>
+                                    <select className="ht-input" value={editForm.groupe_sanguin || ''}
+                                            onChange={e => setEditForm({ ...editForm, groupe_sanguin: e.target.value })}>
                                         <option value="">Inconnu</option>
-                                        {['A+','A-','B+','B-','AB+','AB-','O+','O-'].map(g => (
+                                        {['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].map(g => (
                                             <option key={g} value={g}>{g}</option>
                                         ))}
                                     </select>
                                 </div>
                                 <div className="ht-field">
-                                    <label className="ht-label">Allergies (séparées par des virgules)</label>
-                                    <input className="ht-input" value={editForm.allergies || ''} onChange={e => setEditForm({...editForm, allergies: e.target.value})} placeholder="Ex : Pénicilline, Arachide" />
+                                    <label className="ht-label">Allergies</label>
+                                    <input className="ht-input" value={editForm.allergies || ''}
+                                           onChange={e => setEditForm({ ...editForm, allergies: e.target.value })} />
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Service</label>
-                                    <select className="ht-input" value={editForm.service ?? ''} onChange={e => setEditForm({...editForm, service: e.target.value ? Number(e.target.value) : null})}>
+                                    <select className="ht-input" value={editForm.service ?? ''}
+                                            onChange={e => setEditForm({ ...editForm, service: e.target.value ? Number(e.target.value) : null })}>
                                         <option value="">— Aucun service —</option>
                                         {services.map(s => <option key={s.id} value={s.id}>{s.nom}</option>)}
                                     </select>
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Médecin référent</label>
-                                    <select className="ht-input" value={editForm.medecin_referent ?? ''} onChange={e => setEditForm({...editForm, medecin_referent: e.target.value ? Number(e.target.value) : null})}>
+                                    <select className="ht-input" value={editForm.medecin_referent ?? ''}
+                                            onChange={e => setEditForm({ ...editForm, medecin_referent: e.target.value ? Number(e.target.value) : null })}>
                                         <option value="">— Aucun —</option>
                                         {medecins.map(m => <option key={m.id} value={m.id}>Dr {m.prenom} {m.nom}</option>)}
                                     </select>
                                 </div>
                                 <div className="ht-field">
                                     <label className="ht-label">Statut du dossier</label>
-                                    <select className="ht-input" value={editForm.actif ? '1' : '0'} onChange={e => setEditForm({...editForm, actif: e.target.value === '1'})}>
+                                    <select className="ht-input" value={editForm.actif ? '1' : '0'}
+                                            onChange={e => setEditForm({ ...editForm, actif: e.target.value === '1' })}>
                                         <option value="1">Actif</option>
                                         <option value="0">Inactif</option>
                                     </select>
@@ -1150,14 +1157,12 @@ export default function PatientDetail() {
                             </div>
                         </div>
 
-                        {/* Zone Erreur d'enregistrement */}
                         {updateError && (
                             <div className="rounded-xl border border-[var(--ht-danger)]/20 bg-[var(--ht-danger)]/10 px-4 py-3">
                                 <p className="text-sm text-[var(--ht-danger)]">{updateError}</p>
                             </div>
                         )}
 
-                        {/* Actions d'édition bas de page */}
                         <div className="flex gap-3">
                             <button type="button" onClick={() => setIsEditing(false)} className="btn btn-secondary flex-1 py-3">
                                 Annuler
@@ -1168,16 +1173,14 @@ export default function PatientDetail() {
                         </div>
                     </form>
                 ) : (
-                    /* ── MODE VUE COMPLÈTE DU DOSSIER (Flux vertical unique) ── */
+                    /* ── MODE VUE ── */
                     <div className="space-y-6">
 
                         <SectionErrorsBanner errors={sectionErrors} onRetry={reload} />
 
-                        {/* ── Header patient (Bannière supérieure pleine largeur) ── */}
+                        {/* ── Header patient ── */}
                         <div className="ht-card ht-card-padded">
                             <div className="flex flex-col md:flex-row items-start gap-5">
-
-                                {/* Photo ou Avatar XL */}
                                 {patient.photo_path ? (
                                     <img
                                         src={patient.photo_path}
@@ -1186,12 +1189,12 @@ export default function PatientDetail() {
                                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                                     />
                                 ) : (
-                                    <div className="ht-avatar ht-avatar-xl flex-shrink-0" style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)', width: '5rem', height: '5rem', fontSize: '1.5rem' }}>
+                                    <div className="ht-avatar ht-avatar-xl flex-shrink-0"
+                                         style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)', width: '5rem', height: '5rem', fontSize: '1.5rem' }}>
                                         {patient.prenom?.[0] || ''}{patient.nom?.[0] || ''}
                                     </div>
                                 )}
 
-                                {/* Corps des informations */}
                                 <div className="flex-1 min-w-0 w-full">
                                     <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                                         <div>
@@ -1209,43 +1212,36 @@ export default function PatientDetail() {
                                             </p>
                                         </div>
 
-                                        {/* Conteneur des Badges de Statut et de Gravité (Alignés côte à côte) */}
                                         <div className="flex flex-wrap items-center gap-2 flex-shrink-0">
-                    <span
-                        className="text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
-                        style={patient.statut_vital === 'decede'
-                            ? { backgroundColor: 'rgba(255,107,91,0.14)', color: 'var(--ht-coral)', border: '1px solid rgba(255,107,91,0.4)' }
-                            : (patient as any).actif ?? true
-                                ? { backgroundColor: 'rgba(111,215,196,0.14)', color: 'var(--ht-brand-tint)', border: '1px solid rgba(111,215,196,0.4)' }
-                                : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#8fada3' }
-                        }
-                    >
-                        {patient.statut_vital === 'decede'
-                            ? '✝ Décédé'
-                            : ((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
-                    </span>
-
-                                            {/* Le badge de gravité est maintenant sorti et placé juste à côté */}
+                                            <span className="text-xs px-3 py-1.5 rounded-full font-semibold uppercase tracking-wide w-fit"
+                                                  style={patient.statut_vital === 'decede'
+                                                      ? { backgroundColor: 'rgba(255,107,91,0.14)', color: 'var(--ht-coral)', border: '1px solid rgba(255,107,91,0.4)' }
+                                                      : (patient as any).actif ?? true
+                                                          ? { backgroundColor: 'rgba(111,215,196,0.14)', color: 'var(--ht-brand-tint)', border: '1px solid rgba(111,215,196,0.4)' }
+                                                          : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#8fada3' }
+                                                  }>
+                                                {patient.statut_vital === 'decede'
+                                                    ? '✝ Décédé'
+                                                    : ((patient as any).actif ?? true) ? '● Actif' : '○ Inactif'}
+                                            </span>
                                             <GraviteBadge gravite={gravite} />
                                         </div>
                                     </div>
 
-                                    {/* Badges de métadonnées */}
                                     <div className="flex flex-wrap gap-2 mt-3">
-                <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
-                      style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
-                    <Droplet size={12} style={{ color: 'var(--ht-text-muted)' }} />
-                    {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin inconnu'}
-                </span>
+                                        <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
+                                              style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
+                                            <Droplet size={12} style={{ color: 'var(--ht-text-muted)' }} />
+                                            {(patient as any).groupe_sanguin ? `Groupe ${(patient as any).groupe_sanguin}` : 'Groupe sanguin inconnu'}
+                                        </span>
                                         {patient.medecin_nom && (
                                             <span className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-full"
                                                   style={{ border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}>
-                        <Stethoscope size={12} style={{ color: 'var(--ht-text-muted)' }} />{patient.medecin_nom}
-                    </span>
+                                                <Stethoscope size={12} style={{ color: 'var(--ht-text-muted)' }} />{patient.medecin_nom}
+                                            </span>
                                         )}
                                     </div>
 
-                                    {/* Allergies — bandeau plein, pas juste un badge */}
                                     {patient.allergies?.trim() && (
                                         <div className="flex items-center gap-2.5 mt-3 px-4 py-2.5 rounded-xl"
                                              style={{ backgroundColor: 'var(--ht-danger-bg-light)', border: '1px solid var(--ht-danger)' }}>
@@ -1256,7 +1252,6 @@ export default function PatientDetail() {
                                         </div>
                                     )}
 
-                                    {/* Antécédents actifs — résumé en une ligne */}
                                     {antecedents.filter(a => a.statut === 'actif').length > 0 && (
                                         <p className="text-sm mt-3" style={{ color: 'var(--ht-text-secondary)' }}>
                                             <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>Antécédents :</span>{' '}
@@ -1264,11 +1259,10 @@ export default function PatientDetail() {
                                         </p>
                                     )}
                                 </div>
-
                             </div>
                         </div>
 
-                        {/* ─── BLOC 1.5 : Informations personnelles étendues (Lecture) ─── */}
+                        {/* ─── Informations personnelles détaillées ─── */}
                         <div className="ht-card ht-card-padded">
                             <h2 className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'var(--ht-text-muted)' }}>
                                 Informations personnelles détaillées
@@ -1291,18 +1285,15 @@ export default function PatientDetail() {
                             </div>
                         </div>
 
-                        {/* ─── BLOC 2 : Signes vitaux ─── */}
+                        {/* ─── Signes vitaux ─── */}
                         <div className="ht-card ht-card-padded-sm">
                             <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-sm font-semibold flex items-center gap-2"
-                                    style={{color: 'var(--ht-text)'}}>
-                                    <Activity size={16} style={{color: 'var(--ht-text-muted)'}}/> Évolution des constantes vitales
+                                <h3 className="text-sm font-semibold flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
+                                    <Activity size={16} style={{ color: 'var(--ht-text-muted)' }} /> Évolution des constantes vitales
                                 </h3>
                                 {hasCapacite(Capacite.SIGNES_VITAUX_SAISIR) && (
-                                    <button
-                                        onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
-                                        className="btn btn-primary btn-sm"
-                                    >
+                                    <button onClick={() => navigate(`/patients/${patient.id}/signes_vitaux/newSignes`)}
+                                            className="btn btn-primary btn-sm">
                                         <Plus size={14} /> Nouvelle mesure
                                     </button>
                                 )}
@@ -1310,15 +1301,13 @@ export default function PatientDetail() {
                             {clinicalForbidden ? (
                                 <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les constantes vitales." />
                             ) : sectionsLoading.signes ? (
-                                <div className="ht-card ht-card-padded-sm">
-                                    <SkeletonListRows rows={2} />
-                                </div>
+                                <SkeletonListRows rows={2} />
                             ) : (
-                                <SignesVitauxCharts data={signes}/>
+                                <SignesVitauxCharts data={signes} />
                             )}
                         </div>
 
-                        {/* ─── BLOC 3 : Alertes / Consultations / Rendez-vous ─── */}
+                        {/* ─── Alertes / Consultations / Rendez-vous ─── */}
                         <SuiviPatientTabs
                             alertes={alertes}
                             alertesLoading={sectionsLoading.alertes}
@@ -1333,7 +1322,7 @@ export default function PatientDetail() {
                             clinicalForbidden={clinicalForbidden}
                         />
 
-                        {/* ─── BLOC 4 : Antécédents & Analyses ─── */}
+                        {/* ─── Antécédents & Analyses ─── */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <AntecedentsPanel
                                 antecedents={antecedents}
@@ -1353,13 +1342,13 @@ export default function PatientDetail() {
                             />
                         </div>
 
-                        {/* ─── BLOC 5 : Urgences & Hospitalisations ─── */}
+                        {/* ─── Urgences & Hospitalisations ─── */}
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <UrgencesPanel passages={urgences} loading={sectionsLoading.urgences} forbidden={clinicalForbidden} />
                             <HospitalisationsPanel hospitalisations={hospitalisations} loading={sectionsLoading.hospitalisations} forbidden={clinicalForbidden} />
                         </div>
 
-                        {/* ─── BLOC 6 : Infirmiers assignés (chef de service) ─── */}
+                        {/* ─── Infirmiers assignés ─── */}
                         {canAssignInfirmier && (
                             <AssignationsPanel
                                 assignations={assignations}
@@ -1373,17 +1362,36 @@ export default function PatientDetail() {
                 )}
             </main>
 
-            {/* Modales de contrôle contextuel */}
-            {showDelete && <DeleteModal name={`${patient.prenom} ${patient.nom}`} onConfirm={handleDelete}
-                                        onCancel={() => setShowDelete(false)} loading={deleteLoading}/>}
-            {showAddAntecedent &&
-                <AddAntecedentModal onSave={handleAddAntecedent} onCancel={() => setShowAddAntecedent(false)}
-                                    loading={antecedentLoading}/>}
-            {showLabModal &&
-                <DemandeAnalyseModal onSave={handleCreateLabDemande} onCancel={() => setShowLabModal(false)}
-                                     loading={labLoading} error={labError}/>}
-            {selectedAnalyse &&
-                <ResultatsAnalyseModal demande={selectedAnalyse} onClose={() => setSelectedAnalyse(null)}/>}
+            {/* ── Modales ── */}
+            {showDelete && (
+                <DeleteModal
+                    name={`${patient.prenom} ${patient.nom}`}
+                    onConfirm={handleDelete}
+                    onCancel={() => setShowDelete(false)}
+                    loading={deleteLoading}
+                />
+            )}
+            {showAddAntecedent && (
+                <AddAntecedentModal
+                    onSave={handleAddAntecedent}
+                    onCancel={() => setShowAddAntecedent(false)}
+                    loading={antecedentLoading}
+                />
+            )}
+            {showLabModal && (
+                <DemandeAnalyseModal
+                    onSave={handleCreateLabDemande}
+                    onCancel={() => setShowLabModal(false)}
+                    loading={labLoading}
+                    error={labError}
+                />
+            )}
+            {selectedAnalyse && (
+                <ResultatsAnalyseModal
+                    demande={selectedAnalyse}
+                    onClose={() => setSelectedAnalyse(null)}
+                />
+            )}
         </div>
     )
 }

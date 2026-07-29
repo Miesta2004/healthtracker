@@ -16,14 +16,14 @@ interface Props {
     onSelectEvenement: (e: EvenementPlanning) => void
     onSelectGarde?: (g: GardeOccurrence) => void
     onSelectCreneau: (date: Date) => void
-    deplacable?: boolean
+    peutDeplacer?: (e: EvenementPlanning) => boolean
     onDeplacerEvenement?: (id: number, nouvelleDate: Date) => void
     onRedimensionnerEvenement?: (id: number, dureeMinutes: number) => void
 }
 
 export default function CalendarDayView({
                                             ancre, evenements, gardes = [], onSelectEvenement, onSelectGarde, onSelectCreneau,
-                                            deplacable = false, onDeplacerEvenement, onRedimensionnerEvenement,
+                                            peutDeplacer, onDeplacerEvenement, onRedimensionnerEvenement,
                                         }: Props) {
     const heures = heuresGrille()
     const hauteurGrille = heures.length * PX_PAR_HEURE
@@ -76,7 +76,7 @@ export default function CalendarDayView({
                                 colonnes={colonnes}
                                 indexColonne={indexColonne}
                                 onClick={() => onSelectEvenement(evenement)}
-                                deplacable={deplacable}
+                                deplacable={peutDeplacer ? peutDeplacer(evenement) : false}
                                 onRedimensionner={(duree) => onRedimensionnerEvenement?.(evenement.id, duree)}
                             />
                         ))}

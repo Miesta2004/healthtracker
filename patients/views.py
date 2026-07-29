@@ -54,8 +54,6 @@ class PatientViewSet(viewsets.ModelViewSet):
             )
 
         # ── Agent d'admission : vue globale, sans restriction de service ──
-        # (dossiers en attente de validation à router/ré-orienter, régularisation
-        # d'identités provisoires, recherche de patients déjà admis).
         if role == 'agent_admission':
             qs = base_qs.all()
             if q:
@@ -77,10 +75,6 @@ class PatientViewSet(viewsets.ModelViewSet):
             return base_qs.filter(id__in=patient_ids)
 
         # ── Secrétaire, médecin, admin ──
-        # Visible si le patient est administrativement dans mon service (que ce
-        # soit déjà confirmé ou encore en attente de validation — le service est
-        # affecté DÈS la création dans le nouveau workflow, plus après coup),
-        # OU s'il a une opération/hospitalisation active rattachée à mon service.
         if emp.service:
             qs = base_qs.filter(
                 Q(service=emp.service) |
@@ -90,13 +84,7 @@ class PatientViewSet(viewsets.ModelViewSet):
         else:
             qs = base_qs.all()
 
-        # Chef de Chirurgie (capacité BLOC_GERER, transversale) : en plus de ce
-        # qui précède, il doit voir tout patient ayant une intervention
-        # chirurgicale n'importe où dans l'hôpital — y compris hors de son
-        # service, et sans filtrer par statut : une intervention TERMINEE ou
-        # DECES_AU_BLOC reste pertinente (ex. dossier lié à une autopsie
-        # péri-opératoire), pas seulement les interventions encore actives
-        # couvertes par la règle générale ci-dessus.
+        # Chef de Chirurgie (capacité BLOC_GERER, transversale)
         if emp.a_la_capacite(Capacite.BLOC_GERER):
             from chirurgie.models import InterventionChirurgicale
             patients_operes_ids = InterventionChirurgicale.objects.values_list('patient_id', flat=True).distinct()
@@ -111,16 +99,11 @@ class PatientViewSet(viewsets.ModelViewSet):
                 Q(telephone__icontains=q)
             )
 
-        # ?mine=true : uniquement les patients dont JE suis le médecin
-        # référent — utilisé par le KPI "Patients suivis" du planning médecin,
-        # plus précis que "tous les patients de mon service".
+        # ?mine=true : uniquement les patients dont JE suis le médecin référent
         if self.request.query_params.get('mine') == 'true':
             qs = qs.filter(medecin_referent=emp, actif=True)
 
-        # ?statut_orientation=... : utilisé par la file d'attente du secrétariat
-        # de service ("Patients orientés en attente d'accueil"), pour isoler
-        # les patients tout juste orientés/transférés et pas encore confirmés,
-        # plutôt que tout le portefeuille du service.
+        # ?statut_orientation=... : file d'attente du secrétariat
         statut = self.request.query_params.get('statut_orientation')
         if statut:
             qs = qs.filter(statut_orientation=statut)
@@ -136,6 +119,8 @@ class PatientViewSet(viewsets.ModelViewSet):
             return [PeutTransfererPatient()]
         if self.action == 'confirmer_arrivee':
             return [PeutConfirmerArrivee()]
+        if self.action == 'marquer_sorti':
+            return [PeutConfirmerArrivee()]
         if self.action == 'search':
             return [PeutAdmettrePatient()]
         if self.action in ['destroy']:
@@ -145,13 +130,7 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def create(self, request, *args, **kwargs):
         """
-        Création directe désactivée : il n'existe plus qu'UN SEUL formulaire de
-        création de patient, le formulaire unique du Service des Admissions
-        (POST /patients/admission/), qui inclut désormais le choix du service
-        de destination et le bloc Accompagnants. Un service ne crée plus de
-        patient "pour lui-même" en direct — ça contournait l'identitovigilance
-        (pas de vérif anti-doublon, pas de contact d'urgence/mutuelle/
-        accompagnant collectés).
+        Création directe désactivée — utilisez POST /api/patients/admission/.
         """
         return Response(
             {'detail': "Création désactivée ici — utilisez POST /api/patients/admission/."},
@@ -162,10 +141,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     def admission(self, request):
         """
         POST /api/patients/admission/
-        Formulaire unique de création par le Service des Admissions : état
-        civil, coordonnées, contact d'urgence, couverture/mutuelle, service de
-        destination ET accompagnant(s), en un seul appel. Voir
-        AdmissionSerializer pour le détail des deux modes (normal / urgence).
+        Formulaire unique de création par le Service des Admissions.
         """
         serializer = AdmissionSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -176,10 +152,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     def regulariser(self, request, pk=None):
         """
         PATCH /api/patients/{id}/regulariser/
-        « Régulariser / Compléter le dossier » d'une identité provisoire créée
-        en mode urgence : saisie de la vraie identité (CNI, état civil final)
-        sans toucher à l'historique médical déjà créé pendant la prise en
-        charge d'urgence.
+        Régularise une identité provisoire créée en mode urgence.
         """
         patient = self.get_object()
         serializer = RegularisationSerializer(patient, data=request.data, partial=True, context={'request': request})
@@ -191,9 +164,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     def transferer(self, request, pk=None):
         """
         PATCH /api/patients/{id}/transferer/
-        Affecte/réaffecte le patient à un service de destination — premier
-        routage par l'agent d'admission ou transfert mi-parcours par un
-        médecin/secrétaire. Voir TransfertSerializer pour `confirmation_immediate`.
+        Affecte/réaffecte le patient à un service de destination.
         """
         patient = self.get_object()
         serializer = TransfertSerializer(patient, data=request.data, partial=True)
@@ -205,12 +176,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     def confirmer_arrivee(self, request, pk=None):
         """
         PATCH /api/patients/{id}/confirmer-arrivee/
-        Le secrétariat du service de destination confirme la prise en charge
-        physique du patient orienté vers son service. Passe le statut de
-        EN_ATTENTE_VALIDATION_SERVICE à ADMIS_DANS_LE_SERVICE. Les transitions
-        suivantes (EN_CONSULTATION, HOSPITALISE) sont automatiques, pilotées
-        par la création d'une Consultation ou d'une Hospitalisation — pas par
-        cette action.
+        Confirme la prise en charge physique du patient orienté vers le service.
         """
         patient = self.get_object()
         if patient.statut_orientation != Patient.StatutOrientation.EN_ATTENTE_VALIDATION_SERVICE:
@@ -222,15 +188,30 @@ class PatientViewSet(viewsets.ModelViewSet):
         patient.save(update_fields=['statut_orientation', 'date_modification'])
         return Response(PatientSerializer(patient).data)
 
+    @action(detail=True, methods=['patch'], url_path='marquer-sorti')
+    def marquer_sorti(self, request, pk=None):
+        """
+        PATCH /api/patients/{id}/marquer-sorti/
+        Clôture manuellement l'épisode en cours (statut_orientation → SORTI).
+        """
+        patient = self.get_object()
+        if patient.statut_orientation in (
+                Patient.StatutOrientation.SORTI,
+                Patient.StatutOrientation.EN_ATTENTE_VALIDATION_SERVICE,
+        ):
+            return Response(
+                {'detail': "Ce patient n'a pas d'épisode en cours à clôturer."},
+                status=400,
+            )
+        patient.statut_orientation = Patient.StatutOrientation.SORTI
+        patient.save(update_fields=['statut_orientation', 'date_modification'])
+        return Response(PatientSerializer(patient).data)
+
     @action(detail=False, methods=['get'], url_path='search')
     def search(self, request):
         """
         GET /api/patients/search/?query=...
-        Recherche multi-critères pour l'identitovigilance, avant création d'un
-        nouveau dossier (éviter les doublons) : numéro de dossier, nom/prénom,
-        date de naissance (format AAAA-MM-JJ), téléphone — ET recherche
-        inversée par accompagnant (nom, prénom, téléphone, CNI). Volontairement
-        globale (pas de restriction de service).
+        Recherche multi-critères pour l'identitovigilance.
         """
         query = (request.query_params.get('query') or '').strip()
         if len(query) < 2:
@@ -269,11 +250,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     def badge(self, request, pk=None):
         """
         GET /api/patients/{id}/badge/
-        Données prêtes à imprimer pour le badge / bracelet patient
-        (identitovigilance). `qr_payload` est volontairement un identifiant
-        stable et non-sensible (numéro de dossier + id interne) — jamais de
-        donnée médicale encodée, pour rester lisible par un scanner générique
-        sans exposer d'information clinique si le badge est perdu ou photographié.
+        Données pour le badge / bracelet patient.
         """
         patient = self.get_object()
         data = {
@@ -315,8 +292,7 @@ class PatientViewSet(viewsets.ModelViewSet):
 
 class AccompagnantViewSet(viewsets.ModelViewSet):
     """
-    CRUD + pointage entrée/sortie des accompagnants — alimente la vue
-    « Contrôle Accompagnants » (traçabilité des accès) de l'agent d'admission.
+    CRUD + pointage entrée/sortie des accompagnants — traçabilité des accès.
     """
     serializer_class = AccompagnantSerializer
     permission_classes = [PeutGererAccompagnants]
@@ -348,7 +324,7 @@ class AccompagnantViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'], url_path='marquer-sortie')
     def marquer_sortie(self, request, pk=None):
-        """Pointe la sortie de l'accompagnant (fin de son passage dans l'établissement)."""
+        """Pointe la sortie de l'accompagnant."""
         accompagnant = self.get_object()
         accompagnant.statut = Accompagnant.Statut.SORTI
         accompagnant.date_sortie = timezone.now()
@@ -357,7 +333,7 @@ class AccompagnantViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['patch'], url_path='marquer-present')
     def marquer_present(self, request, pk=None):
-        """Annule un pointage de sortie fait par erreur (l'accompagnant est en fait toujours présent)."""
+        """Annule un pointage de sortie fait par erreur."""
         accompagnant = self.get_object()
         accompagnant.statut = Accompagnant.Statut.PRESENT
         accompagnant.date_sortie = None
@@ -368,9 +344,7 @@ class AccompagnantViewSet(viewsets.ModelViewSet):
     def badge(self, request, pk=None):
         """
         GET /api/accompagnants/{id}/badge/
-        Pass d'accès imprimable pour l'accompagnant (identitovigilance) —
-        même principe que le badge patient : QR non-sensible, pas de donnée
-        médicale.
+        Pass d'accès imprimable pour l'accompagnant.
         """
         accompagnant = self.get_object()
         patient = accompagnant.patient

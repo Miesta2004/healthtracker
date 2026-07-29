@@ -61,4 +61,19 @@ class HospitalisationViewSet(viewsets.ModelViewSet):
         hospitalisation.notes = request.data.get('notes', hospitalisation.notes)
         hospitalisation.statut = request.data.get('statut', StatutHospitalisation.TERMINEE)
         hospitalisation.save()
+
+        # Répercute sur le parcours administratif du patient : une sortie
+        # d'hospitalisation TERMINEE clôt son épisode — il redevient "Sorti",
+        # ce qui le fait réapparaître pour une future "Nouvelle visite" côté
+        # Admissions (voir Patient.StatutOrientation, RechercheAdmission.tsx).
+        # On ne le fait QUE si le statut final est bien TERMINEE : une sortie
+        # enregistrée comme TRANSFEREE (vers un autre service/établissement,
+        # voir StatutHospitalisation) ne doit pas se traduire par "Sorti" ici
+        # — le patient continue son parcours ailleurs, il n'est pas rentré chez lui.
+        if hospitalisation.statut == StatutHospitalisation.TERMINEE:
+            from patients.models import Patient
+            Patient.objects.filter(pk=hospitalisation.patient_id).update(
+                statut_orientation=Patient.StatutOrientation.SORTI
+            )
+
         return Response(HospitalisationSerializer(hospitalisation).data)

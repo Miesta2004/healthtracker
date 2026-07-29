@@ -56,16 +56,36 @@ class Consultation(models.Model):
     date_modification = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        # Mise à jour AUTOMATIQUE du parcours administratif du patient : la
-        # création d'une Consultation est, par définition, la preuve qu'il est
-        # bien pris en charge en consultation — pas besoin d'une action manuelle
-        # séparée côté secrétariat/médecin pour refléter ça sur le dossier.
+        # Mise à jour AUTOMATIQUE du parcours administratif du patient — pas
+        # besoin d'une action manuelle séparée côté secrétariat/médecin :
+        #
+        # - Consultation planifiée/en cours (à sa création) : le patient est
+        #   "en consultation".
+        # - Consultation TERMINÉE : c'était une simple visite (consultation,
+        #   examen…) sans suite — le patient repart, donc "sorti". Sauf s'il a
+        #   une hospitalisation active en parallèle (décidée pendant cette
+        #   même consultation) : dans ce cas, HOSPITALISE prime, on ne
+        #   l'écrase pas.
+        # - Consultation ANNULÉE : la visite n'a jamais vraiment eu lieu, on
+        #   ne touche pas au parcours du patient.
+        #
         # .update() plutôt que patient.save() : évite de redéclencher toute la
         # logique de Patient.save() (numéro de dossier…) pour un simple champ.
         est_nouvelle = self._state.adding
         super().save(*args, **kwargs)
-        if est_nouvelle:
-            from patients.models import Patient
+
+        from patients.models import Patient
+
+        if self.statut == 'terminee':
+            from hospitalisations.models import Hospitalisation, StatutHospitalisation
+            a_hospitalisation_active = Hospitalisation.objects.filter(
+                patient_id=self.patient_id, statut=StatutHospitalisation.EN_COURS
+            ).exists()
+            if not a_hospitalisation_active:
+                Patient.objects.filter(pk=self.patient_id).update(
+                    statut_orientation=Patient.StatutOrientation.SORTI
+                )
+        elif est_nouvelle and self.statut in ('planifiee', 'en_cours'):
             Patient.objects.filter(pk=self.patient_id).update(
                 statut_orientation=Patient.StatutOrientation.EN_CONSULTATION
             )

@@ -1,6 +1,7 @@
 import api from './client.ts'
-import type {Patient, SignesVitaux, PatientSearchResult, BadgePatient, BadgeAccompagnant, Accompagnant} from '../types'
+import type { Patient, SignesVitaux, PatientSearchResult, BadgePatient, BadgeAccompagnant, Accompagnant } from '../types'
 
+// ─── Patients ──────────────────────────────────────────────────────────────────
 export const getPatients = async (q?: string): Promise<Patient[]> => {
     const response = await api.get('/patients/', q ? { params: { q } } : {})
     return response.data
@@ -25,11 +26,21 @@ export const updatePatient = async (id: number, data: object): Promise<Patient> 
     return response.data
 }
 
+// ─── Signes Vitaux ────────────────────────────────────────────────────────────
 export const getSignesVitaux = async (patientId: number) => {
     const response = await api.get(`/signes_vitaux/?patient=${patientId}`)
     return response.data
 }
 
+export const postSignesVitaux = async (
+    patientId: number,
+    data: Omit<SignesVitaux, 'id' | 'patient'>
+): Promise<SignesVitaux> => {
+    const response = await api.post('/signes_vitaux/', { ...data, patient: patientId })
+    return response.data
+}
+
+// ─── Antécédents ──────────────────────────────────────────────────────────────
 export const ajouterAntecedent = async (patientId: number, antecedent: string): Promise<Patient> => {
     const response = await api.post(`/patients/${patientId}/ajouter_antecedent/`, { antecedent })
     return response.data
@@ -73,6 +84,7 @@ export const createAdmission = async (data: AdmissionPayload): Promise<Patient> 
     return response.data
 }
 
+// ─── Régularisation ──────────────────────────────────────────────────────────
 export interface RegularisationPayload {
     nom?: string
     prenom?: string
@@ -95,6 +107,7 @@ export const regulariserPatient = async (patientId: number, data: Regularisation
     return response.data
 }
 
+// ─── Transfert / Orientation ─────────────────────────────────────────────────
 // Affecte/réaffecte un patient à un service — premier routage par les
 // Admissions ou transfert mi-parcours par un médecin/secrétaire.
 // `confirmationImmediate` saute la reconfirmation par le service receveur
@@ -115,6 +128,15 @@ export const confirmerArriveePatient = async (patientId: number): Promise<Patien
     return response.data
 }
 
+// Clôture l'épisode en cours (statut → SORTI) — cas sans hospitalisation
+// (consultation simple, urgences réglées sur place). La sortie d'une
+// hospitalisation déclenche déjà ce même passage automatiquement côté backend.
+export const marquerSortiPatient = async (patientId: number): Promise<Patient> => {
+    const response = await api.patch(`/patients/${patientId}/marquer-sorti/`)
+    return response.data
+}
+
+// ─── File d'attente ──────────────────────────────────────────────────────────
 export const getPatientsEnAttenteValidation = async (q?: string): Promise<Patient[]> => {
     const response = await api.get('/patients/', {
         params: { statut_orientation: 'en_attente_validation_service', ...(q ? { q } : {}) },
@@ -130,7 +152,7 @@ export const getFileAttenteAccueil = async (): Promise<Patient[]> => {
     return response.data
 }
 
-// ─── Recherche & identitovigilance ─────────────────────────────────────────
+// ─── Recherche & identitovigilance ──────────────────────────────────────────
 export const searchPatients = async (query: string): Promise<PatientSearchResult[]> => {
     const response = await api.get('/patients/search/', { params: { query } })
     return response.data
@@ -148,7 +170,11 @@ export const getBadgeAccompagnant = async (accompagnantId: number): Promise<Badg
 }
 
 // ─── Accompagnants (traçabilité / contrôle d'accès) ────────────────────────
-export const getAccompagnants = async (params?: { statut?: 'present' | 'sorti'; q?: string; patient?: number }): Promise<Accompagnant[]> => {
+export const getAccompagnants = async (params?: {
+    statut?: 'present' | 'sorti'
+    q?: string
+    patient?: number
+}): Promise<Accompagnant[]> => {
     const response = await api.get('/accompagnants/', { params })
     return response.data
 }
@@ -165,13 +191,5 @@ export const marquerSortieAccompagnant = async (id: number): Promise<Accompagnan
 
 export const marquerPresentAccompagnant = async (id: number): Promise<Accompagnant> => {
     const response = await api.patch(`/accompagnants/${id}/marquer-present/`)
-    return response.data
-}
-
-export const postSignesVitaux = async (
-    patientId: number,
-    data: Omit<SignesVitaux, 'id' | 'patient'>
-): Promise<SignesVitaux> => {
-    const response = await api.post('/signes_vitaux/', { ...data, patient: patientId })
     return response.data
 }

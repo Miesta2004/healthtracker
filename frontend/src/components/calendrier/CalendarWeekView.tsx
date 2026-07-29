@@ -17,14 +17,18 @@ interface Props {
     onSelectGarde?: (g: GardeOccurrence) => void
     onSelectCreneau?: (d: Date) => void
     onSelectJour?: (d: Date) => void
-    deplacable?: boolean
+    /** Fonction par événement plutôt qu'un booléen global — un événement
+     * administratif peut être verrouillé même si l'utilisateur peut par
+     * ailleurs déplacer des RDV médicaux (et inversement). Si absente,
+     * rien n'est déplaçable. */
+    peutDeplacer?: (e: EvenementPlanning) => boolean
     onDeplacerEvenement?: (id: number, nouvelleDate: Date) => void
     onRedimensionnerEvenement?: (id: number, dureeMinutes: number) => void
 }
 
 export default function CalendarWeekView({
                                              ancre = new Date(), evenements, gardes = [], onSelectEvenement, onSelectGarde, onSelectCreneau, onSelectJour,
-                                             deplacable = false, onDeplacerEvenement, onRedimensionnerEvenement,
+                                             peutDeplacer, onDeplacerEvenement, onRedimensionnerEvenement,
                                          }: Props) {
     const jours = joursDeSemaine(ancre)
     const heures = heuresGrille()
@@ -126,7 +130,7 @@ export default function CalendarWeekView({
                                         colonnes={colonnes}
                                         indexColonne={indexColonne}
                                         onClick={() => onSelectEvenement?.(evenement)}
-                                        deplacable={deplacable}
+                                        deplacable={peutDeplacer ? peutDeplacer(evenement) : false}
                                         onRedimensionner={(duree) => onRedimensionnerEvenement?.(evenement.id, duree)}
                                     />
                                 ))}

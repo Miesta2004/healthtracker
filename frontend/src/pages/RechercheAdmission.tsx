@@ -127,7 +127,7 @@ export default function RechercheAdmission() {
                                     <span className="badge badge-tint text-[11px] flex items-center gap-1 flex-shrink-0">
                                         <CheckCircle2 size={12} /> Orienté
                                     </span>
-                                ) : (
+                                ) : p.statut_orientation === 'sorti' ? (
                                     <button
                                         onClick={e => { e.stopPropagation(); setATransferer(p) }}
                                         className="btn btn-secondary btn-sm gap-1.5 text-xs flex-shrink-0"
@@ -135,7 +135,7 @@ export default function RechercheAdmission() {
                                     >
                                         <MapPinned size={13} /> Nouvelle visite
                                     </button>
-                                )}
+                                ) : null}
                             </div>
                         ))}
                     </div>
