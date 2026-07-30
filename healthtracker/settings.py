@@ -43,6 +43,8 @@ ALLOWED_HOSTS = [
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',                    # Doit être avant staticfiles : fait que `runserver` sert aussi les WebSocket
+    'channels',
     'corsheaders',
     'django.contrib.admin',      # L'interface admin automatique de Django
     'django.contrib.auth',       # Gestion des utilisateurs (login, password...)
@@ -60,11 +62,13 @@ INSTALLED_APPS = [
     'antecedents',
     'services',
     'analyses',
+    'documents',
     'hospitalisations',
     'urgences',
     'disponibilites',
     'morgue',
     'chirurgie',
+    'temps_reel',
 ]
 
 #Configuration DRF + JWT
@@ -207,3 +211,26 @@ if not DEBUG:
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
+
+# ── Temps réel (Django Channels) ─────────────────────────────────────────────
+ASGI_APPLICATION = 'healthtracker.asgi.application'
+
+# Couche de canaux : en mémoire pour l'instant (suffisant en dev / un seul
+# process ASGI). ATTENTION : InMemoryChannelLayer ne fonctionne QUE dans un
+# seul process — avec plusieurs workers daphne/uvicorn en production, chaque
+# worker aurait sa propre mémoire isolée et les utilisateurs connectés à des
+# workers différents ne se verraient plus les mises à jour. Passer à
+# channels_redis.core.RedisChannelLayer (déjà scaffoldé ci-dessous, activé
+# automatiquement si REDIS_URL est défini) avant tout déploiement multi-worker.
+REDIS_URL = os.getenv('REDIS_URL')
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {'hosts': [REDIS_URL]},
+        },
+    }
+else:
+    CHANNEL_LAYERS = {
+        'default': {'BACKEND': 'channels.layers.InMemoryChannelLayer'},
+    }

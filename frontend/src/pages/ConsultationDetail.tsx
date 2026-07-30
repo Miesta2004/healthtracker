@@ -4,9 +4,10 @@ import { getPatient, getSignesVitaux, postSignesVitaux, updatePatient } from '..
 import { getAntecedents, createAntecedent, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
 import { getDemandesPatient, createDemande } from '../api/analyses'
+import { getModeles, genererDocument, getDocumentsPatient, supprimerDocument } from '../api/documents'
 import type {
     Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent,
-    SignesVitaux, DemandeAnalyse, TypeAnalyse, UrgenceAnalyse,
+    SignesVitaux, DemandeAnalyse, TypeAnalyse, UrgenceAnalyse, ModeleDocument, DocumentGenere,
 } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import PlanifierOperationModal from '../components/PlanifierOperationModal'
@@ -14,7 +15,7 @@ import {
     Stethoscope, FlaskConical, Activity, FileText, Trash2, Pin, Check, CheckCircle,
     AlertTriangle, ChevronLeft, Play, Ban, Heart, Thermometer, Droplet, Scale,
     Plus, Clock, Building2, Circle, Printer, MoreVertical, Phone,
-    Pill, ClipboardList, Award, FileWarning, StickyNote, Folder, Download,
+    Pill, ClipboardList, Award, FileWarning, Folder, Download,
     Bold, Italic, Underline, List, ListOrdered, ChevronDown,
     type LucideIcon,
 } from 'lucide-react'
@@ -79,17 +80,15 @@ const STATUT_ANALYSE_COLORS: Record<string, { bg: string; text: string }> = {
     annulee:    { bg: 'var(--ht-danger-bg)',  text: 'var(--ht-danger)' },
 }
 
-// ─── Onglets, dans l'ordre du workflow (utilisé par le bouton "Suivant") ─────
-type Onglet = 'consultation' | 'constantes' | 'examens' | 'prescription' | 'documents' | 'notes'
+// ─── Onglets, pilotés uniquement par le stepper fusionné (plus de barre
+// d'onglets séparée). "Notes" n'a pas d'étape dédiée dans le stepper — son
+// contenu est simplement affiché à côté de "Documents" (voir plus bas),
+// donc ce n'est plus un onglet distinct.
+type Onglet = 'consultation' | 'constantes' | 'examens' | 'prescription' | 'documents'
 
-const ONGLET_ORDER: { key: Onglet; label: string; icon: LucideIcon }[] = [
-    { key: 'consultation', label: 'Consultation', icon: Stethoscope },
-    { key: 'constantes',   label: 'Constantes',   icon: Activity },
-    { key: 'examens',      label: 'Examens',      icon: FlaskConical },
-    { key: 'prescription', label: 'Prescription', icon: Pill },
-    { key: 'documents',    label: 'Documents',    icon: FileText },
-    { key: 'notes',        label: 'Notes',        icon: StickyNote },
-]
+// Ordre de navigation du bouton "Suivant", calé sur l'ordre visuel du
+// stepper (Constantes avant Consultation, comme à l'accueil d'un patient).
+const WIZARD_ORDER: Onglet[] = ['constantes', 'consultation', 'examens', 'prescription', 'documents']
 
 interface Etape {
     key: string
@@ -216,12 +215,25 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
 }
 
 // ─── Barre de progression : pastilles + connecteurs ──────────────────────────
-function BarreProgression({ etapes, ongletActif }: { etapes: Etape[]; ongletActif: Onglet }) {
+// Les clés 'accueil' et 'validation' ne correspondent à aucun onglet réel
+// (ce sont des repères d'état, pas des sections de contenu) — seules les 5
+// étapes intermédiaires sont cliquables et déclenchent la navigation.
+const ETAPE_VERS_ONGLET: Partial<Record<string, Onglet>> = {
+    constantes: 'constantes',
+    consultation: 'consultation',
+    examens: 'examens',
+    prescription: 'prescription',
+    documents: 'documents',
+}
+
+function BarreProgression({ etapes, ongletActif, onSelect }: { etapes: Etape[]; ongletActif: Onglet; onSelect: (o: Onglet) => void }) {
     return (
         <div className="ht-card ht-card-padded-sm">
             <div className="flex items-center overflow-x-auto">
                 {etapes.map((etape, i) => {
                     const estActif = etape.key === ongletActif
+                    const ongletCible = ETAPE_VERS_ONGLET[etape.key]
+                    const estCliquable = !!ongletCible
                     const couleur = etape.aVenir
                         ? 'var(--ht-text-muted)'
                         : etape.fait
@@ -231,7 +243,13 @@ function BarreProgression({ etapes, ongletActif }: { etapes: Etape[]; ongletActi
                                 : 'var(--ht-text-muted)'
                     return (
                         <div key={etape.key} className="flex items-center flex-shrink-0">
-                            <div className="flex flex-col items-center gap-1.5 px-1">
+                            <button
+                                type="button"
+                                disabled={!estCliquable}
+                                onClick={() => ongletCible && onSelect(ongletCible)}
+                                className="flex flex-col items-center gap-1.5 px-1"
+                                style={{ cursor: estCliquable ? 'pointer' : 'default' }}
+                            >
                                 {etape.fait && !etape.aVenir ? (
                                     <div className="w-6 h-6 rounded-full flex items-center justify-center" style={{ backgroundColor: couleur }}>
                                         <Check size={14} color="white" strokeWidth={3} />
@@ -241,7 +259,7 @@ function BarreProgression({ etapes, ongletActif }: { etapes: Etape[]; ongletActi
                                         <div className="w-2 h-2 rounded-full bg-white" />
                                     </div>
                                 ) : (
-                                    <Circle size={22} style={{ color: 'var(--ht-border-input)' }} strokeWidth={2} />
+                                    <Circle size={22} style={{ color: estCliquable ? 'var(--ht-text-muted)' : 'var(--ht-border-input)' }} strokeWidth={2} />
                                 )}
                                 <span
                                     className="text-[11px] font-semibold whitespace-nowrap"
@@ -249,7 +267,7 @@ function BarreProgression({ etapes, ongletActif }: { etapes: Etape[]; ongletActi
                                 >
                                     {etape.label}
                                 </span>
-                            </div>
+                            </button>
                             {i < etapes.length - 1 && (
                                 <div className="w-8 sm:w-14 h-0.5 mb-4 flex-shrink-0" style={{ backgroundColor: etape.fait ? 'var(--ht-success)' : 'var(--ht-border)' }} />
                             )}
@@ -309,6 +327,13 @@ export default function ConsultationDetail() {
     })
     const [demandeSaving, setDemandeSaving] = useState(false)
 
+    const [modeles, setModeles] = useState<ModeleDocument[]>([])
+    const [modelesLoading, setModelesLoading] = useState(false)
+    const [documentsGeneres, setDocumentsGeneres] = useState<DocumentGenere[]>([])
+    const [documentsLoading, setDocumentsLoading] = useState(false)
+    const [modeleEnGeneration, setModeleEnGeneration] = useState<number | null>(null)
+    const [documentApercu, setDocumentApercu] = useState<DocumentGenere | null>(null)
+
     const now = new Date()
     now.setSeconds(0, 0)
     const defaultDate = now.toISOString().slice(0, 16)
@@ -335,6 +360,12 @@ export default function ConsultationDetail() {
 
         setDemandesLoading(true)
         getDemandesPatient(patientId).then(setDemandes).catch(() => {}).finally(() => setDemandesLoading(false))
+
+        setModelesLoading(true)
+        getModeles().then(setModeles).catch(() => {}).finally(() => setModelesLoading(false))
+
+        setDocumentsLoading(true)
+        getDocumentsPatient(patientId).then(setDocumentsGeneres).catch(() => {}).finally(() => setDocumentsLoading(false))
 
         if (!isNew && consultId) {
             getConsultation(Number(consultId))
@@ -424,8 +455,8 @@ export default function ConsultationDetail() {
 
     // Footer : "Suivant" enregistre l'onglet courant puis avance dans le
     // workflow ; sur le dernier onglet, termine directement la consultation.
-    const ongletIndex = ONGLET_ORDER.findIndex(o => o.key === onglet)
-    const estDernierOnglet = ongletIndex === ONGLET_ORDER.length - 1
+    const ongletIndex = WIZARD_ORDER.findIndex(o => o === onglet)
+    const estDernierOnglet = ongletIndex === WIZARD_ORDER.length - 1
 
     const handleSuivant = async () => {
         const savedId = await persist()
@@ -433,7 +464,7 @@ export default function ConsultationDetail() {
         if (estDernierOnglet) {
             await persist('terminee')
         } else {
-            setOnglet(ONGLET_ORDER[ongletIndex + 1].key)
+            setOnglet(WIZARD_ORDER[ongletIndex + 1])
         }
     }
 
@@ -506,6 +537,42 @@ export default function ConsultationDetail() {
         } finally {
             setDemandeSaving(false)
         }
+    }
+
+    const handleGenererDocument = async (modeleId: number) => {
+        setModeleEnGeneration(modeleId)
+        try {
+            const created = await genererDocument(modeleId, {
+                patient: patientId,
+                ...(savedConsultId ? { consultation: savedConsultId } : {}),
+            })
+            setDocumentsGeneres(prev => [created, ...prev])
+            setDocumentApercu(created)
+        } catch {
+            setError('Erreur lors de la génération du document.')
+        } finally {
+            setModeleEnGeneration(null)
+        }
+    }
+
+    const handleSupprimerDocument = async (id: number) => {
+        try {
+            await supprimerDocument(id)
+            setDocumentsGeneres(prev => prev.filter(d => d.id !== id))
+            if (documentApercu?.id === id) setDocumentApercu(null)
+        } catch {
+            setError("Erreur lors de la suppression du document (tu n'en es peut-être pas l'auteur).")
+        }
+    }
+
+    const handleTelechargerDocument = (doc: DocumentGenere) => {
+        const blob = new Blob([doc.contenu], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${doc.titre.replace(/[^\w\s-]/g, '')}.txt`
+        a.click()
+        URL.revokeObjectURL(url)
     }
 
     const handleQuickAddAntecedent = async () => {
@@ -596,6 +663,36 @@ export default function ConsultationDetail() {
                     onClose={() => setShowPlanifOp(false)}
                     onCreated={() => navigate(`/patients/${patientId}`)}
                 />
+            )}
+
+            {documentApercu && (
+                <div className="ht-modal-overlay" onClick={() => setDocumentApercu(null)}>
+                    <div className="ht-modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
+                        <div className="flex items-start justify-between gap-3 mb-3">
+                            <div>
+                                <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>{documentApercu.titre}</h3>
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                    {documentApercu.type_document_label} · {new Date(documentApercu.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                </p>
+                            </div>
+                            <button onClick={() => setDocumentApercu(null)} className="text-sm flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>✕</button>
+                        </div>
+                        <pre
+                            className="text-sm whitespace-pre-wrap rounded-xl border p-4 mb-4"
+                            style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)', maxHeight: 420, overflowY: 'auto', fontFamily: 'inherit' }}
+                        >
+                            {documentApercu.contenu}
+                        </pre>
+                        <div className="flex gap-3">
+                            <button onClick={() => handleSupprimerDocument(documentApercu.id)} className="btn btn-danger btn-sm gap-1.5">
+                                <Trash2 size={13} /> Supprimer
+                            </button>
+                            <button onClick={() => handleTelechargerDocument(documentApercu)} className="btn btn-primary btn-sm gap-1.5 ml-auto">
+                                <Download size={13} /> Télécharger
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ===== BARRE UTILITAIRE ===== */}
@@ -707,30 +804,9 @@ export default function ConsultationDetail() {
             <div className="max-w-[1400px] mx-auto px-6 py-6">
                 {error && <div className="ht-alert ht-alert-danger mb-4">{error}</div>}
 
-                {/* ===== BARRE DE PROGRESSION ===== */}
+                {/* ===== STEPPER (fait aussi office de navigation — plus de barre d'onglets séparée) ===== */}
                 <div className="mb-6">
-                    <BarreProgression etapes={etapes} ongletActif={onglet} />
-                </div>
-
-                {/* ===== ONGLETS ===== */}
-                <div className="flex gap-1 border-b mb-6 overflow-x-auto" style={{ borderColor: 'var(--ht-border)' }}>
-                    {ONGLET_ORDER.map(t => {
-                        const Icon = t.icon
-                        const actif = onglet === t.key
-                        return (
-                            <button
-                                key={t.key}
-                                onClick={() => setOnglet(t.key)}
-                                className="px-4 py-2.5 text-sm font-semibold flex items-center gap-1.5 border-b-2 -mb-px transition-colors flex-shrink-0"
-                                style={{
-                                    color: actif ? 'var(--ht-primary)' : 'var(--ht-text-muted)',
-                                    borderColor: actif ? 'var(--ht-primary)' : 'transparent',
-                                }}
-                            >
-                                <Icon size={15} /> {t.label}
-                            </button>
-                        )
-                    })}
+                    <BarreProgression etapes={etapes} ongletActif={onglet} onSelect={setOnglet} />
                 </div>
 
                 {/* ===== CORPS : contenu (gauche) + colonne latérale (droite) ===== */}
@@ -738,26 +814,32 @@ export default function ConsultationDetail() {
                     <div className="lg:col-span-2 space-y-6">
                         {onglet === 'consultation' && (
                             <>
-                                <TypeSelector value={form.type_evenement} onChange={t => setForm(prev => ({ ...prev, type_evenement: t }))} />
-                                {form.type_evenement === 'operation' && (
-                                    savedConsultId ? (
-                                        <button type="button" onClick={() => setShowPlanifOp(true)} className="btn btn-primary btn-sm">
-                                            <Stethoscope size={13} /> Planifier l'opération
-                                        </button>
-                                    ) : (
-                                        <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
-                                            Enregistre d'abord la consultation pour pouvoir planifier l'opération.
-                                        </p>
-                                    )
-                                )}
-
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                    <div className="ht-card ht-card-padded-sm">
+                                <div className="ht-card ht-card-padded-sm">
+                                    <div className="flex items-center justify-between mb-3">
                                         <CardTitle>Motif de la consultation</CardTitle>
-                                        <textarea name="motif" value={form.motif} onChange={handleChange} rows={4}
-                                                  placeholder="Ex : Douleurs abdominales depuis 3 jours…" className="ht-input ht-textarea" />
                                     </div>
+                                    <div className="mb-3">
+                                        <span className="text-xs font-semibold block mb-1.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                            Type d'acte
+                                        </span>
+                                        <TypeSelector value={form.type_evenement} onChange={t => setForm(prev => ({ ...prev, type_evenement: t }))} />
+                                    </div>
+                                    <textarea name="motif" value={form.motif} onChange={handleChange} rows={3}
+                                              placeholder="Ex : Douleurs abdominales depuis 3 jours…" className="ht-input ht-textarea" />
+                                    {form.type_evenement === 'operation' && (
+                                        savedConsultId ? (
+                                            <button type="button" onClick={() => setShowPlanifOp(true)} className="btn btn-primary btn-sm mt-3">
+                                                <Stethoscope size={13} /> Planifier l'opération
+                                            </button>
+                                        ) : (
+                                            <p className="text-xs mt-3" style={{ color: 'var(--ht-text-muted)' }}>
+                                                Enregistre d'abord la consultation pour pouvoir planifier l'opération.
+                                            </p>
+                                        )
+                                    )}
+                                </div>
 
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                                     <div className="ht-card ht-card-padded-sm">
                                         <div className="flex items-center justify-between mb-3">
                                             <CardTitle>Antécédents médicaux connus</CardTitle>
@@ -1039,21 +1121,85 @@ export default function ConsultationDetail() {
                         )}
 
                         {onglet === 'documents' && (
-                            <div className="ht-card ht-card-padded-sm text-center py-16">
-                                <FileText size={32} className="mx-auto mb-3" style={{ color: 'var(--ht-text-muted)' }} />
-                                <p className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>Génération de documents à venir</p>
-                                <p className="text-xs mt-1 max-w-sm mx-auto" style={{ color: 'var(--ht-text-muted)' }}>
-                                    Ordonnances, certificats et comptes rendus générés automatiquement à partir de cette consultation — prochaine phase du projet.
-                                </p>
-                            </div>
-                        )}
+                            <>
+                                <div className="ht-card ht-card-padded-sm">
+                                    <CardTitle>Générer un document</CardTitle>
+                                    {modelesLoading ? (
+                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Chargement des modèles…</p>
+                                    ) : modeles.length === 0 ? (
+                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>
+                                            Aucun modèle disponible — configurable dans Paramètres &gt; Modèles de documents.
+                                        </p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {modeles.map(m => (
+                                                <button
+                                                    key={m.id}
+                                                    type="button"
+                                                    disabled={modeleEnGeneration !== null}
+                                                    onClick={() => handleGenererDocument(m.id)}
+                                                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors hover:bg-[var(--ht-bg)] disabled:opacity-50"
+                                                    style={{ borderColor: 'var(--ht-border)' }}
+                                                >
+                                                    <FileText size={16} className="flex-shrink-0" style={{ color: 'var(--ht-primary)' }} />
+                                                    <span className="flex-1 min-w-0">
+                                                        <span className="block text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>
+                                                            {m.nom}
+                                                        </span>
+                                                        <span className="block text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                                            {m.type_document_label}
+                                                        </span>
+                                                    </span>
+                                                    {modeleEnGeneration === m.id && (
+                                                        <span className="text-xs flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>…</span>
+                                                    )}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
 
-                        {onglet === 'notes' && (
-                            <div className="ht-card ht-card-padded-sm">
-                                <CardTitle>Notes</CardTitle>
-                                <textarea name="notes" value={form.notes} onChange={handleChange} rows={10}
-                                          placeholder="Observations complémentaires, remarques internes…" className="ht-input ht-textarea" />
-                            </div>
+                                <div className="ht-card ht-card-padded-sm">
+                                    <CardTitle>Documents générés pour ce patient</CardTitle>
+                                    {documentsLoading ? (
+                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Chargement…</p>
+                                    ) : documentsGeneres.length === 0 ? (
+                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Aucun document généré pour l'instant.</p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {documentsGeneres.map(d => (
+                                                <div key={d.id} className="flex items-center justify-between gap-3 text-sm py-2 border-b last:border-0"
+                                                     style={{ borderColor: 'var(--ht-border)' }}>
+                                                    <button onClick={() => setDocumentApercu(d)} className="text-left min-w-0 flex-1">
+                                                        <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
+                                                        <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                                            {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                            {d.genere_par_nom ? ` · ${d.genere_par_nom}` : ''}
+                                                        </p>
+                                                    </button>
+                                                    <div className="flex items-center gap-1 flex-shrink-0">
+                                                        <button onClick={() => handleTelechargerDocument(d)} title="Télécharger"
+                                                                className="w-7 h-7 rounded flex items-center justify-center transition-colors hover:bg-[var(--ht-bg)]">
+                                                            <Download size={14} style={{ color: 'var(--ht-text-muted)' }} />
+                                                        </button>
+                                                        <button onClick={() => handleSupprimerDocument(d.id)} title="Supprimer"
+                                                                className="w-7 h-7 rounded flex items-center justify-center transition-colors hover:bg-[var(--ht-bg)]">
+                                                            <Trash2 size={14} style={{ color: 'var(--ht-danger)' }} />
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Notes n'a pas d'étape dédiée dans le stepper fusionné — logé ici */}
+                                <div className="ht-card ht-card-padded-sm">
+                                    <CardTitle>Notes</CardTitle>
+                                    <textarea name="notes" value={form.notes} onChange={handleChange} rows={6}
+                                              placeholder="Observations complémentaires, remarques internes…" className="ht-input ht-textarea" />
+                                </div>
+                            </>
                         )}
                     </div>
 
@@ -1084,13 +1230,36 @@ export default function ConsultationDetail() {
                                     <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
                                         <Folder size={15} style={{ color: 'var(--ht-primary)' }} /> Documents récents
                                     </h3>
+                                    {documentsGeneres.length > 0 && (
+                                        <button onClick={() => setOnglet('documents')} className="text-xs font-semibold" style={{ color: 'var(--ht-primary)' }}>
+                                            Voir tout
+                                        </button>
+                                    )}
                                 </div>
-                                <div className="text-center py-6">
-                                    <Download size={20} className="mx-auto mb-2" style={{ color: 'var(--ht-text-muted)' }} />
-                                    <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
-                                        Aucun document généré pour l'instant.
-                                    </p>
-                                </div>
+                                {documentsGeneres.length === 0 ? (
+                                    <div className="text-center py-6">
+                                        <Download size={20} className="mx-auto mb-2" style={{ color: 'var(--ht-text-muted)' }} />
+                                        <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                            Aucun document généré pour l'instant.
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {documentsGeneres.slice(0, 4).map(d => (
+                                            <div key={d.id} className="flex items-center justify-between gap-2 text-xs py-1.5">
+                                                <button onClick={() => { setOnglet('documents'); setDocumentApercu(d) }} className="text-left min-w-0 flex-1">
+                                                    <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
+                                                    <p style={{ color: 'var(--ht-text-muted)' }}>
+                                                        {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                                                    </p>
+                                                </button>
+                                                <button onClick={() => handleTelechargerDocument(d)} className="flex-shrink-0">
+                                                    <Download size={13} style={{ color: 'var(--ht-text-muted)' }} />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="ht-card ht-card-padded-sm">

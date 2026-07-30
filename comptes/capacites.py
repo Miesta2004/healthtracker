@@ -23,6 +23,15 @@ class Capacite:
     RDV_LIRE                = 'rdv.lire'
     MORGUE_LIRE             = 'morgue.lire'
 
+    # Génération de documents (compte rendu, ordonnance, certificat...) à
+    # partir d'un modèle, pour un patient/une consultation — distincte de la
+    # gestion de la bibliothèque de modèles elle-même (voir ci-dessous).
+    DOCUMENTS_GENERER       = 'documents.generer'
+    # Créer/modifier/supprimer les modèles de la bibliothèque
+    # (Paramètres > Modèles de documents) — tâche de paramétrage de
+    # l'établissement, pas un acte médical courant.
+    DOCUMENTS_GERER_MODELES = 'documents.gerer_modeles'
+
     # Service des Admissions & circuit d'orientation
     ADMISSIONS_GERER          = 'admissions.gerer'            # créer le dossier (formulaire unique) + régulariser une identité provisoire
     PATIENTS_TRANSFERER       = 'patients.transferer'          # affecter/réaffecter un patient à un service (initial ou mi-parcours)
@@ -57,6 +66,7 @@ CAPACITES_PAR_ROLE = {
         # ces actions malgré un accès frontend qui semblait l'y autoriser.
         Capacite.ADMISSIONS_GERER, Capacite.PATIENTS_TRANSFERER,
         Capacite.PATIENTS_CONFIRMER_ARRIVEE, Capacite.ACCOMPAGNANTS_GERER,
+        Capacite.DOCUMENTS_GENERER, Capacite.DOCUMENTS_GERER_MODELES,
     },
     'medecin': {
         Capacite.ACTES_MEDICAUX_GERER, Capacite.SIGNES_VITAUX_SAISIR,
@@ -66,6 +76,7 @@ CAPACITES_PAR_ROLE = {
         # autre service (suite à un examen) — pas la création/régularisation,
         # qui reste le métier des Admissions.
         Capacite.PATIENTS_TRANSFERER,
+        Capacite.DOCUMENTS_GENERER,
     },
     'infirmier': {
         Capacite.SIGNES_VITAUX_SAISIR, Capacite.DOSSIER_MEDICAL_LIRE,
@@ -91,7 +102,8 @@ CAPACITES_PAR_ROLE = {
 
     # Uniquement ses capacités EXCLUSIVES — tout le reste (ACTES_MEDICAUX_GERER,
     # SIGNES_VITAUX_SAISIR, PATIENTS_CREER, DOSSIER_MEDICAL_LIRE, RDV_LIRE,
-    # MORGUE_LIRE) vient automatiquement de l'héritage ci-dessous.
+    # MORGUE_LIRE, PATIENTS_TRANSFERER, DOCUMENTS_GENERER) vient automatiquement
+    # de l'héritage ci-dessous.
     'chef_chirurgie': {
         Capacite.BLOC_GERER,
         Capacite.HABILITATIONS_GERER,

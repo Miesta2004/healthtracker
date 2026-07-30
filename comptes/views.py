@@ -13,6 +13,7 @@ from .serializers import EmployeSerializer, CreateEmployeSerializer, Habilitatio
 from .permissions import IsAdminRole, PeutGererHabilitations, get_employe
 from .analytics import stats_medecin
 from .capacites import Capacite
+from temps_reel.broadcast import diffuser_utilisateur
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
 from django.contrib.auth.hashers import check_password
@@ -41,6 +42,7 @@ class EmployeViewSet(viewsets.ModelViewSet):
         if emp.a_la_capacite(Capacite.BLOC_GERER):
             from .capacites import roles_avec_capacite
             autres_chirurgiens = qs.filter(role__in=roles_avec_capacite(Capacite.ACTES_MEDICAUX_GERER))
+            diffuser_utilisateur(self.request.user.id, 'employe', 'cree', id=serializer.instance.id)
             return (qs_propre_service | autres_chirurgiens).distinct()
 
         return qs_propre_service
@@ -394,3 +396,13 @@ class RappelViewSet(viewsets.ModelViewSet):
         if employe is None:
             raise ValidationError("Aucun profil employé associé à ce compte.")
         serializer.save(employe=employe)
+        diffuser_utilisateur(self.request.user.id, 'rappel', 'cree', id=serializer.instance.id)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        diffuser_utilisateur(self.request.user.id, 'rappel', 'modifie', id=serializer.instance.id)
+
+    def perform_destroy(self, instance):
+        rappel_id = instance.id
+        instance.delete()
+        diffuser_utilisateur(self.request.user.id, 'rappel', 'supprime', id=rappel_id)

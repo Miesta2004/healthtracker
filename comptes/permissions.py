@@ -166,6 +166,24 @@ class PeutCreerPatient(RequiertCapacite):
     capacite = Capacite.PATIENTS_CREER
 
 
+class PeutGenererDocument(RequiertCapacite):
+    """
+    Génération d'un document à partir d'un modèle (compte rendu, ordonnance,
+    certificat...) pour un patient — médecin/chef de service (ou tout rôle
+    héritant). Distincte de la gestion de la bibliothèque de modèles.
+    """
+    capacite = Capacite.DOCUMENTS_GENERER
+
+
+class PeutGererModeles(RequiertCapacite):
+    """
+    Créer/modifier/supprimer un modèle de document (Paramètres > Modèles de
+    documents) — tâche de paramétrage réservée au chef de service/admin
+    général, à l'écart du flux médical courant.
+    """
+    capacite = Capacite.DOCUMENTS_GERER_MODELES
+
+
 class PeutAdmettrePatient(RequiertCapacite):
     """
     Formulaire unique de création d'un dossier patient par le Service des

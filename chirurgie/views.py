@@ -11,6 +11,7 @@ from comptes.permissions import get_employe, IsAdminRole
 from .models import SalleBloc, InterventionChirurgicale, StatutIntervention, StatutSalle
 from .serializers import SalleBlocSerializer, InterventionChirurgicaleSerializer
 from .permissions import PeutGererOperation
+from temps_reel.broadcast import diffuser_service
 
 
 class SalleBlocViewSet(viewsets.ModelViewSet):
@@ -138,6 +139,31 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save()
+        self._diffuser(serializer.instance, 'cree')
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._diffuser(serializer.instance, 'modifie')
+
+    def perform_destroy(self, instance):
+        intervention_id = instance.id
+        services = self._services_concernes(instance)
+        instance.delete()
+        for service_id in services:
+            diffuser_service(service_id, 'intervention', 'supprime', id=intervention_id)
+
+    @staticmethod
+    def _services_concernes(intervention):
+        """Diffuse à la fois vers le service qui opère et le service d'origine
+        du patient — mêmes deux populations que get_queryset() ci-dessus."""
+        services = {intervention.service_chirurgie_id}
+        if intervention.patient_id and intervention.patient.service_id:
+            services.add(intervention.patient.service_id)
+        return services
+
+    def _diffuser(self, intervention, action):
+        for service_id in self._services_concernes(intervention):
+            diffuser_service(service_id, 'intervention', action, id=intervention.id)
 
     @action(detail=False, methods=['get'], url_path='stats')
     def stats(self, request):
@@ -251,6 +277,7 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
         if motif:
             intervention.complications = motif
         intervention.save(update_fields=['statut', 'complications', 'date_modification'])
+        self._diffuser(intervention, 'annulee')
 
         return Response(InterventionChirurgicaleSerializer(intervention).data)
 
@@ -268,6 +295,7 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
         if intervention.salle_id:
             SalleBloc.objects.filter(pk=intervention.salle_id).update(statut=StatutSalle.OCCUPE)
 
+        self._diffuser(intervention, 'demarree')
         return Response(InterventionChirurgicaleSerializer(intervention).data)
 
     @action(detail=True, methods=['post'])
@@ -312,6 +340,7 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
             # post-décès qui est un vrai protocole distinct).
             SalleBloc.objects.filter(pk=intervention.salle_id).update(statut=StatutSalle.DISPONIBLE)
 
+        self._diffuser(intervention, 'cloturee')
         return Response(InterventionChirurgicaleSerializer(intervention).data)
 
     def _traiter_deces_au_bloc(self, intervention, request):

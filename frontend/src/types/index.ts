@@ -460,6 +460,42 @@ export interface DemandeAnalyse {
     date_resultat: string | null
 }
 
+// ─── Documents (bibliothèque de modèles + documents générés) ─────────────────
+export type TypeDocument =
+    | 'compte_rendu_consultation' | 'ordonnance' | 'certificat_medical'
+    | 'demande_analyse' | 'demande_imagerie' | 'lettre_orientation'
+    | 'arret_travail' | 'autre'
+
+export interface ModeleDocument {
+    id: number
+    nom: string
+    type_document: TypeDocument
+    type_document_label?: string
+    corps: string
+    actif: boolean
+    cree_par: number | null
+    cree_par_nom?: string | null
+    date_creation: string
+    date_modification: string
+}
+
+export interface DocumentGenere {
+    id: number
+    patient: number
+    patient_nom?: string
+    patient_prenom?: string
+    consultation: number | null
+    modele: number | null
+    modele_nom?: string | null
+    type_document: TypeDocument
+    type_document_label?: string
+    titre: string
+    contenu: string
+    genere_par: number | null
+    genere_par_nom?: string | null
+    date_creation: string
+}
+
 // ─── Alertes ─────────────────────────────────────────────────────────────────
 export type TypeAlerte = 'tension' | 'glycemie' | 'temperature' | 'frequence' | 'rdv' | 'resultat_analyse' | 'autre'
 export type StatutAlerte = 'non_lue' | 'lue' | 'traitee'

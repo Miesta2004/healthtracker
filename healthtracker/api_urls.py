@@ -14,4 +14,5 @@ urlpatterns = [
     path('', include('disponibilites.urls')),
     path('', include('morgue.urls')),
     path('', include('chirurgie.urls')),
+    path('', include('documents.urls')),
 ]

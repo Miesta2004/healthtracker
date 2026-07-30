@@ -9,6 +9,7 @@ from comptes.permissions import IsAdminOuMajor, is_major, get_employe
 from .models import CreneauDisponibilite, ExceptionDisponibilite, StatutException, AssignationPatient, TypeCreneau, TypeException
 from .serializers import CreneauSerializer, ExceptionSerializer, AssignationPatientSerializer
 from .shifts import shift_et_date_actuels, repartir_patients_hospitalises
+from temps_reel.broadcast import diffuser_service
 
 
 # Convention pour une garde exceptionnelle (ExceptionDisponibilite) : le
@@ -191,6 +192,26 @@ class CreneauViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         emp = get_employe(self.request.user)
         serializer.save(employe=emp)
+        self._diffuser_si_garde(serializer.instance, 'cree')
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._diffuser_si_garde(serializer.instance, 'modifie')
+
+    def perform_destroy(self, instance):
+        etait_garde = instance.type in (TypeCreneau.GARDE, TypeCreneau.ASTREINTE)
+        service_id = instance.employe.service_id
+        instance.delete()
+        if etait_garde:
+            diffuser_service(service_id, 'garde', 'supprime')
+
+    @staticmethod
+    def _diffuser_si_garde(creneau, action):
+        # On ne notifie le calendrier que pour les créneaux qui y apparaissent
+        # réellement (garde/astreinte) — un créneau "présentiel" classique ne
+        # concerne pas le module Calendrier.
+        if creneau.type in (TypeCreneau.GARDE, TypeCreneau.ASTREINTE):
+            diffuser_service(creneau.employe.service_id, 'garde', action)
 
     def get_permissions(self):
         # Seul l'admin peut modifier les créneaux des autres
@@ -243,6 +264,26 @@ class ExceptionViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         emp = get_employe(self.request.user)
         serializer.save(employe=emp)
+        self._diffuser_si_garde(serializer.instance)
+
+    def perform_update(self, serializer):
+        serializer.save()
+        self._diffuser_si_garde(serializer.instance)
+
+    def perform_destroy(self, instance):
+        etait_garde_validee = instance.type == TypeException.GARDE and instance.statut == StatutException.VALIDE
+        service_id = instance.employe.service_id
+        instance.delete()
+        if etait_garde_validee:
+            diffuser_service(service_id, 'garde', 'supprime')
+
+    @staticmethod
+    def _diffuser_si_garde(exception):
+        # Seule une exception GARDE *validée* apparaît réellement dans le
+        # calendrier (cf. gardes_planning) — une demande encore en attente ou
+        # rejetée n'a rien à y notifier.
+        if exception.type == TypeException.GARDE and exception.statut == StatutException.VALIDE:
+            diffuser_service(exception.employe.service_id, 'garde', 'modifie')
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOuMajor])
     def valider(self, request, pk=None):
@@ -251,15 +292,21 @@ class ExceptionViewSet(viewsets.ModelViewSet):
         exception.valide = True
         exception.statut = StatutException.VALIDE
         exception.save()
+        self._diffuser_si_garde(exception)
         return Response(ExceptionSerializer(exception).data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOuMajor])
     def rejeter(self, request, pk=None):
         """Admin rejette une demande."""
         exception = self.get_object()
+        etait_garde_validee = exception.type == TypeException.GARDE and exception.statut == StatutException.VALIDE
         exception.valide = False
         exception.statut = StatutException.REJETE
         exception.save()
+        if etait_garde_validee:
+            # Elle disparaît du calendrier — on notifie quand même pour que
+            # le client la retire de son affichage.
+            diffuser_service(exception.employe.service_id, 'garde', 'supprime')
         return Response(ExceptionSerializer(exception).data)
 
 

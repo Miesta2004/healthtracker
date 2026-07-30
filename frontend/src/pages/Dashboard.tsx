@@ -13,6 +13,7 @@ import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
 import RappelsPanel from "../components/RappelsPanel.tsx";
 import { useAuth } from "../contexts/AuthContext";
+import { useRealtimeCalendrier } from "../hooks/useRealtimeCalendrier";
 import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
 import {
     Users,
@@ -113,6 +114,7 @@ function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty,
 export default function Dashboard() {
     const navigate = useNavigate();
     const { user, hasRole } = useAuth();
+    useRealtimeCalendrier();
 
     const canSeePatients = hasRole("admin", "medecin", "secretaire");
     const canSeeUrgences = hasRole("admin", "medecin", "infirmier");

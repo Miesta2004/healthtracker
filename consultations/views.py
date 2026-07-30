@@ -13,6 +13,7 @@ from comptes.models import Employe
 from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, PeutVoirRendezVous, get_employe
 from disponibilites.models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
 from alertes.models import Alerte
+from temps_reel.broadcast import diffuser_service
 from .models import Consultation, RendezVous, EvenementAdministratif
 from .serializers import (
     ConsultSerializer, RdvSerializer, RdvPlanningSerializer, IndisponibiliteSerializer,
@@ -256,6 +257,10 @@ class RdvViewSet(viewsets.ModelViewSet):
                     })
 
         serializer.save()
+        diffuser_service(
+            serializer.instance.patient.service_id, 'rendez_vous', 'cree',
+            id=serializer.instance.id
+        )
 
     def perform_update(self, serializer):
         """Même verrouillage qu'à la création, appliqué aussi à la modification."""
@@ -270,6 +275,16 @@ class RdvViewSet(viewsets.ModelViewSet):
                     })
 
         serializer.save()
+        diffuser_service(
+            serializer.instance.patient.service_id, 'rendez_vous', 'modifie',
+            id=serializer.instance.id
+        )
+
+    def perform_destroy(self, instance):
+        service_id = instance.patient.service_id
+        rdv_id = instance.id
+        instance.delete()
+        diffuser_service(service_id, 'rendez_vous', 'supprime', id=rdv_id)
 
     @action(detail=False, methods=['get'], url_path='creneaux_disponibles',
             permission_classes=[PeutVoirRendezVous])
@@ -632,3 +647,20 @@ class EvenementAdministratifViewSet(viewsets.ModelViewSet):
                     'service': "Tu ne peux créer un événement que pour ton propre service."
                 })
         serializer.save(organisateur=organisateur)
+        diffuser_service(
+            serializer.instance.service_id, 'evenement_administratif', 'cree',
+            id=serializer.instance.id
+        )
+
+    def perform_update(self, serializer):
+        serializer.save()
+        diffuser_service(
+            serializer.instance.service_id, 'evenement_administratif', 'modifie',
+            id=serializer.instance.id
+        )
+
+    def perform_destroy(self, instance):
+        service_id = instance.service_id
+        evenement_id = instance.id
+        instance.delete()
+        diffuser_service(service_id, 'evenement_administratif', 'supprime', id=evenement_id)

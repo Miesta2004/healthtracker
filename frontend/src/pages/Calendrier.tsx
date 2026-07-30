@@ -18,6 +18,7 @@ import EventAdminFormDialog, { type EventAdminFormInitial } from '../components/
 import EventDetailsPanel from '../components/calendrier/EventDetailsPanel'
 import { useSallesBloc, useOperationsPlanning, useModifierOperation, useAnnulerOperation, useDemarrerOperation, useCloturerOperation } from '../hooks/useBlocOperatoire'
 import { useGardesPlanning } from '../hooks/useGardesPlanning'
+import { useRealtimeCalendrier } from '../hooks/useRealtimeCalendrier'
 import GardeDetailsPanel from '../components/calendrier/GardeDetailsPanel'
 import {
     TYPE_EVENEMENT_CONFIG, joursDeSemaine, joursGrilleMois, toISODate, AGENDA_JOURS_A_VENIR,
@@ -27,6 +28,7 @@ import type { EvenementPlanning, TypeEvenementRdv, Operation, GardeOccurrence } 
 
 export default function CalendrierPage() {
     const { user, hasRole } = useAuth()
+    useRealtimeCalendrier()
     // « Admin ou Chef de Service » — IsAdminRole côté backend correspond
     // exactement à hasRole('admin') côté frontend. Contrôle réel toujours
     // fait côté serveur ; ceci évite juste d'afficher un bouton qui
@@ -394,7 +396,7 @@ export default function CalendrierPage() {
                                 onSelectGarde={setGardeSelectionnee}
                                 onSelectCreneau={ouvrirCreation}
                                 onSelectJour={(d: Date) => { setAncre(d); setVue('jour') }}
-                                peutDeplacer={peutModifierEvenement}
+                                //deplacable={peutModifier}
                                 onDeplacerEvenement={deplacerEvenement}
                                 onRedimensionnerEvenement={redimensionnerEvenement}
                             />
@@ -404,99 +406,99 @@ export default function CalendrierPage() {
                                 evenements={evenements}
                                 gardes={gardesPlanning?.gardes ?? []}
                                 onSelectJour={(d: Date) => { setAncre(d); setVue('jour') }}
-                                />
-                            ) : vue === 'agenda' ? (
+                            />
+                        ) : vue === 'agenda' ? (
                             <CalendarAgendaView
+                                evenements={evenements}
+                                gardes={gardesPlanning?.gardes ?? []}
+                                onSelectEvenement={setEvenementSelectionne}
+                                onSelectGarde={setGardeSelectionnee}
+                            />
+                        ) : (
+                            <CalendarDayView
+                                ancre={ancre}
+                                evenements={evenements}
+                                gardes={gardesPlanning?.gardes ?? []}
+                                onSelectEvenement={setEvenementSelectionne}
+                                onSelectGarde={setGardeSelectionnee}
+                                onSelectCreneau={ouvrirCreation}
+                                //deplacable={peutModifier}
+                                onDeplacerEvenement={deplacerEvenement}
+                                onRedimensionnerEvenement={redimensionnerEvenement}
+                            />
+                        )}
+                    </div>
+                </section>
+
+                {/* ===== SECTION 3 : ÉVÉNEMENTS À VENIR / RAPPELS / MINI-CALENDRIER ===== */}
+                {!enBloc && (
+                    <section className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                        <UpcomingEventsToday evenements={evenements} onSelect={setEvenementSelectionne} />
+                        <RappelsPanel />
+                        <MiniMonthCalendar
+                            ancre={ancre}
                             evenements={evenements}
-                         gardes={gardesPlanning?.gardes ?? []}
-                         onSelectEvenement={setEvenementSelectionne}
-                         onSelectGarde={setGardeSelectionnee}
-                    />
-                    ) : (
-                    <CalendarDayView
-                        ancre={ancre}
-                        evenements={evenements}
-                        gardes={gardesPlanning?.gardes ?? []}
-                        onSelectEvenement={setEvenementSelectionne}
-                        onSelectGarde={setGardeSelectionnee}
-                        onSelectCreneau={ouvrirCreation}
-                        peutDeplacer={peutModifierEvenement}
-                        onDeplacerEvenement={deplacerEvenement}
-                        onRedimensionnerEvenement={redimensionnerEvenement}
-                    />
-                    )}
+                            onSelectDate={(d: Date) => { setAncre(d); setVue('jour') }}
+                        />
+                    </section>
+                )}
+            </main>
+
+            {/* ===== PANNEAUX MODAUX ===== */}
+            {evenementSelectionne && (
+                <EventDetailsPanel
+                    evenement={evenementSelectionne}
+                    medecinLabel={evenementSelectionne.medecin_nom ? `Dr. ${evenementSelectionne.medecin_prenom} ${evenementSelectionne.medecin_nom}` : null}
+                    onClose={() => setEvenementSelectionne(null)}
+                    onModifier={() => ouvrirEdition(evenementSelectionne)}
+                    onAnnuler={() => annulerEvenement(evenementSelectionne)}
+                    peutModifier={peutModifierEvenement(evenementSelectionne)}
+                />
+            )}
+
+            {operationSelectionnee && (
+                <OperationDetailsPanel
+                    operation={operationSelectionnee}
+                    onClose={() => { setOperationSelectionnee(null); setErreurOperation('') }}
+                    onAnnuler={annulerIntervention}
+                    onDemarrer={demarrerIntervention}
+                    onCloturer={cloturerIntervention}
+                    onModifierEquipe={modifierEquipeOperation}
+                    enCours={demarrer.isPending || cloturer.isPending || annulerOp.isPending || modifierOperation.isPending}
+                    erreur={erreurOperation}
+                />
+            )}
+
+            {gardeSelectionnee && (
+                <GardeDetailsPanel
+                    garde={gardeSelectionnee}
+                    onClose={() => setGardeSelectionnee(null)}
+                />
+            )}
+
+            {formulaire && (
+                <EventFormDialog
+                    initial={formulaire}
+                    onClose={() => setFormulaire(null)}
+                    onSubmit={soumettreFormulaire}
+                    onDelete={formulaire.id ? supprimerEvenement : undefined}
+                    submitting={creer.isPending || modifier.isPending}
+                    erreur={erreurFormulaire}
+                />
+            )}
+
+            {formulaireAdmin && (
+                <EventAdminFormDialog
+                    initial={formulaireAdmin}
+                    serviceParDefaut={user?.service ?? null}
+                    peutChoisirService={false}
+                    onClose={() => setFormulaireAdmin(null)}
+                    onSubmit={soumettreFormulaireAdmin}
+                    onDelete={formulaireAdmin.id ? supprimerEvenementAdmin : undefined}
+                    submitting={creer.isPending || modifier.isPending}
+                    erreur={erreurFormulaire}
+                />
+            )}
         </div>
-</section>
-
-{/* ===== SECTION 3 : ÉVÉNEMENTS À VENIR / RAPPELS / MINI-CALENDRIER ===== */}
-{!enBloc && (
-        <section className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-            <UpcomingEventsToday evenements={evenements} onSelect={setEvenementSelectionne} />
-            <RappelsPanel />
-            <MiniMonthCalendar
-                ancre={ancre}
-                evenements={evenements}
-                onSelectDate={(d: Date) => { setAncre(d); setVue('jour') }}
-            />
-        </section>
-    )}
-</main>
-
-{/* ===== PANNEAUX MODAUX ===== */}
-{evenementSelectionne && (
-        <EventDetailsPanel
-            evenement={evenementSelectionne}
-            medecinLabel={evenementSelectionne.medecin_nom ? `Dr. ${evenementSelectionne.medecin_prenom} ${evenementSelectionne.medecin_nom}` : null}
-            onClose={() => setEvenementSelectionne(null)}
-            onModifier={() => ouvrirEdition(evenementSelectionne)}
-            onAnnuler={() => annulerEvenement(evenementSelectionne)}
-            peutModifier={peutModifierEvenement(evenementSelectionne)}
-        />
-    )}
-
-{operationSelectionnee && (
-        <OperationDetailsPanel
-            operation={operationSelectionnee}
-            onClose={() => { setOperationSelectionnee(null); setErreurOperation('') }}
-            onAnnuler={annulerIntervention}
-            onDemarrer={demarrerIntervention}
-            onCloturer={cloturerIntervention}
-            onModifierEquipe={modifierEquipeOperation}
-            enCours={demarrer.isPending || cloturer.isPending || annulerOp.isPending || modifierOperation.isPending}
-            erreur={erreurOperation}
-        />
-    )}
-
-{gardeSelectionnee && (
-        <GardeDetailsPanel
-            garde={gardeSelectionnee}
-            onClose={() => setGardeSelectionnee(null)}
-        />
-    )}
-
-{formulaire && (
-        <EventFormDialog
-            initial={formulaire}
-            onClose={() => setFormulaire(null)}
-            onSubmit={soumettreFormulaire}
-            onDelete={formulaire.id ? supprimerEvenement : undefined}
-            submitting={creer.isPending || modifier.isPending}
-            erreur={erreurFormulaire}
-        />
-    )}
-
-{formulaireAdmin && (
-        <EventAdminFormDialog
-            initial={formulaireAdmin}
-            serviceParDefaut={user?.service ?? null}
-            peutChoisirService={false}
-            onClose={() => setFormulaireAdmin(null)}
-            onSubmit={soumettreFormulaireAdmin}
-            onDelete={formulaireAdmin.id ? supprimerEvenementAdmin : undefined}
-            submitting={creer.isPending || modifier.isPending}
-            erreur={erreurFormulaire}
-        />
-    )}
-</div>
-)
+    )
 }
