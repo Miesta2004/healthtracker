@@ -48,6 +48,26 @@ class ModeleDocumentModelTest(TestCase):
         self.assertIn("Test", texte)  # nom de l'employé de test
         self.assertNotIn("{{", texte)
 
+    def test_rendre_inclut_la_signature_du_medecin(self):
+        """Le jeton {{medecin.signature}} est bien remplacé par Employe.signature_medicale"""
+        self.medecin.signature_medicale = "Dr Test — Pédiatre, Ordre des médecins n°12345"
+        self.medecin.save(update_fields=['signature_medicale'])
+        modele = ModeleDocument.objects.create(
+            nom="Avec signature", type_document="ordonnance",
+            corps="Dr {{medecin.prenom}} {{medecin.nom}}\n{{medecin.signature}}",
+        )
+        texte = modele.rendre(patient=self.patient, medecin=self.medecin)
+        self.assertIn("Ordre des médecins n°12345", texte)
+
+    def test_rendre_sans_signature_renseignee_ne_plante_pas(self):
+        """Un médecin sans signature configurée ne fait pas planter le rendu (chaîne vide)"""
+        modele = ModeleDocument.objects.create(
+            nom="Sans signature", type_document="ordonnance",
+            corps="Signature : [{{medecin.signature}}]",
+        )
+        texte = modele.rendre(patient=self.patient, medecin=self.medecin)
+        self.assertIn("Signature : []", texte)
+
     def test_rendre_sans_consultation_laisse_le_jeton_tel_quel(self):
         """Un jeton sans donnée disponible ne fait pas planter le rendu"""
         modele = ModeleDocument.objects.create(
@@ -170,3 +190,41 @@ class DocumentsAPITest(TestCase):
         self.client.force_authenticate(user=autre_user)
         response = self.client.delete(f'/api/documents-generes/{doc.id}/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_modifier_contenu_par_son_auteur(self):
+        """L'auteur peut compléter/corriger le contenu généré (ex. dates d'arrêt de travail)"""
+        doc = DocumentGenere.objects.create(
+            patient=self.patient, modele=self.modele, type_document='certificat_medical',
+            titre="Doc", contenu="Durée de l'arrêt : du __/__/____ au __/__/____", genere_par=self.medecin,
+        )
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {
+            'contenu': "Durée de l'arrêt : du 01/08/2026 au 08/08/2026",
+        })
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        doc.refresh_from_db()
+        self.assertIn("01/08/2026", doc.contenu)
+
+    def test_modifier_contenu_par_un_autre_refuse(self):
+        """Un autre médecin (pas l'auteur, pas admin) ne peut pas modifier le document"""
+        autre_user, _ = creer_employe("medecin2", "medecin", service=self.service)
+        doc = DocumentGenere.objects.create(
+            patient=self.patient, modele=self.modele, type_document='certificat_medical',
+            titre="Doc", contenu="...", genere_par=self.medecin,
+        )
+        self.client.force_authenticate(user=autre_user)
+        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {'contenu': "Modifié"})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_modifier_champs_proteges_ignore(self):
+        """patient/type_document/genere_par restent en lecture seule même via PATCH"""
+        autre_patient = Patient.objects.create(nom="Fall", prenom="Awa", date_naissance=date(1990, 1, 1), sexe="F")
+        doc = DocumentGenere.objects.create(
+            patient=self.patient, modele=self.modele, type_document='certificat_medical',
+            titre="Doc", contenu="...", genere_par=self.medecin,
+        )
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {'patient': autre_patient.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        doc.refresh_from_db()
+        self.assertEqual(doc.patient_id, self.patient.id)  # inchangé

@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import PermissionDenied
 
 from .models import ModeleDocument, DocumentGenere
 from .serializers import ModeleDocumentSerializer, DocumentGenereSerializer
@@ -79,14 +80,15 @@ class ModeleDocumentViewSet(viewsets.ModelViewSet):
 
 class DocumentGenereViewSet(viewsets.ModelViewSet):
     """
-    Documents déjà générés pour un patient. Lecture + suppression seulement —
-    la création passe exclusivement par ModeleDocumentViewSet.generer(), pour
-    garantir que titre/contenu/type_document restent calculés côté serveur à
-    partir de données réelles (jamais saisis en clair par le client).
+    Documents déjà générés pour un patient. Lecture, modification (titre/
+    contenu uniquement, ex. compléter une date d'arrêt de travail après coup)
+    et suppression — la création reste exclusive à
+    ModeleDocumentViewSet.generer(), pour garantir que le contenu initial est
+    toujours calculé côté serveur à partir de données réelles.
     """
     serializer_class = DocumentGenereSerializer
     permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'delete', 'head', 'options']
+    http_method_names = ['get', 'patch', 'delete', 'head', 'options']
 
     def get_queryset(self):
         qs = DocumentGenere.objects.select_related('patient', 'consultation', 'modele', 'genere_par')
@@ -98,12 +100,20 @@ class DocumentGenereViewSet(viewsets.ModelViewSet):
             qs = qs.filter(consultation_id=consultation_id)
         return qs
 
+    def _est_auteur_ou_admin(self, instance):
+        emp = get_employe(self.request.user)
+        est_auteur = emp is not None and instance.genere_par_id == emp.id
+        est_admin = self.request.user.is_superuser or (emp is not None and emp.role == 'admin')
+        return est_auteur or est_admin
+
+    def perform_update(self, serializer):
+        if not self._est_auteur_ou_admin(serializer.instance):
+            raise PermissionDenied("Tu ne peux modifier que les documents que tu as toi-même générés.")
+        serializer.save()
+
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
-        emp = get_employe(request.user)
-        est_auteur = emp is not None and instance.genere_par_id == emp.id
-        est_admin = request.user.is_superuser or (emp is not None and emp.role == 'admin')
-        if not (est_auteur or est_admin):
+        if not self._est_auteur_ou_admin(instance):
             return Response(
                 {'detail': "Tu ne peux supprimer que les documents que tu as toi-même générés."},
                 status=status.HTTP_403_FORBIDDEN,

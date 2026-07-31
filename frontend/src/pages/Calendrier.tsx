@@ -396,7 +396,7 @@ export default function CalendrierPage() {
                                 onSelectGarde={setGardeSelectionnee}
                                 onSelectCreneau={ouvrirCreation}
                                 onSelectJour={(d: Date) => { setAncre(d); setVue('jour') }}
-                                //deplacable={peutModifier}
+                                peutDeplacer={peutModifierEvenement}
                                 onDeplacerEvenement={deplacerEvenement}
                                 onRedimensionnerEvenement={redimensionnerEvenement}
                             />
@@ -422,7 +422,7 @@ export default function CalendrierPage() {
                                 onSelectEvenement={setEvenementSelectionne}
                                 onSelectGarde={setGardeSelectionnee}
                                 onSelectCreneau={ouvrirCreation}
-                                //deplacable={peutModifier}
+                                peutDeplacer={peutModifierEvenement}
                                 onDeplacerEvenement={deplacerEvenement}
                                 onRedimensionnerEvenement={redimensionnerEvenement}
                             />

@@ -34,7 +34,14 @@ class DocumentGenereSerializer(serializers.ModelSerializer):
             'modele', 'modele_nom', 'type_document', 'type_document_label',
             'titre', 'contenu', 'genere_par', 'genere_par_nom', 'date_creation',
         ]
-        read_only_fields = fields
+        # 'titre' et 'contenu' restent modifiables après génération (ex. compléter
+        # une date d'arrêt de travail) — tout le reste (provenance, patient,
+        # auteur...) est figé pour garder une trace fidèle de la génération.
+        read_only_fields = [
+            'id', 'patient', 'patient_nom', 'patient_prenom', 'consultation',
+            'modele', 'modele_nom', 'type_document', 'type_document_label',
+            'genere_par', 'genere_par_nom', 'date_creation',
+        ]
 
     def get_genere_par_nom(self, obj):
         if obj.genere_par:

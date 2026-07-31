@@ -21,7 +21,7 @@ export const GARDE_COULEUR = '#4F46E5' // indigo-600
 // ouvrées pour éviter de partir de minuit à chaque ouverture).
 export const HEURE_DEBUT_GRILLE = 0
 export const HEURE_FIN_GRILLE = 24 // borne exclusive (minuit le lendemain)
-export const PX_PAR_HEURE = 72
+export const PX_PAR_HEURE = 120
 export const PX_PAR_DEMI_HEURE = PX_PAR_HEURE / 2
 export const PX_PAR_MINUTE = PX_PAR_HEURE / 60
 // Heure vers laquelle la grille scrolle par défaut à l'ouverture.
@@ -184,10 +184,14 @@ export function positionHeureActuelle(): number | null {
 }
 
 export function extraireMessageErreur(err: unknown): string {
-    const donnees = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data
-    if (!donnees) return 'Une erreur est survenue.'
-    const texte = Object.values(donnees).flat().join(' ')
-    return texte || 'Une erreur est survenue.'
+    // Le backend enveloppe uniformément toutes les erreurs DRF sous la forme
+    // { detail, code, errors } (cf. healthtracker/exceptions.py,
+    // exception_handler_uniforme) — `detail` est toujours la source de
+    // vérité pour un message lisible, jamais besoin de reconstituer quoi
+    // que ce soit à partir de `errors` (qui peut contenir des objets
+    // imbriqués et n'est là qu'à titre de détail technique).
+    const donnees = (err as { response?: { data?: { detail?: string } } })?.response?.data
+    return donnees?.detail || 'Une erreur est survenue.'
 }
 
 export function memeJour(a: Date, b: Date): boolean {

@@ -39,7 +39,7 @@ export default function CalendarDayView({
 
     return (
         <div className="ht-card overflow-hidden">
-            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 680 }}>
+            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 500 }}>
                 <div className="grid" style={{ gridTemplateColumns: '64px 1fr' }}>
                     <div>
                         {heures.map(h => (

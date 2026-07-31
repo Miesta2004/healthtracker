@@ -21,6 +21,14 @@ export const getDocumentsPatient = async (patientId: number): Promise<DocumentGe
     return response.data
 }
 
+export const modifierDocument = async (
+    id: number,
+    data: { titre?: string; contenu?: string }
+): Promise<DocumentGenere> => {
+    const response = await api.patch(`/documents-generes/${id}/`, data)
+    return response.data
+}
+
 export const supprimerDocument = async (id: number): Promise<void> => {
     await api.delete(`/documents-generes/${id}/`)
 }

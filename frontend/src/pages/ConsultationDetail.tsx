@@ -4,7 +4,7 @@ import { getPatient, getSignesVitaux, postSignesVitaux, updatePatient } from '..
 import { getAntecedents, createAntecedent, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
 import { getDemandesPatient, createDemande } from '../api/analyses'
-import { getModeles, genererDocument, getDocumentsPatient, supprimerDocument } from '../api/documents'
+import { getModeles, genererDocument, getDocumentsPatient, supprimerDocument, modifierDocument } from '../api/documents'
 import type {
     Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent,
     SignesVitaux, DemandeAnalyse, TypeAnalyse, UrgenceAnalyse, ModeleDocument, DocumentGenere,
@@ -295,7 +295,7 @@ export default function ConsultationDetail() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
-    const [onglet, setOnglet] = useState<Onglet>('consultation')
+    const [onglet, setOnglet] = useState<Onglet>('constantes')
     const [showMenu, setShowMenu] = useState(false)
 
     const [showDelete, setShowDelete] = useState(false)
@@ -333,6 +333,8 @@ export default function ConsultationDetail() {
     const [documentsLoading, setDocumentsLoading] = useState(false)
     const [modeleEnGeneration, setModeleEnGeneration] = useState<number | null>(null)
     const [documentApercu, setDocumentApercu] = useState<DocumentGenere | null>(null)
+    const [contenuEdite, setContenuEdite] = useState('')
+    const [documentSaving, setDocumentSaving] = useState(false)
 
     const now = new Date()
     now.setSeconds(0, 0)
@@ -425,7 +427,7 @@ export default function ConsultationDetail() {
                 ...(isNew && navState.rdvOrigine ? { rdv_origine: navState.rdvOrigine } : {}),
             }
             let savedId: number
-            if (isNew || !savedConsultId) {
+            if (!savedConsultId) {
                 const created = await createConsultation(payload)
                 savedId = created.id
             } else {
@@ -458,9 +460,24 @@ export default function ConsultationDetail() {
     const ongletIndex = WIZARD_ORDER.findIndex(o => o === onglet)
     const estDernierOnglet = ongletIndex === WIZARD_ORDER.length - 1
 
+    // Modifier la fonction handleSuivant pour ne pas forcer la sauvegarde
+// lorsque l'utilisateur navigue simplement entre les onglets
+
     const handleSuivant = async () => {
+        const ongletIndex = WIZARD_ORDER.findIndex(o => o === onglet)
+        const estDernierOnglet = ongletIndex === WIZARD_ORDER.length - 1
+
+        // Si on est sur la page des constantes, on ne fait que naviguer
+        // sans sauvegarder ni vérifier le motif
+        if (onglet === 'constantes') {
+            setOnglet(WIZARD_ORDER[ongletIndex + 1])
+            return
+        }
+
+        // Pour les autres onglets, on sauvegarde le brouillon
         const savedId = await persist()
         if (savedId === null) return
+
         if (estDernierOnglet) {
             await persist('terminee')
         } else {
@@ -548,6 +565,7 @@ export default function ConsultationDetail() {
             })
             setDocumentsGeneres(prev => [created, ...prev])
             setDocumentApercu(created)
+            setContenuEdite(created.contenu)
         } catch {
             setError('Erreur lors de la génération du document.')
         } finally {
@@ -555,11 +573,35 @@ export default function ConsultationDetail() {
         }
     }
 
+    const ouvrirApercu = (doc: DocumentGenere) => {
+        setDocumentApercu(doc)
+        setContenuEdite(doc.contenu)
+    }
+
+    const fermerApercu = () => {
+        setDocumentApercu(null)
+        setContenuEdite('')
+    }
+
+    const handleEnregistrerDocument = async () => {
+        if (!documentApercu) return
+        setDocumentSaving(true)
+        try {
+            const updated = await modifierDocument(documentApercu.id, { contenu: contenuEdite })
+            setDocumentsGeneres(prev => prev.map(d => d.id === updated.id ? updated : d))
+            setDocumentApercu(updated)
+        } catch {
+            setError("Erreur lors de l'enregistrement des modifications (tu n'en es peut-être pas l'auteur).")
+        } finally {
+            setDocumentSaving(false)
+        }
+    }
+
     const handleSupprimerDocument = async (id: number) => {
         try {
             await supprimerDocument(id)
             setDocumentsGeneres(prev => prev.filter(d => d.id !== id))
-            if (documentApercu?.id === id) setDocumentApercu(null)
+            if (documentApercu?.id === id) fermerApercu()
         } catch {
             setError("Erreur lors de la suppression du document (tu n'en es peut-être pas l'auteur).")
         }
@@ -666,29 +708,41 @@ export default function ConsultationDetail() {
             )}
 
             {documentApercu && (
-                <div className="ht-modal-overlay" onClick={() => setDocumentApercu(null)}>
+                <div className="ht-modal-overlay" onClick={fermerApercu}>
                     <div className="ht-modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
                         <div className="flex items-start justify-between gap-3 mb-3">
                             <div>
                                 <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>{documentApercu.titre}</h3>
                                 <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
                                     {documentApercu.type_document_label} · {new Date(documentApercu.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                    {documentApercu.genere_par_nom ? ` · ${documentApercu.genere_par_nom}` : ''}
                                 </p>
                             </div>
-                            <button onClick={() => setDocumentApercu(null)} className="text-sm flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>✕</button>
+                            <button onClick={fermerApercu} className="text-sm flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>✕</button>
                         </div>
-                        <pre
-                            className="text-sm whitespace-pre-wrap rounded-xl border p-4 mb-4"
+                        <textarea
+                            value={contenuEdite}
+                            onChange={e => setContenuEdite(e.target.value)}
+                            rows={14}
+                            className="text-sm rounded-xl border p-4 mb-1 w-full resize-y"
                             style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)', maxHeight: 420, overflowY: 'auto', fontFamily: 'inherit' }}
-                        >
-                            {documentApercu.contenu}
-                        </pre>
+                        />
+                        <p className="text-xs mb-4" style={{ color: 'var(--ht-text-muted)' }}>
+                            Modifiable — complète par exemple une date d'arrêt de travail ou une posologie avant d'enregistrer.
+                        </p>
                         <div className="flex gap-3">
                             <button onClick={() => handleSupprimerDocument(documentApercu.id)} className="btn btn-danger btn-sm gap-1.5">
                                 <Trash2 size={13} /> Supprimer
                             </button>
-                            <button onClick={() => handleTelechargerDocument(documentApercu)} className="btn btn-primary btn-sm gap-1.5 ml-auto">
+                            <button onClick={() => handleTelechargerDocument(documentApercu)} className="btn btn-secondary btn-sm gap-1.5 ml-auto">
                                 <Download size={13} /> Télécharger
+                            </button>
+                            <button
+                                onClick={handleEnregistrerDocument}
+                                disabled={documentSaving || contenuEdite === documentApercu.contenu}
+                                className="btn btn-primary btn-sm gap-1.5"
+                            >
+                                <Check size={13} /> {documentSaving ? 'Enregistrement…' : 'Enregistrer'}
                             </button>
                         </div>
                     </div>
@@ -1170,7 +1224,7 @@ export default function ConsultationDetail() {
                                             {documentsGeneres.map(d => (
                                                 <div key={d.id} className="flex items-center justify-between gap-3 text-sm py-2 border-b last:border-0"
                                                      style={{ borderColor: 'var(--ht-border)' }}>
-                                                    <button onClick={() => setDocumentApercu(d)} className="text-left min-w-0 flex-1">
+                                                    <button onClick={() => ouvrirApercu(d)} className="text-left min-w-0 flex-1">
                                                         <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
                                                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                                             {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1247,7 +1301,7 @@ export default function ConsultationDetail() {
                                     <div className="space-y-2">
                                         {documentsGeneres.slice(0, 4).map(d => (
                                             <div key={d.id} className="flex items-center justify-between gap-2 text-xs py-1.5">
-                                                <button onClick={() => { setOnglet('documents'); setDocumentApercu(d) }} className="text-left min-w-0 flex-1">
+                                                <button onClick={() => { setOnglet('documents'); ouvrirApercu(d) }} className="text-left min-w-0 flex-1">
                                                     <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
                                                     <p style={{ color: 'var(--ht-text-muted)' }}>
                                                         {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}

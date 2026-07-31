@@ -80,7 +80,7 @@ export default function CalendarWeekView({
                 demi-heure, blocs événements positionnés par horaire réel,
                 bandes de garde, ligne "heure actuelle" limitée à la colonne
                 du jour courant. */}
-            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 640 }}>
+            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 450 }}>
                 <div className="grid" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
                     <div>
                         {heures.map(h => (

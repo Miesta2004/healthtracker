@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from django.utils import timezone as dj_timezone
 
 from comptes.models import Employe
+from comptes.capacites import roles_effectifs
 from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, PeutVoirRendezVous, get_employe
 from disponibilites.models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
 from alertes.models import Alerte
@@ -203,6 +204,16 @@ class RdvViewSet(viewsets.ModelViewSet):
                 qs = RendezVous.objects.select_related('patient').filter(
                     patient__service=emp.service
                 )
+                # Un médecin (ou tout rôle héritant, ex. chef_chirurgie) ne
+                # voit que SES PROPRES rendez-vous — le planning partagé de
+                # tout le service (patient + motif de chaque consultation)
+                # reste réservé au secrétariat/infirmier/chef de service,
+                # qui en ont besoin pour organiser les RDV de toute l'équipe.
+                # Le chef de service (role='admin') garde la vue complète,
+                # comme un médecin lambda n'y a pas droit sans lien avec le
+                # patient (secret médical).
+                if emp.role != 'admin' and 'medecin' in roles_effectifs(emp.role):
+                    qs = qs.filter(medecin=emp)
             else:
                 return RendezVous.objects.none()
 
@@ -237,7 +248,7 @@ class RdvViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_superuser:
             emp = get_employe(user)
-            if emp is not None and emp.role == 'medecin':
+            if emp is not None and 'medecin' in roles_effectifs(emp.role):
                 medecin = serializer.validated_data.get('medecin')
                 if medecin is not None and medecin.pk != emp.pk:
                     raise ValidationError({
@@ -267,7 +278,7 @@ class RdvViewSet(viewsets.ModelViewSet):
         user = self.request.user
         if not user.is_superuser:
             emp = get_employe(user)
-            if emp is not None and emp.role == 'medecin':
+            if emp is not None and 'medecin' in roles_effectifs(emp.role):
                 medecin = serializer.validated_data.get('medecin', serializer.instance.medecin)
                 if medecin is not None and medecin.pk != emp.pk:
                     raise ValidationError({

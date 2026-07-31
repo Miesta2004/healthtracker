@@ -227,7 +227,7 @@ export default function Dashboard() {
                     title={
                         <>
                             {hasRole("admin")      && "Tableau de bord — Administration"}
-                            {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋`}
+                            {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋 - ${user?.service_nom || ""}`}
                             {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
                             {hasRole("secretaire") && "Accueil & Secrétariat"}
                             {hasRole("laborantin") && "Espace Laboratoire"}

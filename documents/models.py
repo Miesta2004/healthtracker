@@ -24,7 +24,7 @@ JETONS_DISPONIBLES = [
     '{{patient.numero_dossier}}', '{{patient.date_naissance}}',
     '{{consultation.motif}}', '{{consultation.diagnostic}}', '{{consultation.symptomes}}',
     '{{consultation.ordonnance}}', '{{consultation.date}}',
-    '{{medecin.nom}}', '{{medecin.prenom}}', '{{service.nom}}', '{{date_jour}}',
+    '{{medecin.nom}}', '{{medecin.prenom}}', '{{medecin.signature}}', '{{service.nom}}', '{{date_jour}}',
 ]
 
 
@@ -83,6 +83,7 @@ class ModeleDocument(models.Model):
             valeurs.update({
                 '{{medecin.nom}}': medecin.nom,
                 '{{medecin.prenom}}': medecin.prenom,
+                '{{medecin.signature}}': getattr(medecin, 'signature_medicale', '') or '',
             })
             if getattr(medecin, 'service', None):
                 valeurs['{{service.nom}}'] = medecin.service.nom
