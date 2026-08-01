@@ -24,6 +24,8 @@ import {
     CalendarClock,
     UserPlus,
     ShieldAlert,
+    ShieldCheck,
+    Activity,
     FlaskConical,
     Plus,
     Search,
@@ -125,6 +127,7 @@ export default function Dashboard() {
     const isNurse         = hasRole("infirmier");
     const isSecretaire   = hasRole("secretaire");
     const isMedecin      = hasRole("medecin");
+    const isChefChirurgie = hasRole("chef_chirurgie");
 
     // Le médecin a déjà ses propres KPI (Interventions / Consultations / Patients
     // suivis) affichés dans PlanningKpiCards, intégrés au calendrier ci-dessous
@@ -227,6 +230,7 @@ export default function Dashboard() {
                     title={
                         <>
                             {hasRole("admin")      && "Tableau de bord — Administration"}
+                            {hasRole("chef_chirurgie") && `Bonjour Dr. ${user?.nom || ""} 👋`}
                             {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋 - ${user?.service_nom || ""}`}
                             {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
                             {hasRole("secretaire") && "Accueil & Secrétariat"}
@@ -235,7 +239,8 @@ export default function Dashboard() {
                     }
                     subtitle={
                         (hasRole("admin")      && "Vue globale et gestion de l'établissement") ||
-                        (hasRole("medecin")    && "Vos patients et consultations du jour") ||
+                        (hasRole("chef_chirurgie")    && "Bloc opératoire, habilitations et vos consultations du jour") ||
+                        (hasRole("medecin") && !isChefChirurgie && "Vos patients et consultations du jour") ||
                         (hasRole("infirmier")  && "Suivi des patients et constantes vitales") ||
                         (hasRole("secretaire") && "Gestion des rendez-vous et admissions") ||
                         (hasRole("laborantin") && "Analyses et résultats biologiques") || ""
@@ -247,6 +252,21 @@ export default function Dashboard() {
                                 <button onClick={() => navigate("/admissions/nouvelle")} className="btn btn-primary">
                                     <Plus size={16} /> Nouveau patient
                                 </button>
+                            )}
+                            {isChefChirurgie && (
+                                <>
+                                    <button onClick={() => navigate("/calendrier", { state: { vue: "bloc" } })} className="btn btn-primary">
+                                        <Activity size={16} /> Bloc opératoire
+                                    </button>
+                                    {user?.service && (
+                                        <button
+                                            onClick={() => navigate(`/services/${user.service}`, { state: { tab: "habilitations" } })}
+                                            className="btn btn-secondary"
+                                        >
+                                            <ShieldCheck size={16} /> Habilitations
+                                        </button>
+                                    )}
+                                </>
                             )}
                             {isSecretaire && (
                                 <button onClick={() => navigate("/rendez_vous")} className="btn btn-secondary">

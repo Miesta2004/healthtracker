@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import Sidebar from '../components/Sidebar.tsx'
 import RappelsPanel from '../components/RappelsPanel.tsx'
 import { useAuth } from '../contexts/AuthContext'
@@ -35,7 +36,9 @@ export default function CalendrierPage() {
     // échouerait de toute façon.
     const peutGererEvenementsAdmin = hasRole('admin')
 
-    const [vue, setVue] = useState<VueCalendrier>('semaine')
+    const location = useLocation()
+    const vueInitiale = (location.state as { vue?: VueCalendrier } | null)?.vue
+    const [vue, setVue] = useState<VueCalendrier>(vueInitiale ?? 'semaine')
     const [ancre, setAncre] = useState(new Date())
     const [typesActifs, setTypesActifs] = useState<Set<TypeEvenementRdv>>(
         () => new Set(Object.keys(TYPE_EVENEMENT_CONFIG) as TypeEvenementRdv[])

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { getServiceStats, getServicePatients, getServiceEmployes } from '../api/services'
 import { getEmployes } from '../api/comptes'
 import { getHabilitations, createHabilitation, updateHabilitation, deleteHabilitation } from '../api/habilitations'
@@ -336,9 +336,9 @@ function HabilitationsTab({ serviceId }: { serviceId: number }) {
     )
 }
 
-function MembresTabs({ patients, employes, serviceId }: { patients: Patient[]; employes: Employe[]; serviceId: number }) {
+function MembresTabs({ patients, employes, serviceId, ongletInitial }: { patients: Patient[]; employes: Employe[]; serviceId: number; ongletInitial?: MembresTab }) {
     const navigate = useNavigate()
-    const [tab, setTab] = useState<MembresTab>('patients')
+    const [tab, setTab] = useState<MembresTab>(ongletInitial ?? 'patients')
 
     const TabButton = ({ value, icon: Icon, label, count }: { value: MembresTab; icon: any; label: string; count: number }) => (
         <button
@@ -395,6 +395,8 @@ function MembresTabs({ patients, employes, serviceId }: { patients: Patient[]; e
 export default function ServiceDetail() {
     const { id } = useParams<{ id: string }>()
     const navigate = useNavigate()
+    const location = useLocation()
+    const ongletInitial = (location.state as { tab?: MembresTab } | null)?.tab
     const [stats, setStats] = useState<ServiceStats | null>(null)
     const [patientsListe, setPatientsListe] = useState<Patient[]>([])
     const [employesListe, setEmployesListe] = useState<Employe[]>([])
@@ -542,7 +544,7 @@ export default function ServiceDetail() {
                     <h2 className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>
                         Membres du service
                     </h2>
-                    <MembresTabs patients={patientsListe} employes={employesListe} serviceId={Number(id)} />
+                    <MembresTabs patients={patientsListe} employes={employesListe} serviceId={Number(id)} ongletInitial={ongletInitial} />
                 </div>
 
                 {/* Placeholder décès — à connecter une fois le module morgue en place */}
