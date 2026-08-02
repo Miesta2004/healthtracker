@@ -83,7 +83,7 @@ class RdvSerializer(serializers.ModelSerializer):
 class PatientPlanningSerializer(serializers.Serializer):
     """
     Sérialiseur allégé pour le planning médecin — pas un ModelSerializer
-    branché sur Patient : on ne veut exposer que 4 champs dans ce contexte,
+    branché sur Patient : on ne veut exposer que 5 champs dans ce contexte,
     pas risquer une fuite de champs sensibles via '__all__' comme d'autres
     endpoints du projet.
     """
@@ -91,6 +91,7 @@ class PatientPlanningSerializer(serializers.Serializer):
     nom_complet = serializers.SerializerMethodField()
     numero_dossier = serializers.CharField()
     age = serializers.IntegerField()
+    sexe = serializers.CharField()
 
     def get_nom_complet(self, obj):
         return f"{obj.prenom} {obj.nom}"

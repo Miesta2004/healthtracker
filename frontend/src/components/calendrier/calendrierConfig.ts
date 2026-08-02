@@ -190,12 +190,57 @@ export function extraireMessageErreur(err: unknown): string {
     // vérité pour un message lisible, jamais besoin de reconstituer quoi
     // que ce soit à partir de `errors` (qui peut contenir des objets
     // imbriqués et n'est là qu'à titre de détail technique).
-    const donnees = (err as { response?: { data?: { detail?: string } } })?.response?.data
-    return donnees?.detail || 'Une erreur est survenue.'
+    const donnees = (err as { response?: { data?: Record<string, string[] | string> } })?.response?.data
+    if (!donnees) return 'Une erreur est survenue.'
+    const texte = Object.values(donnees).flat().join(' ')
+    return texte || 'Une erreur est survenue.'
 }
 
 export function memeJour(a: Date, b: Date): boolean {
     return a.toDateString() === b.toDateString()
+}
+
+// ─── Événements à cheval sur minuit ──────────────────────────────────────────
+// La grille traite chaque jour comme une colonne indépendante de 24h — un
+// événement qui déborde sur le lendemain (garde de nuit, longue
+// intervention...) doit donc être découpé en un segment par jour touché,
+// chacun affiché à sa vraie position/hauteur dans SA colonne, plutôt que de
+// laisser le bloc s'étirer indéfiniment dans la colonne de départ.
+export interface SegmentJour<T> {
+    item: T
+    debutSegment: Date
+    finSegment: Date
+    /** Le vrai début est avant ce segment (masqué) — affiché sans coin arrondi en haut. */
+    continueAvant: boolean
+    /** La vraie fin est après ce segment (masquée) — affiché sans coin arrondi en bas, se poursuit demain. */
+    continueApres: boolean
+}
+
+export function segmenterParJour<T>(
+    items: T[],
+    jour: Date,
+    obtenirDebut: (item: T) => string,
+    obtenirFin: (item: T) => string,
+): SegmentJour<T>[] {
+    const jourDebut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate(), 0, 0, 0, 0)
+    const jourFin = new Date(jourDebut)
+    jourFin.setDate(jourFin.getDate() + 1)
+
+    const segments: SegmentJour<T>[] = []
+    for (const item of items) {
+        const debutReel = new Date(obtenirDebut(item))
+        const finReelle = new Date(obtenirFin(item))
+        if (finReelle <= jourDebut || debutReel >= jourFin) continue // ne touche pas ce jour
+
+        segments.push({
+            item,
+            debutSegment: debutReel < jourDebut ? jourDebut : debutReel,
+            finSegment: finReelle > jourFin ? jourFin : finReelle,
+            continueAvant: debutReel < jourDebut,
+            continueApres: finReelle > jourFin,
+        })
+    }
+    return segments
 }
 
 export function dateACreneauHoraire(jour: Date, heure: number, minute: number): Date {

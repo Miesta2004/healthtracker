@@ -7,9 +7,10 @@ import {
     getMesCreneaux, createCreneau, deleteCreneau,
     getMesExceptions, createException, deleteException,
 } from '../api/disponibilites'
-import type { CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, TypeException } from '../types'
+import type { CreneauDisponibilite, ExceptionDisponibilite, TypeCreneau, TypeException, ModeleDocument } from '../types'
 import { getMe } from '../api/comptes'
-import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock, XCircle } from 'lucide-react'
+import { getTousLesModeles, creerModele, modifierModele, supprimerModele } from '../api/documents'
+import { User, Lock, Signature, Calendar, Briefcase, Bell, Check, X, CheckCircle2, Clock, XCircle, Plus, FileText } from 'lucide-react'
 import PageBanner from '../components/PageBanner.tsx'
 import type { LucideIcon } from 'lucide-react'
 
@@ -46,15 +47,16 @@ const STATUT_EXCEPTION_CONFIG: Record<'en_attente' | 'valide' | 'rejete', { labe
 }
 
 // ─── Onglets ──────────────────────────────────────────────────────────────────
-type Onglet = 'profil' | 'securite' | 'signature' | 'disponibilites' | 'contrat' | 'notifications'
+type Onglet = 'profil' | 'securite' | 'signature' | 'disponibilites' | 'contrat' | 'notifications' | 'modeles_documents'
 
-const ONGLETS: { id: Onglet; label: string; icon: LucideIcon }[] = [
-    { id: 'profil',          label: 'Profil',          icon: User },
-    { id: 'securite',        label: 'Sécurité',        icon: Lock },
-    { id: 'signature',       label: 'Signature',       icon: Signature },
-    { id: 'disponibilites',  label: 'Disponibilités',  icon: Calendar },
-    { id: 'contrat',         label: 'Contrat & poste', icon: Briefcase },
-    { id: 'notifications',   label: 'Notifications',   icon: Bell },
+const ONGLETS: { id: Onglet; label: string; icon: LucideIcon; adminSeulement?: boolean }[] = [
+    { id: 'profil',            label: 'Profil',              icon: User },
+    { id: 'securite',          label: 'Sécurité',            icon: Lock },
+    { id: 'signature',         label: 'Signature',           icon: Signature },
+    { id: 'disponibilites',    label: 'Disponibilités',      icon: Calendar },
+    { id: 'contrat',           label: 'Contrat & poste',     icon: Briefcase },
+    { id: 'notifications',     label: 'Notifications',       icon: Bell },
+    { id: 'modeles_documents', label: 'Modèles de documents', icon: FileText, adminSeulement: true },
 ]
 
 // ─── Composant : feedback inline ─────────────────────────────────────────────
@@ -318,6 +320,228 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
             <button onClick={handleSave} disabled={saving} className="btn btn-primary">
                 {saving ? 'Sauvegarde…' : 'Enregistrer la signature'}
             </button>
+        </div>
+    )
+}
+
+// ─── Onglet Modèles de documents ──────────────────────────────────────────────
+const TYPE_DOCUMENT_LABELS: Record<string, string> = {
+    compte_rendu_consultation: 'Compte rendu de consultation',
+    ordonnance: 'Ordonnance',
+    certificat_medical: 'Certificat médical',
+    demande_analyse: "Demande d'analyse",
+    demande_imagerie: "Demande d'imagerie",
+    lettre_orientation: "Lettre d'orientation",
+    arret_travail: 'Arrêt de travail',
+    autre: 'Autre',
+}
+
+const JETONS_DOCUMENTS = [
+    '{{patient.nom}}', '{{patient.prenom}}', '{{patient.age}}', '{{patient.sexe}}',
+    '{{patient.numero_dossier}}', '{{patient.date_naissance}}',
+    '{{consultation.motif}}', '{{consultation.diagnostic}}', '{{consultation.symptomes}}',
+    '{{consultation.ordonnance}}', '{{consultation.date}}',
+    '{{medecin.nom}}', '{{medecin.prenom}}', '{{medecin.signature}}', '{{service.nom}}', '{{date_jour}}',
+]
+
+const MODELE_VIDE = { nom: '', type_document: 'autre', corps: '', actif: true }
+
+function FormulaireModele({ initial, onCancel, onSaved }: {
+    initial: ModeleDocument | typeof MODELE_VIDE
+    onCancel: () => void
+    onSaved: (m: ModeleDocument) => void
+}) {
+    const estEdition = 'id' in initial
+    const [nom, setNom] = useState(initial.nom)
+    const [typeDocument, setTypeDocument] = useState(initial.type_document)
+    const [corps, setCorps] = useState(initial.corps)
+    const [actif, setActif] = useState(initial.actif)
+    const [saving, setSaving] = useState(false)
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+    const handleSave = async () => {
+        if (!nom.trim() || !corps.trim()) {
+            setFeedback({ type: 'error', msg: 'Le nom et le contenu sont obligatoires.' })
+            return
+        }
+        setSaving(true)
+        setFeedback(null)
+        try {
+            const data = { nom: nom.trim(), type_document: typeDocument, corps, actif }
+            const saved = estEdition
+                ? await modifierModele((initial as ModeleDocument).id, data)
+                : await creerModele(data)
+            onSaved(saved)
+        } catch {
+            setFeedback({ type: 'error', msg: "Erreur lors de l'enregistrement." })
+        } finally {
+            setSaving(false)
+        }
+    }
+
+    return (
+        <div className="border rounded-xl p-4 space-y-4" style={{ borderColor: 'var(--ht-primary)', backgroundColor: 'var(--ht-primary-light)' }}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="ht-field">
+                    <label className="ht-label">Nom du modèle</label>
+                    <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex : Certificat de non contre-indication sportive" className="ht-input" />
+                </div>
+                <div className="ht-field">
+                    <label className="ht-label">Type de document</label>
+                    <select value={typeDocument} onChange={e => setTypeDocument(e.target.value)} className="ht-input">
+                        {Object.entries(TYPE_DOCUMENT_LABELS).map(([k, label]) => (
+                            <option key={k} value={k}>{label}</option>
+                        ))}
+                    </select>
+                </div>
+            </div>
+
+            <div className="ht-field">
+                <label className="ht-label">Contenu</label>
+                <textarea value={corps} onChange={e => setCorps(e.target.value)} rows={10} className="ht-input ht-textarea ht-mono" />
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                    {JETONS_DOCUMENTS.map(j => (
+                        <button
+                            key={j}
+                            type="button"
+                            onClick={() => setCorps(prev => prev + j)}
+                            className="text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors hover:bg-white"
+                            style={{ borderColor: 'var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}
+                            title="Cliquer pour insérer à la fin"
+                        >
+                            {j}
+                        </button>
+                    ))}
+                </div>
+                <p className="text-xs text-[var(--ht-text-muted)] mt-1">
+                    Clique un jeton pour l'ajouter au contenu — il sera remplacé par la vraie donnée à la génération.
+                </p>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
+                <input type="checkbox" checked={actif} onChange={e => setActif(e.target.checked)} />
+                Actif (visible pour générer un document)
+            </label>
+
+            {feedback && <Feedback type={feedback.type} message={feedback.msg} />}
+
+            <div className="flex gap-3">
+                <button onClick={onCancel} className="btn btn-secondary btn-sm">Annuler</button>
+                <button onClick={handleSave} disabled={saving} className="btn btn-primary btn-sm">
+                    {saving ? 'Enregistrement…' : estEdition ? 'Enregistrer les modifications' : 'Créer le modèle'}
+                </button>
+            </div>
+        </div>
+    )
+}
+
+function OngletModelesDocuments() {
+    const [modeles, setModeles] = useState<ModeleDocument[]>([])
+    const [loading, setLoading] = useState(true)
+    const [enEdition, setEnEdition] = useState<number | 'nouveau' | null>(null)
+    const [suppressionId, setSuppressionId] = useState<number | null>(null)
+    const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+
+    const charger = () => {
+        setLoading(true)
+        getTousLesModeles().then(setModeles).catch(() => {}).finally(() => setLoading(false))
+    }
+
+    useEffect(() => { charger() }, [])
+
+    const handleToggleActif = async (m: ModeleDocument) => {
+        try {
+            const updated = await modifierModele(m.id, { actif: !m.actif })
+            setModeles(prev => prev.map(x => x.id === updated.id ? updated : x))
+        } catch {
+            setFeedback({ type: 'error', msg: "Erreur lors de la mise à jour." })
+        }
+    }
+
+    const handleSupprimer = async (id: number) => {
+        try {
+            await supprimerModele(id)
+            setModeles(prev => prev.filter(m => m.id !== id))
+        } catch {
+            setFeedback({ type: 'error', msg: 'Erreur lors de la suppression.' })
+        } finally {
+            setSuppressionId(null)
+        }
+    }
+
+    return (
+        <div className="space-y-5">
+            <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-primary-light)' }}>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--ht-primary)' }}>À quoi ça sert ?</p>
+                <p className="text-xs" style={{ color: 'var(--ht-primary-hover)' }}>
+                    Ces modèles sont proposés dans l'onglet "Documents" de chaque consultation — cliquer dessus génère automatiquement le document rempli avec les données du patient.
+                </p>
+            </div>
+
+            {feedback && <Feedback type={feedback.type} message={feedback.msg} />}
+
+            {suppressionId !== null && (
+                <div className="ht-modal-overlay">
+                    <div className="ht-modal ht-modal-sm text-center">
+                        <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Supprimer ce modèle ?</h3>
+                        <p className="text-sm mb-6" style={{ color: 'var(--ht-text-secondary)' }}>
+                            Les documents déjà générés à partir de ce modèle ne sont pas affectés.
+                        </p>
+                        <div className="flex gap-3">
+                            <button onClick={() => setSuppressionId(null)} className="btn btn-secondary flex-1">Annuler</button>
+                            <button onClick={() => handleSupprimer(suppressionId)} className="btn btn-danger flex-1">Supprimer</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {loading ? (
+                <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Chargement…</p>
+            ) : (
+                <div className="space-y-3">
+                    {modeles.map(m => (
+                        enEdition === m.id ? (
+                            <FormulaireModele
+                                key={m.id}
+                                initial={m}
+                                onCancel={() => setEnEdition(null)}
+                                onSaved={updated => { setModeles(prev => prev.map(x => x.id === updated.id ? updated : x)); setEnEdition(null) }}
+                            />
+                        ) : (
+                            <div key={m.id} className="flex items-center justify-between gap-3 border rounded-xl px-4 py-3"
+                                 style={{ borderColor: 'var(--ht-border)', opacity: m.actif ? 1 : 0.5 }}>
+                                <div className="min-w-0 flex-1">
+                                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{m.nom}</p>
+                                    <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                        {TYPE_DOCUMENT_LABELS[m.type_document] ?? m.type_document}
+                                        {!m.actif && ' · Désactivé'}
+                                        {m.cree_par_nom ? ` · par ${m.cree_par_nom}` : ' · modèle par défaut'}
+                                    </p>
+                                </div>
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                    <button onClick={() => handleToggleActif(m)} className="btn btn-secondary btn-sm">
+                                        {m.actif ? 'Désactiver' : 'Activer'}
+                                    </button>
+                                    <button onClick={() => setEnEdition(m.id)} className="btn btn-secondary btn-sm">Modifier</button>
+                                    <button onClick={() => setSuppressionId(m.id)} className="btn btn-danger btn-sm">Supprimer</button>
+                                </div>
+                            </div>
+                        )
+                    ))}
+
+                    {enEdition === 'nouveau' ? (
+                        <FormulaireModele
+                            initial={MODELE_VIDE}
+                            onCancel={() => setEnEdition(null)}
+                            onSaved={created => { setModeles(prev => [...prev, created]); setEnEdition(null) }}
+                        />
+                    ) : (
+                        <button onClick={() => setEnEdition('nouveau')} className="btn btn-primary btn-sm">
+                            <Plus size={14} /> Nouveau modèle
+                        </button>
+                    )}
+                </div>
+            )}
         </div>
     )
 }
@@ -778,7 +1002,7 @@ export default function Settings() {
                     {/* Onglets : ligne horizontale scrollable sur mobile, colonne fixe à partir de lg */}
                     <aside className="w-full lg:w-48 flex-shrink-0">
                         <nav className="flex lg:flex-col gap-1 overflow-x-auto pb-1 lg:overflow-visible lg:pb-0">
-                            {ONGLETS.map(o => (
+                            {ONGLETS.filter(o => !o.adminSeulement || employe.role === 'admin').map(o => (
                                 <button
                                     key={o.id}
                                     onClick={() => setOnglet(o.id)}
@@ -803,6 +1027,7 @@ export default function Settings() {
                         {onglet === 'disponibilites' && <OngletDisponibilites />}
                         {onglet === 'contrat'        && <OngletContrat employe={employe} />}
                         {onglet === 'notifications'  && <OngletNotifications employe={employe} />}
+                        {onglet === 'modeles_documents' && employe.role === 'admin' && <OngletModelesDocuments />}
                     </main>
                 </div>
             </div>

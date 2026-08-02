@@ -6,7 +6,7 @@ import CurrentTimeLine from './CurrentTimeLine'
 import CalendarSlotCell from './CalendarSlotCell'
 import {
     heuresGrille, PX_PAR_HEURE, PX_PAR_DEMI_HEURE, HEURE_SCROLL_INITIAL,
-    joursDeSemaine, memeJour, disposerEvenements, estAujourdhui, dateACreneauHoraire,
+    joursDeSemaine, disposerEvenements, segmenterParJour, estAujourdhui, dateACreneauHoraire,
 } from './calendrierConfig'
 
 interface Props {
@@ -80,7 +80,7 @@ export default function CalendarWeekView({
                 demi-heure, blocs événements positionnés par horaire réel,
                 bandes de garde, ligne "heure actuelle" limitée à la colonne
                 du jour courant. */}
-            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 450 }}>
+            <div ref={scrollRef} className="overflow-y-auto" style={{ maxHeight: 500 }}>
                 <div className="grid" style={{ gridTemplateColumns: '56px repeat(7, 1fr)' }}>
                     <div>
                         {heures.map(h => (
@@ -93,9 +93,14 @@ export default function CalendarWeekView({
                     </div>
 
                     {jours.map(jour => {
-                        const evtsJour = evenements.filter(e => memeJour(new Date(e.start_time), jour) && e.statut !== 'annule')
-                        const disposes = disposerEvenements(evtsJour)
-                        const gardesJour = gardes.filter(g => memeJour(new Date(g.start_time), jour))
+                        const evtsActifs = evenements.filter(e => e.statut !== 'annule')
+                        const segmentsJour = segmenterParJour(evtsActifs, jour, e => e.start_time, e => e.end_time)
+                        const disposes = disposerEvenements(
+                            segmentsJour,
+                            s => s.debutSegment.toISOString(),
+                            s => s.finSegment.toISOString(),
+                        )
+                        const gardesSegments = segmenterParJour(gardes, jour, g => g.start_time, g => g.end_time)
 
                         return (
                             <div
@@ -119,19 +124,30 @@ export default function CalendarWeekView({
                                     </div>
                                 ))}
 
-                                {gardesJour.map((g, i) => (
-                                    <GardeStrip key={g.id} garde={g} decalage={i * 5} onClick={() => onSelectGarde?.(g)} />
+                                {gardesSegments.map((s, i) => (
+                                    <GardeStrip
+                                        key={s.item.id}
+                                        garde={s.item}
+                                        decalage={i * 5}
+                                        onClick={() => onSelectGarde?.(s.item)}
+                                        debutAffiche={s.debutSegment}
+                                        finAffiche={s.finSegment}
+                                    />
                                 ))}
 
-                                {disposes.map(({ evenement, colonnes, indexColonne }) => (
+                                {disposes.map(({ evenement: segment, colonnes, indexColonne }) => (
                                     <EventBlock
-                                        key={evenement.id}
-                                        evenement={evenement}
+                                        key={`${segment.item.id}-${segment.debutSegment.toISOString()}`}
+                                        evenement={segment.item}
                                         colonnes={colonnes}
                                         indexColonne={indexColonne}
-                                        onClick={() => onSelectEvenement?.(evenement)}
-                                        deplacable={peutDeplacer ? peutDeplacer(evenement) : false}
-                                        onRedimensionner={(duree) => onRedimensionnerEvenement?.(evenement.id, duree)}
+                                        onClick={() => onSelectEvenement?.(segment.item)}
+                                        deplacable={peutDeplacer ? peutDeplacer(segment.item) : false}
+                                        onRedimensionner={(duree) => onRedimensionnerEvenement?.(segment.item.id, duree)}
+                                        debutAffiche={segment.debutSegment}
+                                        finAffiche={segment.finSegment}
+                                        continueAvant={segment.continueAvant}
+                                        continueApres={segment.continueApres}
                                     />
                                 ))}
 

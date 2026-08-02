@@ -43,6 +43,17 @@ class Capacite:
     HABILITATIONS_GERER     = 'habilitations.gerer'
     AUTOPSIE_VALIDER_PERIOP = 'autopsie.valider_perioperatoire'
 
+    # Module Facturation & Encaissement — séparation des tâches volontaire :
+    # FACTURATION_GERER ne donne AUCUN droit d'écriture sur Paiement, et
+    # inversement PAIEMENTS_ENCAISSER ne donne aucun droit d'écriture sur
+    # Facture/LigneFacture/EcheancierPaiement. La lecture, elle, n'est PAS
+    # restreinte entre les deux — un caissier voit le détail complet d'une
+    # facture (le patient doit pouvoir comprendre ce qu'il paie au guichet),
+    # seule la modification est cloisonnée. Voir permissions.py pour
+    # l'application stricte de cette distinction lecture/écriture.
+    FACTURATION_GERER    = 'facturation.gerer'      # créer/modifier factures, lignes d'actes, échéanciers
+    PAIEMENTS_ENCAISSER  = 'paiements.encaisser'    # enregistrer un paiement, éditer un reçu — lecture facture incluse
+
     # Exclusives à l'admin (chef de service) — non converties en permissions
     # génériques pour l'instant : IsAdminRole reste un contrôle par rôle unique
     # + same_service, ça n'a pas besoin de la couche de capacités. Gardées ici
@@ -99,6 +110,26 @@ CAPACITES_PAR_ROLE = {
         Capacite.PATIENTS_CREER, Capacite.RDV_LIRE,
         Capacite.ACCOMPAGNANTS_GERER,
     },
+    'facturier': {
+        # Construit la facture (lignes d'actes, ventilation assurance,
+        # échéanciers) — AUCUN droit sur Paiement, séparation des tâches
+        # volontaire avec 'caissier' (cf. commentaire sur PAIEMENTS_ENCAISSER).
+        Capacite.FACTURATION_GERER,
+    },
+    'caissier': {
+        # Encaisse et édite les reçus — lecture complète des factures incluse
+        # (le patient doit comprendre ce qu'il paie), mais aucun droit de
+        # modifier une Facture/LigneFacture/EcheancierPaiement.
+        Capacite.PAIEMENTS_ENCAISSER,
+    },
+    # 'agent_facturation': {
+    #     # Rôle cumulé — désactivé par défaut. À activer (+ l'ajouter à
+    #     # comptes.models.Role) pour une petite structure qui n'a pas les
+    #     # moyens humains de séparer facturation et caisse : cumule les deux
+    #     # capacités sur un seul poste, sans toucher au reste du fichier.
+    #     Capacite.FACTURATION_GERER,
+    #     Capacite.PAIEMENTS_ENCAISSER,
+    # },
 
     # Uniquement ses capacités EXCLUSIVES — tout le reste (ACTES_MEDICAUX_GERER,
     # SIGNES_VITAUX_SAISIR, PATIENTS_CREER, DOSSIER_MEDICAL_LIRE, RDV_LIRE,

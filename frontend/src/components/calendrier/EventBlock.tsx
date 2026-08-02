@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { TriangleAlert, Users } from 'lucide-react'
+import { TriangleAlert, Users, ChevronUp, ChevronDown } from 'lucide-react'
 import type { EvenementPlanning } from '../../types'
 import { PX_PAR_MINUTE, TYPE_EVENEMENT_CONFIG, minutesDepuisDebutGrille } from './calendrierConfig'
 
@@ -17,20 +17,36 @@ interface Props {
     /** Déplacement (drag & drop) et redimensionnement — désactivés si non fourni ou si `deplacable` est false */
     deplacable?: boolean
     onRedimensionner?: (nouvelleDureeMinutes: number) => void
+    /**
+     * Segment affiché pour CE jour, quand l'événement déborde sur le
+     * lendemain (garde de nuit, longue intervention...) — si absent, on
+     * utilise directement start_time/end_time de l'événement. Voir
+     * calendrierConfig.ts:segmenterParJour.
+     */
+    debutAffiche?: Date
+    finAffiche?: Date
+    continueAvant?: boolean
+    continueApres?: boolean
 }
 
 export default function EventBlock({
                                        evenement, onClick, colonnes = 1, indexColonne = 0, deplacable = false, onRedimensionner,
+                                       debutAffiche, finAffiche, continueAvant = false, continueApres = false,
                                    }: Props) {
-    const debut = new Date(evenement.start_time)
-    const fin = new Date(evenement.end_time)
+    const debut = debutAffiche ?? new Date(evenement.start_time)
+    const fin = finAffiche ?? new Date(evenement.end_time)
+    const debutReel = new Date(evenement.start_time)
+    const finReelle = new Date(evenement.end_time)
     const cfg = TYPE_EVENEMENT_CONFIG[evenement.type_evenement]
 
     const minutesDebut = Math.max(0, minutesDepuisDebutGrille(debut))
-    const dureeMin = Math.max(20, (fin.getTime() - debut.getTime()) / 60000)
+    const dureeSegmentMin = Math.max(20, (fin.getTime() - debut.getTime()) / 60000)
+    // La durée totale réelle (pas seulement ce segment) : c'est elle qu'on
+    // redimensionne, même si on ne voit que le morceau d'aujourd'hui.
+    const dureeReelleMin = (finReelle.getTime() - debutReel.getTime()) / 60000
 
     const top = minutesDebut * PX_PAR_MINUTE
-    const height = dureeMin * PX_PAR_MINUTE
+    const height = dureeSegmentMin * PX_PAR_MINUTE
     const largeur = 100 / colonnes
     const gauche = largeur * indexColonne
 
@@ -38,7 +54,7 @@ export default function EventBlock({
     const compact = height < 46
 
     const [hauteurEnCours, setHauteurEnCours] = useState<number | null>(null)
-    const dureeRef = useRef(dureeMin)
+    const dureeRef = useRef(dureeReelleMin)
     const [enGlissement, setEnGlissement] = useState(false)
 
     const demarrerDeplacement = (e: React.DragEvent<HTMLButtonElement>) => {
@@ -51,7 +67,7 @@ export default function EventBlock({
         e.stopPropagation()
         e.preventDefault()
         const yDepart = e.clientY
-        const dureeDepart = dureeMin
+        const dureeDepart = dureeReelleMin
         dureeRef.current = dureeDepart
 
         const surDeplacement = (ev: MouseEvent) => {
@@ -89,18 +105,32 @@ export default function EventBlock({
         >
             <button
                 onClick={onClick}
-                draggable={deplacable && !annule}
-                onDragStart={deplacable ? demarrerDeplacement : undefined}
+                // On ne peut déplacer/redimensionner qu'à partir du segment qui
+                // montre le vrai début/vraie fin — glisser un morceau "coupé"
+                // n'aurait pas de sens intuitif.
+                draggable={deplacable && !annule && !continueAvant}
+                onDragStart={deplacable && !continueAvant ? demarrerDeplacement : undefined}
                 onDragEnd={() => setEnGlissement(false)}
                 title={evenement.patient ? evenement.patient.nom_complet : undefined}
-                className="relative w-full h-full text-left rounded-lg px-2 py-1.5 overflow-hidden group"
+                className="relative w-full h-full text-left px-2 py-1.5 overflow-hidden group"
                 style={{
                     backgroundColor: cfg.bg,
-                    border: `1px solid ${cfg.border}`,
+                    borderLeft: `1px solid ${cfg.border}`,
+                    borderRight: `1px solid ${cfg.border}`,
+                    borderTop: continueAvant ? `1px dashed ${cfg.border}` : `1px solid ${cfg.border}`,
+                    borderBottom: continueApres ? `1px dashed ${cfg.border}` : `1px solid ${cfg.border}`,
+                    borderTopLeftRadius: continueAvant ? 0 : 8,
+                    borderTopRightRadius: continueAvant ? 0 : 8,
+                    borderBottomLeftRadius: continueApres ? 0 : 8,
+                    borderBottomRightRadius: continueApres ? 0 : 8,
                     opacity: annule ? 0.55 : 1,
-                    cursor: deplacable ? 'grab' : 'pointer',
+                    cursor: deplacable && !continueAvant ? 'grab' : 'pointer',
                 }}
             >
+                {continueAvant && (
+                    <ChevronUp size={11} className="absolute top-1 left-1/2 -translate-x-1/2" style={{ color: cfg.text, opacity: 0.6 }} />
+                )}
+
                 {cfg.equipe && !compact && (
                     <div
                         className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
@@ -112,8 +142,10 @@ export default function EventBlock({
 
                 <div className="flex items-center gap-1 pr-4">
                     <span className="text-[10.5px] font-semibold" style={{ color: cfg.text }}>
-                        {debut.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                        {!compact && ` – ${fin.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`}
+                        {continueAvant ? '⋯' : debutReel.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        {!compact && (
+                            <> – {continueApres ? '⋯' : finReelle.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</>
+                        )}
                     </span>
                     {evenement.alerte_critique && (
                         <TriangleAlert size={10} style={{ color: 'var(--ht-danger)', flexShrink: 0 }} />
@@ -139,7 +171,11 @@ export default function EventBlock({
                     </p>
                 )}
 
-                {deplacable && !annule && onRedimensionner && (
+                {continueApres && (
+                    <ChevronDown size={11} className="absolute bottom-1 left-1/2 -translate-x-1/2" style={{ color: cfg.text, opacity: 0.6 }} />
+                )}
+
+                {deplacable && !annule && !continueApres && onRedimensionner && (
                     <div
                         onMouseDown={demarrerRedimension}
                         className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize opacity-0 group-hover:opacity-100 transition-opacity"

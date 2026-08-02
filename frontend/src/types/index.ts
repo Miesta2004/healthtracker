@@ -613,11 +613,23 @@ export interface SalleBloc {
     statut_label?: string
 }
 
+export interface MembreEquipeOperation {
+    id: number
+    nom: string
+    prenom: string
+    role: string
+    role_label: string
+    specialite_principale_nom: string | null
+}
+
 export interface Operation {
     id: number
     patient: number
     patient_nom?: string
     patient_prenom?: string
+    patient_age?: number
+    patient_sexe?: 'M' | 'F'
+    patient_numero_dossier?: string
     consultation_indication: number | null
     hospitalisation: number | null
     service_chirurgie: number
@@ -628,6 +640,7 @@ export interface Operation {
     chirurgien_nom?: string
     chirurgien_prenom?: string
     equipe: number[]
+    equipe_detail?: MembreEquipeOperation[]
     type_acte: string
     heure_debut: string
     heure_fin: string
@@ -663,6 +676,7 @@ export interface EvenementPlanning {
         nom_complet: string
         numero_dossier: string
         age: number
+        sexe: 'M' | 'F'
     }
     alerte_critique: boolean
     consultation_id: number | null

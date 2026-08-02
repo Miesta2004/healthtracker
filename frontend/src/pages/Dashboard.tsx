@@ -4,34 +4,42 @@ import { getPatients } from "../api/patients";
 import { getFileAttente } from "../api/urgences";
 import { getHospitalisationsEnCours } from "../api/hospitalisations";
 import { getConsultations } from "../api/consultations";
-import { getRendezVous } from "../api/rendezvous";
 import { getEmployes } from "../api/comptes";
 import { getServices } from "../api/services";
-import { getDemandesEnAttente } from "../api/analyses";
-import type { Patient, PassageUrgence, Hospitalisation, Consultation, RendezVous, NiveauTri } from "../types";
+import { getDemandesEnAttente, getDemandes } from "../api/analyses";
+import { getAlertes } from "../api/alertes";
+import { getRappels } from "../api/rappels";
+import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri, Alerte, DemandeAnalyse, Rappel } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
-import RappelsPanel from "../components/RappelsPanel.tsx";
+import DayTimeline from "../components/dashboard/DayTimeLine.tsx";
+import PriorityPatientsCard from "../components/dashboard/PriorityPatientsCard.tsx";
+import BlocOperatoireCard from "../components/dashboard/BlocOperatoireCard.tsx";
+import ContinuerMonTravailCard, { type WorkItem } from "../components/dashboard/ContinuerMonTravailCard.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { useRealtimeCalendrier } from "../hooks/useRealtimeCalendrier";
-import { SkeletonKpiCard, SkeletonSimpleList } from "../components/Skeleton";
+import { usePlanning } from "../hooks/useCalendrier";
+import { useOperationsPlanning } from "../hooks/useBlocOperatoire";
+import { toISODate } from "../components/calendrier/calendrierConfig";
+import { SkeletonSimpleList } from "../components/Skeleton";
+import type { LucideIcon } from "lucide-react";
 import {
-    Users,
     BedDouble,
     Stethoscope,
+    Scissors,
     Calendar,
-    CalendarCheck,
-    CalendarClock,
-    UserPlus,
     ShieldAlert,
-    ShieldCheck,
-    Activity,
     FlaskConical,
+    ClipboardList,
+    FileText,
+    Sparkles,
     Plus,
     Search,
     ChevronRight,
     LayoutDashboard,
+    Sunrise,
 } from "lucide-react";
+import RappelsPanel from "../components/RappelsPanel.tsx";
 
 // ─── CONFIGURATION DES BADGES DE TRIAGE (déjà définis dans index.css) ─────────
 const TRI_BADGE: Record<NiveauTri, string> = {
@@ -42,33 +50,6 @@ const TRI_BADGE: Record<NiveauTri, string> = {
     5: "badge-tri-5",
 };
 
-// ─── COMPOSANT STATCARD (KPI) ─────────────────────────────────────────────────
-interface StatCardProps {
-    label: string;
-    value: string | number;
-    sub?: string;
-    icon: any;
-    accent?: boolean;
-    onClick?: () => void;
-}
-
-function StatCard({ label, value, sub, icon: Icon, accent, onClick }: StatCardProps) {
-    return (
-        <div
-            onClick={onClick}
-            className={`ht-kpi ${accent ? "accent" : ""} ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
-        >
-            <div className="ht-kpi-icon">
-                <Icon size={20} style={{ color: accent ? "var(--ht-primary-tint)" : "var(--ht-primary)" }} />
-            </div>
-            <div className="min-w-0">
-                <p className="ht-kpi-label truncate">{label}</p>
-                <p className="ht-kpi-value">{value}</p>
-                {sub && <p className="ht-kpi-sub truncate">{sub}</p>}
-            </div>
-        </div>
-    );
-}
 
 // ─── COMPOSANT WIDGETCARD ─────────────────────────────────────────────────────
 interface WidgetCardProps {
@@ -112,6 +93,39 @@ function WidgetCard({ title, count, linkLabel, onLink, children, loading, empty,
     );
 }
 
+// ─── COMPOSANT FOCUSCARD (bloc « Aujourd'hui ») ───────────────────────────────
+interface FocusCardProps {
+    label: string;
+    value: string;
+    sub?: string;
+    icon: LucideIcon;
+    tone?: "default" | "danger";
+    onClick?: () => void;
+}
+
+function FocusCard({ label, value, sub, icon: Icon, tone = "default", onClick }: FocusCardProps) {
+    return (
+        <div
+            onClick={onClick}
+            className={`ht-card ht-card-padded-sm flex items-start gap-3 ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}
+        >
+            <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{
+                    backgroundColor: tone === "danger" ? "var(--ht-danger-bg)" : "var(--ht-primary-light)",
+                }}
+            >
+                <Icon size={18} style={{ color: tone === "danger" ? "var(--ht-danger)" : "var(--ht-primary)" }} />
+            </div>
+            <div className="min-w-0">
+                <p className="text-xs font-medium truncate" style={{ color: "var(--ht-text-muted)" }}>{label}</p>
+                <p className="text-sm font-bold truncate mt-0.5" style={{ color: "var(--ht-text)" }}>{value}</p>
+                {sub && <p className="text-xs truncate mt-0.5" style={{ color: "var(--ht-text-muted)" }}>{sub}</p>}
+            </div>
+        </div>
+    );
+}
+
 // ─── PAGE COMPOSANTE DASHBOARD ────────────────────────────────────────────────
 export default function Dashboard() {
     const navigate = useNavigate();
@@ -123,39 +137,31 @@ export default function Dashboard() {
     const canSeeHospit   = hasRole("admin", "medecin");
     const canSeeConsult  = hasRole("admin", "medecin", "infirmier");
     const canSeeRdv      = hasRole("admin", "medecin", "secretaire");
+    const canSeeBloc     = hasRole("admin", "medecin", "chef_chirurgie");
     const isAdmin        = hasRole("admin");
     const isNurse         = hasRole("infirmier");
     const isSecretaire   = hasRole("secretaire");
     const isMedecin      = hasRole("medecin");
-    const isChefChirurgie = hasRole("chef_chirurgie");
-
-    // Le médecin a déjà ses propres KPI (Interventions / Consultations / Patients
-    // suivis) affichés dans PlanningKpiCards, intégrés au calendrier ci-dessous
-    // — cf. maquette. On masque ici les cartes génériques équivalentes pour
-    // éviter une double rangée de KPI redondante. Urgences et Hospitalisations
-    // restent affichées : ce sont des informations que le calendrier ne couvre pas.
-    // Le calendrier complet (et ses propres KPI) vit désormais sur /calendrier —
-    // le Dashboard n'a donc plus de doublon à éviter, ces cartes s'affichent
-    // pour tous les rôles concernés, médecin compris.
-    const showPatientsKpi = canSeePatients;
-    const showRdvKpi      = canSeeRdv;
-    const showConsultKpi  = canSeeConsult;
 
     const [patients, setPatients] = useState<Patient[] | null>(null);
     const [urgences, setUrgences] = useState<PassageUrgence[] | null>(null);
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null);
     const [consultations, setConsultations] = useState<Consultation[] | null>(null);
-    const [rendezVous, setRendezVous] = useState<RendezVous[] | null>(null);
     const [, setEffectif] = useState<{ employes: number; services: number } | null>(null);
     const [demandesEnAttente, setDemandesEnAttente] = useState<number | null>(null);
+    const [alertes, setAlertes] = useState<Alerte[] | null>(null);
+    const [demandesAnalyses, setDemandesAnalyses] = useState<DemandeAnalyse[] | null>(null);
+    const [rappels, setRappels] = useState<Rappel[] | null>(null);
 
     useEffect(() => {
         if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]));
         if (canSeeUrgences) getFileAttente().then(setUrgences).catch(() => setUrgences([]));
         if (canSeeHospit) getHospitalisationsEnCours().then(setHospitalisations).catch(() => setHospitalisations([]));
         if (canSeeConsult) getConsultations().then(setConsultations).catch(() => setConsultations([]));
-        if (canSeeRdv) getRendezVous().then(setRendezVous).catch(() => setRendezVous([]));
         if (hasRole("laborantin")) getDemandesEnAttente().then((d) => setDemandesEnAttente(d.length)).catch(() => setDemandesEnAttente(0));
+        if (isMedecin || isAdmin) getDemandes().then(setDemandesAnalyses).catch(() => setDemandesAnalyses([]));
+        getRappels().then(setRappels).catch(() => setRappels([]));
+        getAlertes().then(setAlertes).catch(() => setAlertes([]));
         if (isAdmin) {
             Promise.all([getEmployes(), getServices()])
                 .then(([emps, servs]) => setEffectif({
@@ -167,106 +173,127 @@ export default function Dashboard() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    const patientsRecents = patients
-        ? [...patients]
-            .sort((a, b) => new Date(b.date_creation).getTime() - new Date(a.date_creation).getTime())
-            .slice(0, 5)
-        : [];
-
-    const nouveauCeMois = patients?.filter((p) => {
-        const d = new Date(p.date_creation);
-        const now = new Date();
-        return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }).length ?? 0;
-
-    const nouveauCetteSemaine = patients?.filter((p) => {
-        const d = new Date(p.date_creation);
-        const now = new Date();
-        const sept = new Date(now);
-        sept.setDate(now.getDate() - 7);
-        return d >= sept && d <= now;
-    }).length ?? 0;
+    const aujourdhuiISO = toISODate(new Date());
+    const { data: planningJour } = usePlanning(aujourdhuiISO, aujourdhuiISO);
+    const { data: blocJour, isLoading: blocLoading } = useOperationsPlanning(aujourdhuiISO, aujourdhuiISO, canSeeBloc);
 
     const urgencesTriees = urgences
         ? [...urgences].sort((a, b) => (a.niveau_tri ?? 5) - (b.niveau_tri ?? 5)).slice(0, 5)
         : [];
 
-    const consultationsAujourdhui = consultations?.filter((c) => {
-        const d = new Date(c.date);
-        const now = new Date();
-        return d.toDateString() === now.toDateString();
-    }) ?? [];
+    // ── Bloc « Aujourd'hui » : prochains événements + compteurs prioritaires ──
+    const maintenant = new Date();
+    const evenementsAvenir = (planningJour?.evenements ?? [])
+        .filter(e => e.statut !== "annule" && new Date(e.start_time) >= maintenant)
+        .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime());
+    const prochaineConsultation = evenementsAvenir.find(e => e.type_evenement === "consultation");
+    const prochaineIntervention = evenementsAvenir.find(e => e.type_evenement === "intervention");
 
-    const rdvAujourdhui = (rendezVous ?? [])
-        .filter((r) => {
-            const d = new Date(r.date_heure);
-            const now = new Date();
-            return d.toDateString() === now.toDateString() && r.statut !== "annule";
-        })
-        .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime());
+    const patientsPrioritairesCount =
+        urgencesTriees.filter(u => u.niveau_tri === 1 || u.niveau_tri === 2).length +
+        Math.min([...(hospitalisations ?? [])].filter(h => (h.duree_jours ?? 0) >= 7).length, 3);
 
-    const rdvAConfirmer = (rendezVous ?? []).filter((r) => r.statut === "planifie");
+    const alertesCritiquesCount = (alertes ?? []).filter(a => a.statut === "non_lue").length;
 
-    const rdvCetteSemaine = (rendezVous ?? [])
-        .filter((r) => {
-            const d = new Date(r.date_heure);
-            const now = new Date();
-            const dansSeptJours = new Date(now);
-            dansSeptJours.setDate(now.getDate() + 7);
-            return d > now && d <= dansSeptJours && d.toDateString() !== now.toDateString() && r.statut !== "annule";
-        })
-        .sort((a, b) => new Date(a.date_heure).getTime() - new Date(b.date_heure).getTime());
+    const formatHeure = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
+
+    // ── « Continuer mon travail » : agrégation depuis les données déjà chargées ──
+    const consultationEnCours = canSeeConsult
+        ? (consultations ?? []).find((c) => c.statut === "en_cours")
+        : undefined;
+    const patientConsultation = consultationEnCours
+        ? (patients ?? []).find((p) => p.id === consultationEnCours.patient)
+        : undefined;
+
+    const operationsACompteRendu = canSeeBloc
+        ? (blocJour?.operations ?? []).filter(
+            (op) => op.chirurgien_principal === user?.id
+                && (op.statut === "terminee" || op.statut === "en_cours")
+                && !op.compte_rendu_operatoire?.trim()
+        )
+        : [];
+
+    const resultatsDisponibles = (isMedecin || isAdmin)
+        ? (demandesAnalyses ?? []).filter((d) => d.demandeur === user?.id && d.statut === "terminee")
+        : [];
+
+    const rappelsEnAttente = (rappels ?? []).filter((r) => !r.fait);
+
+    const chargementTravail =
+        (canSeeConsult && consultations === null) ||
+        (canSeeBloc && blocLoading) ||
+        ((isMedecin || isAdmin) && demandesAnalyses === null) ||
+        rappels === null;
+
+    const travailItems: WorkItem[] | null = chargementTravail ? null : [
+        ...(consultationEnCours ? [{
+            id: "consultation",
+            icon: Stethoscope,
+            title: patientConsultation ? `${patientConsultation.prenom} ${patientConsultation.nom}` : `Patient #${consultationEnCours.patient}`,
+            subtitle: "Consultation en cours · prescription à terminer",
+            ctaLabel: "Reprendre",
+            onClick: () => navigate(`/patients/${consultationEnCours.patient}/consultations/${consultationEnCours.id}`),
+        }] : []),
+        ...(operationsACompteRendu.length > 0 ? [{
+            id: "compte-rendu",
+            icon: FileText,
+            title: "Compte rendu opératoire",
+            subtitle: `Intervention de ${formatHeure(operationsACompteRendu[0].heure_debut)} · compte rendu non finalisé`,
+            ctaLabel: "Continuer",
+            onClick: () => navigate("/calendrier"),
+        }] : []),
+        ...(resultatsDisponibles.length > 0 ? [{
+            id: "resultats",
+            icon: FlaskConical,
+            title: "Résultats biologiques",
+            subtitle: `${resultatsDisponibles.length} résultat${resultatsDisponibles.length > 1 ? "s" : ""} disponible${resultatsDisponibles.length > 1 ? "s" : ""}`,
+            ctaLabel: "Consulter",
+            onClick: () => navigate(`/patients/${resultatsDisponibles[0].patient}`),
+        }] : []),
+        ...(rappelsEnAttente.length > 0 ? [{
+            id: "rappels",
+            icon: ClipboardList,
+            title: "Tâches en attente",
+            subtitle: `${rappelsEnAttente.length} rappel${rappelsEnAttente.length > 1 ? "s" : ""} non traité${rappelsEnAttente.length > 1 ? "s" : ""}`,
+            ctaLabel: "Voir",
+        }] : []),
+    ];
+
+    // ── Sous-titre selon le rôle (inchangé depuis la version d'origine) ──
+    const sousTitreHeader =
+        (hasRole("admin")      && "Vue globale et gestion de l'établissement") ||
+        (hasRole("medecin")    && "Vos patients et consultations du jour") ||
+        (hasRole("infirmier")  && "Suivi des patients et constantes vitales") ||
+        (hasRole("secretaire") && "Gestion des rendez-vous et admissions") ||
+        (hasRole("laborantin") && "Analyses et résultats biologiques") || "";
 
     return (
         <div className="ht-page">
             <Sidebar />
 
-            <main className="ht-page-content space-y-8">
+            <main className="ht-page-content space-y-10" style={{ maxWidth: "1600px" }}>
 
-                {/* ── Entête ── */}
+                {/* ── 1. Header ── */}
                 <PageBanner
                     size="large"
                     icon={LayoutDashboard}
                     title={
                         <>
                             {hasRole("admin")      && "Tableau de bord — Administration"}
-                            {hasRole("chef_chirurgie") && `Bonjour Dr. ${user?.nom || ""} 👋`}
                             {hasRole("medecin")    && `Bonjour Dr. ${user?.nom || ""} 👋 - ${user?.service_nom || ""}`}
                             {hasRole("infirmier")  && `Bonjour ${user?.prenom || ""} 👋`}
                             {hasRole("secretaire") && "Accueil & Secrétariat"}
                             {hasRole("laborantin") && "Espace Laboratoire"}
                         </>
                     }
-                    subtitle={
-                        (hasRole("admin")      && "Vue globale et gestion de l'établissement") ||
-                        (hasRole("chef_chirurgie")    && "Bloc opératoire, habilitations et vos consultations du jour") ||
-                        (hasRole("medecin") && !isChefChirurgie && "Vos patients et consultations du jour") ||
-                        (hasRole("infirmier")  && "Suivi des patients et constantes vitales") ||
-                        (hasRole("secretaire") && "Gestion des rendez-vous et admissions") ||
-                        (hasRole("laborantin") && "Analyses et résultats biologiques") || ""
-                    }
+                    subtitle={sousTitreHeader}
                     decorIcons={[Stethoscope, BedDouble]}
                     actions={
                         <>
-                            {hasRole("admin") && (
+                            {isAdmin && (
                                 <button onClick={() => navigate("/admissions/nouvelle")} className="btn btn-primary">
                                     <Plus size={16} /> Nouveau patient
                                 </button>
-                            )}
-                            {isChefChirurgie && (
-                                <>
-                                    <button onClick={() => navigate("/calendrier", { state: { vue: "bloc" } })} className="btn btn-primary">
-                                        <Activity size={16} /> Bloc opératoire
-                                    </button>
-                                    {user?.service && (
-                                        <button
-                                            onClick={() => navigate(`/services/${user.service}`, { state: { tab: "habilitations" } })}
-                                            className="btn btn-secondary"
-                                        >
-                                            <ShieldCheck size={16} /> Habilitations
-                                        </button>
-                                    )}
-                                </>
                             )}
                             {isSecretaire && (
                                 <button onClick={() => navigate("/rendez_vous")} className="btn btn-secondary">
@@ -292,64 +319,76 @@ export default function Dashboard() {
                     }
                 />
 
-                {/* ── Section KPIs ── */}
-                {/* Rangée complète pour tous les rôles concernés — le calendrier complet
-                    (et ses propres KPI Interventions/Consultations/Patients suivis) vit
-                    désormais sur /calendrier, plus de doublon à éviter ici pour le médecin. */}
-                {(showPatientsKpi || canSeeUrgences || canSeeHospit || showRdvKpi || isAdmin) && (
+                {/* ── Continuer mon travail ── */}
+                <section className="space-y-4">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--ht-text-muted)" }}>
+                        <Sparkles size={13} /> Reprendre
+                    </h2>
+                    <ContinuerMonTravailCard
+                        items={travailItems}
+                        rappelsDetail={rappelsEnAttente.map((r) => r.texte)}
+                    />
+                </section>
+
+                {/* ── 2. Aujourd'hui ── */}
+                <section className="space-y-4">
+                    <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--ht-text-muted)" }}>
+                        <Sunrise size={13} /> Aujourd'hui
+                    </h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {showPatientsKpi && (
-                            patients === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Total patients" value={patients.length} icon={Users} accent
-                                          sub={`${nouveauCeMois} ajouté${nouveauCeMois > 1 ? "s" : ""} ce mois`}
-                                          onClick={() => navigate("/patients")} />
-                            )
+                        {canSeeConsult && (
+                            <FocusCard
+                                label="Prochaine consultation"
+                                icon={Stethoscope}
+                                value={prochaineConsultation ? formatHeure(prochaineConsultation.start_time) : "Aucune"}
+                                sub={prochaineConsultation?.patient?.nom_complet ?? "Rien de prévu"}
+                                onClick={() => navigate("/calendrier")}
+                            />
                         )}
-                        {showPatientsKpi && (
-                            patients === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Nouveaux patients (semaine)" value={nouveauCetteSemaine} icon={UserPlus}
-                                          sub={nouveauCetteSemaine > 0 ? "Sur les 7 derniers jours" : "Aucun cette semaine"}
-                                          onClick={() => navigate("/patients")} />
-                            )
-                        )}
-                        {showRdvKpi && (
-                            rendezVous === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Rendez-vous aujourd'hui" value={rdvAujourdhui.length} icon={CalendarCheck}
-                                          sub={rdvAujourdhui.length > 0 ? "Programmés aujourd'hui" : "Aucun aujourd'hui"}
-                                          onClick={() => navigate("/rendez_vous")} />
-                            )
-                        )}
-                        {showRdvKpi && (
-                            rendezVous === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="À confirmer" value={rdvAConfirmer.length} icon={CalendarClock}
-                                          sub={rdvAConfirmer.length > 0 ? "En attente de confirmation" : "Tout est confirmé"}
-                                          onClick={() => navigate("/rendez_vous")} />
-                            )
+                        {canSeeBloc && (
+                            <FocusCard
+                                label="Prochaine intervention"
+                                icon={Scissors}
+                                value={prochaineIntervention ? formatHeure(prochaineIntervention.start_time) : "Aucune"}
+                                sub={prochaineIntervention?.patient?.nom_complet ?? "Rien de prévu au bloc"}
+                                onClick={() => navigate("/calendrier")}
+                            />
                         )}
                         {canSeeUrgences && (
-                            urgences === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Aux urgences" value={urgences.length} icon={ShieldAlert}
-                                          sub={urgences.length > 0 ? "En attente / en cours" : "Aucun patient"}
-                                          onClick={() => navigate("/urgences")} />
-                            )
+                            <FocusCard
+                                label="Patients prioritaires"
+                                icon={ShieldAlert}
+                                tone={patientsPrioritairesCount > 0 ? "danger" : "default"}
+                                value={String(patientsPrioritairesCount)}
+                                sub="Cas critiques ou longue durée"
+                            />
                         )}
-                        {canSeeHospit && (
-                            hospitalisations === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Hospitalisations" value={hospitalisations.length} icon={BedDouble}
-                                          sub={hospitalisations.length > 0 ? `${hospitalisations.length} lits occupés` : "Aucune"} />
-                            )
-                        )}
-                        {showConsultKpi && (
-                            consultations === null ? <SkeletonKpiCard /> : (
-                                <StatCard label="Consultations (Jour)" value={consultationsAujourdhui.length} icon={Stethoscope}
-                                          sub={consultationsAujourdhui.length > 0 ? "Programmées ou faites" : "Aucune prévue"} />
-                            )
-                        )}
+                        <FocusCard
+                            label="Alertes critiques"
+                            icon={ShieldAlert}
+                            tone={alertesCritiquesCount > 0 ? "danger" : "default"}
+                            value={String(alertesCritiquesCount)}
+                            sub={alertesCritiquesCount > 0 ? "Non lues" : "Rien à signaler"}
+                        />
+                    </div>
+                </section>
+
+                {/* ── 3. Timeline de la journée ── */}
+                {(canSeeRdv || canSeeConsult) && (
+                    <section>
+                        <DayTimeline evenements={planningJour?.evenements ?? null} />
+                    </section>
+                )}
+
+                {/* ── 4. Patients prioritaires · 5. Bloc opératoire ── */}
+                {(canSeeUrgences || canSeeBloc) && (
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        {canSeeUrgences && <PriorityPatientsCard urgences={urgences} hospitalisations={hospitalisations} />}
+                        {canSeeBloc && <BlocOperatoireCard operations={blocJour?.operations} loading={blocLoading} />}
                     </div>
                 )}
 
-
-                {/* ── Section Widgets ── */}
+                {/* ── Widgets complémentaires (fonctionnalités existantes conservées) ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
                     {canSeeUrgences && (
@@ -368,7 +407,8 @@ export default function Dashboard() {
                                         <div className="flex items-center gap-3 min-w-0">
                                             <span className={`badge ${u.niveau_tri ? TRI_BADGE[u.niveau_tri] : "badge-muted"}`} style={{ width: "0.625rem", height: "0.625rem", padding: 0 }} />
                                             <div className="min-w-0">
-                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
+                                                <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{u.patient_prenom ? `${u.patient_prenom} ${u.patient_nom}` : (u.patient_nom || `Patient #${u.patient}`)}</p>
+                                                <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{u.niveau_tri_label || "Non trié"} · {u.motif}</p>
                                             </div>
                                         </div>
                                         <span className="badge badge-muted uppercase">
@@ -380,110 +420,8 @@ export default function Dashboard() {
                         </WidgetCard>
                     )}
 
-                    {canSeeHospit && (
-                        <WidgetCard
-                            title="Hospitalisations en cours"
-                            count={hospitalisations?.length}
-                            loading={hospitalisations === null}
-                            empty={(hospitalisations?.length ?? 0) === 0}
-                            emptyLabel="Aucune hospitalisation en cours"
-                        >
-                            <div className="divide-y divide-[var(--ht-border)]">
-                                {(hospitalisations ?? []).slice(0, 5).map(h => (
-                                    <div key={h.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{h.patient_prenom ? `${h.patient_prenom} ${h.patient_nom}` : (h.patient_nom || `Patient #${h.patient}`)}</p>
-                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">
-                                                {h.chambre ? `Chambre ${h.chambre}` : "Sans chambre"} {h.lit ? `· Lit ${h.lit}` : ""}
-                                            </p>
-                                        </div>
-                                        <span className="badge badge-muted">{h.duree_jours ?? 0} j</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </WidgetCard>
-                    )}
-
-                    {canSeePatients && (
-                        <WidgetCard
-                            title="Derniers patients ajoutés"
-                            loading={patients === null}
-                            empty={patientsRecents.length === 0}
-                            emptyLabel="Aucun patient pour le moment"
-                            linkLabel="Voir tous les patients"
-                            onLink={() => navigate("/patients")}
-                        >
-                            <div className="space-y-2.5">
-                                {patientsRecents.map(p => (
-                                    <div key={p.id} onClick={() => navigate(`/patients/${p.id}`)} className="flex items-center gap-3 p-2 hover:bg-[var(--ht-bg)] border border-transparent hover:border-[var(--ht-border)] rounded-xl cursor-pointer transition-all">
-                                        <div className="ht-avatar ht-avatar-sm" style={{ backgroundColor: "var(--ht-primary-light)", color: "var(--ht-primary)" }}>
-                                            {p.prenom?.[0] || ""}{p.nom?.[0] || ""}
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{p.prenom} {p.nom}</p>
-                                            <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">{p.age ?? '—'} ans</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </WidgetCard>
-                    )}
-
-                    {canSeeRdv && !isMedecin && (
-                        <WidgetCard
-                            title="Rendez-vous du jour"
-                            count={rdvAujourdhui.length}
-                            loading={rendezVous === null}
-                            empty={rdvAujourdhui.length === 0}
-                            emptyLabel="Aucun rendez-vous prévu aujourd'hui"
-                            linkLabel="Voir tous les rendez-vous"
-                            onLink={() => navigate("/rendez_vous")}
-                        >
-                            <div className="divide-y divide-[var(--ht-border)]">
-                                {rdvAujourdhui.slice(0, 5).map(r => (
-                                    <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{r.patient_prenom} {r.patient_nom}</p>
-                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{r.motif}</p>
-                                        </div>
-                                        <span className="badge badge-tint">
-                                            {new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </WidgetCard>
-                    )}
-
-                    {canSeeRdv && (
-                        <WidgetCard
-                            title="Cette semaine"
-                            count={rdvCetteSemaine.length}
-                            loading={rendezVous === null}
-                            empty={rdvCetteSemaine.length === 0}
-                            emptyLabel="Aucun rendez-vous prévu dans les 7 prochains jours"
-                            linkLabel="Voir tous les rendez-vous"
-                            onLink={() => navigate("/rendez_vous")}
-                        >
-                            <div className="divide-y divide-[var(--ht-border)]">
-                                {rdvCetteSemaine.slice(0, 5).map(r => (
-                                    <div key={r.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{r.patient_prenom} {r.patient_nom}</p>
-                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">{r.motif}</p>
-                                        </div>
-                                        <span className="badge badge-muted">
-                                            {new Date(r.date_heure).toLocaleDateString("fr-FR", { weekday: "short", day: "2-digit", month: "2-digit" })}
-                                            {" · "}
-                                            {new Date(r.date_heure).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        </WidgetCard>
-                    )}
-
                     <RappelsPanel />
+
                 </div>
 
                 {/* ── Module Laboratoire dédié pour les Laborantins ── */}

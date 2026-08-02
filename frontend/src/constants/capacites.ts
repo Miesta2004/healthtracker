@@ -23,6 +23,8 @@ export const Capacite = {
     PATIENTS_TRANSFERER: 'patients.transferer',
     PATIENTS_CONFIRMER_ARRIVEE: 'patients.confirmer_arrivee',
     ACCOMPAGNANTS_GERER: 'accompagnants.gerer',
+    FACTURATION_GERER: 'facturation.gerer',
+    PAIEMENTS_ENCAISSER: 'paiements.encaisser',
 } as const
 
 export type CapaciteValue = typeof Capacite[keyof typeof Capacite]

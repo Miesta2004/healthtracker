@@ -10,6 +10,9 @@ class Role(models.TextChoices):
     LABORANTIN     = 'laborantin',     'Laborantin'
     CHEF_CHIRURGIE = 'chef_chirurgie', 'Chef de Chirurgie'
     AGENT_ADMISSION = 'agent_admission', "Agent d'Admission"
+    FACTURIER      = 'facturier',       'Facturier(ère)'
+    CAISSIER       = 'caissier',        'Caissier(ère)'
+    # AGENT_FACTURATION = 'agent_facturation', 'Agent de Facturation'  # rôle cumulé facturier+caissier — désactivé par défaut, cf. comptes/capacites.py
 
 class TypeContrat(models.TextChoices):
     CDI       = 'cdi',       'CDI'

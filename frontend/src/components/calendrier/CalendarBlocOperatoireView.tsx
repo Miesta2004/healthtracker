@@ -5,7 +5,7 @@ import CurrentTimeLine from './CurrentTimeLine'
 import CalendarSlotCell from './CalendarSlotCell'
 import {
     heuresGrille, PX_PAR_HEURE, PX_PAR_DEMI_HEURE, HEURE_SCROLL_INITIAL,
-    estAujourdhui, dateACreneauHoraire, disposerEvenements,
+    estAujourdhui, dateACreneauHoraire, disposerEvenements, segmenterParJour,
 } from './calendrierConfig'
 
 interface Props {
@@ -65,7 +65,12 @@ export default function CalendarBlocOperatoireView({
 
                     {salles.map(salle => {
                         const opsSalle = operations.filter(o => o.salle === salle.id)
-                        const disposes = disposerEvenements(opsSalle, o => o.heure_debut, o => o.heure_fin)
+                        const segmentsSalle = segmenterParJour(opsSalle, ancre, o => o.heure_debut, o => o.heure_fin)
+                        const disposes = disposerEvenements(
+                            segmentsSalle,
+                            s => s.debutSegment.toISOString(),
+                            s => s.finSegment.toISOString(),
+                        )
                         return (
                             <div
                                 key={salle.id}
@@ -85,14 +90,18 @@ export default function CalendarBlocOperatoireView({
                                         />
                                     </div>
                                 ))}
-                                {disposes.map(({ evenement: operation, colonnes, indexColonne }) => (
+                                {disposes.map(({ evenement: segment, colonnes, indexColonne }) => (
                                     <OperationBlock
-                                        key={operation.id}
-                                        operation={operation}
+                                        key={`${segment.item.id}-${segment.debutSegment.toISOString()}`}
+                                        operation={segment.item}
                                         colonnes={colonnes}
                                         indexColonne={indexColonne}
-                                        onClick={() => onSelectOperation(operation)}
-                                        onRedimensionner={(duree) => onRedimensionnerOperation?.(operation.id, duree)}
+                                        onClick={() => onSelectOperation(segment.item)}
+                                        onRedimensionner={(duree) => onRedimensionnerOperation?.(segment.item.id, duree)}
+                                        debutAffiche={segment.debutSegment}
+                                        finAffiche={segment.finSegment}
+                                        continueAvant={segment.continueAvant}
+                                        continueApres={segment.continueApres}
                                     />
                                 ))}
                                 {estAujourdhui(ancre) && <CurrentTimeLine />}

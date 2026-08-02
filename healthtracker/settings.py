@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'signes_vitaux',
     'alertes',
     'comptes',
+    'facturation',
     'antecedents',
     'services',
     'analyses',
