@@ -200,7 +200,7 @@ export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annule
 export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
 
 // ─── Comptes / Employés ─────────────────────────────────────────────────────
-export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie' | 'agent_admission'
+export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie' | 'agent_admission' | 'facturier' | 'caissier'
 
 export type TypeContrat = 'cdi' | 'cdd' | 'stage' | 'vacation' | 'benevolat' | ''
 
@@ -817,3 +817,268 @@ export interface OperationStats {
 export interface ActiviteJour {
     jour: string
     nb: number}
+
+
+// Calqué sur activites.serializers.JournalActiviteSerializer — bloc "activité
+// récente" du Dashboard + page dédiée /activites.
+export type TypeObjetActivite = 'rendez_vous' | 'consultation' | 'intervention' | 'patient' | 'hospitalisation' | 'urgence' | 'employe' | 'autre'
+export type ActionActivite = 'creation' | 'modification' | 'suppression' | 'annulation' | 'autre'
+
+export interface JournalActivite {
+    id: number
+    employe: number | null
+    employe_nom: string | null
+    employe_prenom: string | null
+    employe_role_label: string | null
+    service: number | null
+    service_nom: string | null
+    type_objet: TypeObjetActivite
+    type_objet_label: string
+    action: ActionActivite
+    action_label: string
+    description: string
+    objet_id: number | null
+    date_creation: string
+}
+// ─── Module Facturation & Encaissement ─────────────────────────────────────
+// Miroir des modèles Django (facturation/models.py) et des serializers DRF.
+// Les statuts utilisent les classes .badge-* déjà définies dans index.css
+// (theme-aware, dark mode inclus) plutôt que des couleurs Tailwind en dur.
+
+export type TypeActe =
+    | 'consultation'
+    | 'hospitalisation'
+    | 'examen_laboratoire'
+    | 'acte_chirurgical'
+    | 'medicament'
+    | 'autre'
+
+export const TYPE_ACTE_LABELS: Record<TypeActe, string> = {
+    consultation:        'Consultation',
+    hospitalisation:     'Hospitalisation (nuitée)',
+    examen_laboratoire:  'Examen de laboratoire',
+    acte_chirurgical:    'Acte chirurgical',
+    medicament:          'Médicament / Pharmacie',
+    autre:               'Autre',
+}
+
+export type StatutFacture =
+    | 'brouillon'
+    | 'ouverte'
+    | 'en_attente'
+    | 'payee_partiellement'
+    | 'payee'
+    | 'annulee'
+
+export const STATUT_FACTURE_LABELS: Record<StatutFacture, string> = {
+    brouillon:            'Brouillon',
+    ouverte:              'Ouverte (séjour en cours)',
+    en_attente:           'En attente de paiement',
+    payee_partiellement:  'Payée partiellement',
+    payee:                'Payée',
+    annulee:              'Annulée',
+}
+
+// Classe .badge-* (cf. index.css) par statut
+export const STATUT_FACTURE_BADGE: Record<StatutFacture, string> = {
+    brouillon:            'badge-muted',
+    ouverte:              'badge-tint',
+    en_attente:           'badge-warning',
+    payee_partiellement:  'badge-warning',
+    payee:                'badge-success',
+    annulee:              'badge-muted',
+}
+
+export type StatutValidationAssurance =
+    | 'non_soumis' | 'soumis' | 'valide' | 'rejete_partiel' | 'rejete'
+
+export const STATUT_VALIDATION_ASSURANCE_LABELS: Record<StatutValidationAssurance, string> = {
+    non_soumis:      'Non soumis',
+    soumis:          "Soumis à l'assurance",
+    valide:          "Validé par l'assurance",
+    rejete_partiel:  'Rejeté partiellement',
+    rejete:          'Rejeté',
+}
+
+export type ModePaiement =
+    | 'especes' | 'carte_bancaire' | 'mobile_money' | 'virement' | 'prise_en_charge_assurance'
+
+export const MODE_PAIEMENT_LABELS: Record<ModePaiement, string> = {
+    especes:                    'Espèces',
+    carte_bancaire:             'Carte bancaire',
+    mobile_money:               'Mobile Money',
+    virement:                   'Virement',
+    prise_en_charge_assurance:  'Prise en charge assurance',
+}
+
+export type OperateurMobileMoney = 'wave' | 'orange_money' | 'free_money' | 'autre'
+
+export const OPERATEUR_MOBILE_MONEY_LABELS: Record<OperateurMobileMoney, string> = {
+    wave: 'Wave', orange_money: 'Orange Money', free_money: 'Free Money', autre: 'Autre',
+}
+
+export type PeriodiciteEcheance = 'hebdomadaire' | 'mensuelle' | 'bimensuelle'
+
+export const PERIODICITE_ECHEANCE_LABELS: Record<PeriodiciteEcheance, string> = {
+    hebdomadaire: 'Hebdomadaire', mensuelle: 'Mensuelle', bimensuelle: 'Bimensuelle',
+}
+
+export type StatutEcheancier = 'actif' | 'solde' | 'en_defaut' | 'annule'
+export type StatutEcheance = 'a_venir' | 'payee' | 'en_retard' | 'impayee'
+
+export const STATUT_ECHEANCE_LABELS: Record<StatutEcheance, string> = {
+    a_venir: 'À venir', payee: 'Payée', en_retard: 'En retard', impayee: 'Impayée',
+}
+export const STATUT_ECHEANCE_BADGE: Record<StatutEcheance, string> = {
+    a_venir: 'badge-tint', payee: 'badge-success', en_retard: 'badge-warning', impayee: 'badge-danger',
+}
+
+export interface LigneFacture {
+    id: number
+    facture: number
+    type_acte: TypeActe
+    description: string
+    code_acte?: string
+    consultation?: number | null
+    hospitalisation?: number | null
+    demande_analyse?: number | null
+    quantite: number
+    prix_unitaire: number
+    montant_ligne: number
+    taux_prise_en_charge_assurance?: number | null
+    montant_part_assurance_ligne: number
+    montant_part_patient_ligne: number
+    statut_assurance: StatutValidationAssurance
+    motif_rejet?: string
+    date_acte: string
+    notes?: string
+}
+
+export interface NouvelleLigneFacturePayload {
+    type_acte: TypeActe
+    description: string
+    consultation?: number
+    hospitalisation?: number
+    demande_analyse?: number
+    quantite: number
+    prix_unitaire: number
+    taux_prise_en_charge_assurance?: number
+    date_acte: string
+    notes?: string
+}
+
+export interface Paiement {
+    id: number
+    facture: number
+    echeance?: number | null
+    montant: number
+    mode_paiement: ModePaiement
+    operateur_mobile_money?: OperateurMobileMoney | null
+    reference_transaction?: string
+    date_paiement: string
+    encaisse_par?: number | null
+    encaisse_par_nom?: string | null
+    notes?: string
+}
+
+export interface NouveauPaiementPayload {
+    facture: number
+    montant: number
+    mode_paiement: ModePaiement
+    echeance?: number
+    operateur_mobile_money?: OperateurMobileMoney
+    reference_transaction?: string
+    notes?: string
+}
+
+export interface Echeance {
+    id: number
+    echeancier: number
+    numero_echeance: number
+    date_echeance: string
+    montant_prevu: number
+    montant_paye: number
+    statut: StatutEcheance
+}
+
+export interface EcheancierPaiement {
+    id: number
+    facture: number
+    montant_total_echeancier: number
+    nombre_echeances: number
+    periodicite: PeriodiciteEcheance
+    date_premiere_echeance: string
+    statut: StatutEcheancier
+    engagement_signe: boolean
+    date_signature?: string | null
+    document_signe_url?: string | null
+    garant_nom?: string
+    garant_telephone?: string
+    garant_cni?: string
+    echeances: Echeance[]
+    cree_par?: number | null
+    cree_par_nom?: string | null
+    date_creation: string
+    notes?: string
+}
+
+export interface NouvelEcheancierPayload {
+    montant_total_echeancier: number
+    nombre_echeances: number
+    periodicite: PeriodiciteEcheance
+    date_premiere_echeance: string
+    engagement_signe: boolean
+    garant_nom?: string
+    garant_telephone?: string
+    garant_cni?: string
+    notes?: string
+}
+
+export interface Facture {
+    id: number
+    numero_facture: string
+    patient: number
+    patient_nom?: string
+    patient_prenom?: string
+    patient_dossier?: string
+    service?: number | null
+    service_nom?: string | null
+    hospitalisation?: number | null
+    statut: StatutFacture
+    statut_label?: string
+    date_emission: string
+    date_echeance?: string | null
+    lignes: LigneFacture[]
+    paiements: Paiement[]
+    echeancier?: EcheancierPaiement | null
+    mutuelle_nom?: string
+    numero_mutuelle?: string
+    part_assurance_pourcentage_defaut: number
+    montant_total: number
+    montant_part_assurance: number
+    montant_part_patient: number
+    montant_paye: number
+    montant_restant: number
+    notes?: string
+    date_creation: string
+    date_modification: string
+    cree_par?: number | null
+    cree_par_nom?: string | null
+}
+
+export interface NouvelleFacturePayload {
+    patient: number
+    service?: number
+    hospitalisation?: number
+    date_echeance?: string
+    part_assurance_pourcentage_defaut?: number
+    mutuelle_nom?: string
+    numero_mutuelle?: string
+    notes?: string
+}
+
+// Formate un montant en FCFA, cohérent partout dans le module.
+export function formatMontant(montant: number | string): string {
+    const n = typeof montant === 'string' ? parseFloat(montant) : montant
+    return new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 }).format(n) + ' FCFA'
+}

@@ -12,6 +12,7 @@ from django.utils import timezone as dj_timezone
 from comptes.models import Employe
 from comptes.capacites import roles_effectifs
 from comptes.permissions import IsAdminRole, IsLectureAutorisee, IsMedecinOuAdmin, PeutVoirRendezVous, get_employe
+from activites.models import journaliser
 from disponibilites.models import CreneauDisponibilite, ExceptionDisponibilite, StatutException
 from alertes.models import Alerte
 from temps_reel.broadcast import diffuser_service
@@ -70,6 +71,13 @@ class ConsultViewSet(viewsets.ModelViewSet):
         if rdv_id:
             RendezVous.objects.filter(pk=rdv_id).update(consultation_liee=consultation)
         self._repercuter_statut_sur_rdv(consultation)
+        journaliser(
+            employe=get_employe(self.request.user),
+            type_objet='consultation',
+            action='creation',
+            description=f"Consultation créée — {consultation.patient.prenom} {consultation.patient.nom}",
+            objet_id=consultation.id,
+        )
 
     def perform_update(self, serializer):
         """
@@ -80,8 +88,17 @@ class ConsultViewSet(viewsets.ModelViewSet):
         Rendez-vous ne voit jamais ces RDV consultés en avance sur leur
         horaire planifié (cf. correctif filtrage "Passés").
         """
+        statut_avant = serializer.instance.statut
         consultation = serializer.save()
         self._repercuter_statut_sur_rdv(consultation)
+        if consultation.statut == 'terminee' and statut_avant != 'terminee':
+            journaliser(
+                employe=get_employe(self.request.user),
+                type_objet='consultation',
+                action='modification',
+                description=f"Consultation terminée — {consultation.patient.prenom} {consultation.patient.nom}",
+                objet_id=consultation.id,
+            )
 
     def _repercuter_statut_sur_rdv(self, consultation):
         if consultation.statut != 'terminee':
@@ -272,6 +289,16 @@ class RdvViewSet(viewsets.ModelViewSet):
             serializer.instance.patient.service_id, 'rendez_vous', 'cree',
             id=serializer.instance.id
         )
+        journaliser(
+            employe=get_employe(user),
+            type_objet='rendez_vous',
+            action='creation',
+            description=(
+                f"RDV créé — {serializer.instance.patient.prenom} {serializer.instance.patient.nom} "
+                f"avec Dr. {serializer.instance.medecin.prenom} {serializer.instance.medecin.nom}"
+            ),
+            objet_id=serializer.instance.id,
+        )
 
     def perform_update(self, serializer):
         """Même verrouillage qu'à la création, appliqué aussi à la modification."""
@@ -285,11 +312,29 @@ class RdvViewSet(viewsets.ModelViewSet):
                         'medecin': "Vous ne pouvez programmer un rendez-vous que pour vous-même."
                     })
 
+        statut_avant = serializer.instance.statut
+        nouveau_statut = serializer.validated_data.get('statut', statut_avant)
+
         serializer.save()
         diffuser_service(
             serializer.instance.patient.service_id, 'rendez_vous', 'modifie',
             id=serializer.instance.id
         )
+
+        # On ne journalise que l'annulation, pas chaque déplacement/édition —
+        # un RDV reprogrammé par drag & drop n'a pas de valeur de
+        # traçabilité en soi (cf. docstring du modèle JournalActivite).
+        if nouveau_statut == 'annule' and statut_avant != 'annule':
+            journaliser(
+                employe=get_employe(user),
+                type_objet='rendez_vous',
+                action='annulation',
+                description=(
+                    f"RDV annulé — {serializer.instance.patient.prenom} {serializer.instance.patient.nom} "
+                    f"avec Dr. {serializer.instance.medecin.prenom} {serializer.instance.medecin.nom}"
+                ),
+                objet_id=serializer.instance.id,
+            )
 
     def perform_destroy(self, instance):
         service_id = instance.patient.service_id

@@ -16,4 +16,5 @@ urlpatterns = [
     path('', include('chirurgie.urls')),
     path('', include('documents.urls')),
     path('', include('facturation.urls')),
+    path('', include('activites.urls')),
 ]

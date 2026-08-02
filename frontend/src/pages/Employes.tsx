@@ -23,6 +23,8 @@ const ROLE_LABELS: Record<RoleEmploye, string> = {
     laborantin: 'Laborantin',
     chef_chirurgie: 'Chef de Chirurgie',
     agent_admission: "Agent d'Admission",
+    facturier: 'Facturier(ère)',
+    caissier: 'Caissier(ère)',
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
     admin: 'var(--ht-primary)',
@@ -32,6 +34,8 @@ const ROLE_COLORS: Record<RoleEmploye, string> = {
     laborantin: 'var(--role-laborantin)',
     chef_chirurgie: 'var(--role-chef_chirurgie)',
     agent_admission: 'var(--role-agent_admission)',
+    facturier: 'var(--role-facturier)',
+    caissier: 'var(--role-caissier)',
 }
 const ROLES: RoleEmploye[] = ['admin', 'medecin', 'infirmier', 'secretaire', 'laborantin', 'chef_chirurgie', 'agent_admission']
 

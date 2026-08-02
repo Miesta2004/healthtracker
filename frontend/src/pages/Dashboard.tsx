@@ -9,7 +9,8 @@ import { getServices } from "../api/services";
 import { getDemandesEnAttente, getDemandes } from "../api/analyses";
 import { getAlertes } from "../api/alertes";
 import { getRappels } from "../api/rappels";
-import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri, Alerte, DemandeAnalyse, Rappel } from "../types";
+import { getActivitesRecentes } from "../api/activites";
+import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri, Alerte, DemandeAnalyse, Rappel, JournalActivite } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
 import DayTimeline from "../components/dashboard/DayTimeLine.tsx";
@@ -38,6 +39,7 @@ import {
     ChevronRight,
     LayoutDashboard,
     Sunrise,
+    History,
 } from "lucide-react";
 import RappelsPanel from "../components/RappelsPanel.tsx";
 
@@ -50,6 +52,14 @@ const TRI_BADGE: Record<NiveauTri, string> = {
     5: "badge-tri-5",
 };
 
+function tempsEcoule(dateIso: string) {
+    const mins = Math.floor((Date.now() - new Date(dateIso).getTime()) / 60000)
+    if (mins < 1) return "à l'instant"
+    if (mins < 60) return `il y a ${mins} min`
+    const h = Math.floor(mins / 60)
+    if (h < 24) return `il y a ${h}h${(mins % 60).toString().padStart(2, '0')}`
+    return `il y a ${Math.floor(h / 24)} j`
+}
 
 // ─── COMPOSANT WIDGETCARD ─────────────────────────────────────────────────────
 interface WidgetCardProps {
@@ -152,6 +162,7 @@ export default function Dashboard() {
     const [alertes, setAlertes] = useState<Alerte[] | null>(null);
     const [demandesAnalyses, setDemandesAnalyses] = useState<DemandeAnalyse[] | null>(null);
     const [rappels, setRappels] = useState<Rappel[] | null>(null);
+    const [activitesRecentes, setActivitesRecentes] = useState<JournalActivite[] | null>(null);
 
     useEffect(() => {
         if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]));
@@ -162,6 +173,7 @@ export default function Dashboard() {
         if (isMedecin || isAdmin) getDemandes().then(setDemandesAnalyses).catch(() => setDemandesAnalyses([]));
         getRappels().then(setRappels).catch(() => setRappels([]));
         getAlertes().then(setAlertes).catch(() => setAlertes([]));
+        getActivitesRecentes().then(setActivitesRecentes).catch(() => setActivitesRecentes([]));
         if (isAdmin) {
             Promise.all([getEmployes(), getServices()])
                 .then(([emps, servs]) => setEffectif({
@@ -419,6 +431,34 @@ export default function Dashboard() {
                             </div>
                         </WidgetCard>
                     )}
+
+                    <WidgetCard
+                        title="Activité récente"
+                        loading={activitesRecentes === null}
+                        empty={(activitesRecentes?.length ?? 0) === 0}
+                        emptyLabel="Aucune activité récente dans votre service"
+                        linkLabel="Voir tout"
+                        onLink={() => navigate("/activites")}
+                    >
+                        <div className="divide-y divide-[var(--ht-border)]">
+                            {(activitesRecentes ?? []).map(a => (
+                                <div key={a.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className="ht-kpi-icon" style={{ width: '2rem', height: '2rem', flexShrink: 0 }}>
+                                            <History size={14} style={{ color: "var(--ht-primary)" }} />
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{a.description}</p>
+                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">
+                                                {a.employe_prenom ? `${a.employe_prenom} ${a.employe_nom}` : "Système"} · {tempsEcoule(a.date_creation)}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <span className="badge badge-muted flex-shrink-0">{a.type_objet_label}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </WidgetCard>
 
                     <RappelsPanel />
 

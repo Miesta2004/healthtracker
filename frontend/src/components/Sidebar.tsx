@@ -33,6 +33,9 @@ import {
     RefreshCw,
     Tag,
     ShieldCheck,
+    History,
+    Receipt,
+    Wallet,
 } from "lucide-react";
 
 const STORAGE_KEY = "ht_sidebar_compact";
@@ -301,6 +304,14 @@ export default function Sidebar() {
                             collapsed={collapsed}
                         />
 
+                        <SidebarItem
+                            icon={History}
+                            label="Activités"
+                            active={isActive("/activites")}
+                            onClick={() => navigate("/activites")}
+                            collapsed={collapsed}
+                        />
+
                         {hasRole("admin", "medecin", "infirmier", "secretaire") && (
                             <SidebarItem
                                 icon={CalendarDays}
@@ -369,6 +380,26 @@ export default function Sidebar() {
                                 label="Laboratoire"
                                 active={isActive("/laboratoire")}
                                 onClick={() => navigate("/laboratoire")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "facturier") && (
+                            <SidebarItem
+                                icon={Receipt}
+                                label="Facturation"
+                                active={isActive("/facturation")}
+                                onClick={() => navigate("/facturation")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "caissier") && (
+                            <SidebarItem
+                                icon={Wallet}
+                                label="Caisse"
+                                active={isActive("/caisse")}
+                                onClick={() => navigate("/caisse")}
                                 collapsed={collapsed}
                             />
                         )}

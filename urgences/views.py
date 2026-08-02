@@ -1,4 +1,5 @@
 from django.utils import timezone
+from django.utils.dateparse import parse_datetime
 from rest_framework import viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.decorators import action
@@ -85,13 +86,66 @@ class PassageUrgenceViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='sortie')
     def sortie(self, request, pk=None):
-        """Enregistre la sortie d'un patient des urgences (sans hospitalisation)."""
+        """
+        Enregistre la sortie d'un patient des urgences (sans hospitalisation).
+
+        Si decision == 'deces', déclenche la même cascade que pour un décès
+        au bloc opératoire (voir chirurgie.views._traiter_deces_au_bloc) via
+        le point d'entrée unique morgue.services.enregistrer_deces : création
+        du Deces et passage de Patient.statut_vital à 'decede'. Avant ce
+        correctif, un décès constaté aux urgences n'était qu'une valeur de
+        champ 'decision' sur le passage — aucune trace clinique/légale
+        n'était créée côté morgue.
+        """
         passage = self.get_object()
-        passage.decision = request.data.get('decision', DecisionSortie.DOMICILE)
+
+        if passage.statut == StatutUrgence.SORTI:
+            return Response(
+                {'detail': "Ce passage est déjà clôturé."},
+                status=400,
+            )
+
+        decision = request.data.get('decision', DecisionSortie.DOMICILE)
+        if decision not in DecisionSortie.values:
+            return Response({'detail': "'decision' invalide."}, status=400)
+
+        date_sortie_brute = request.data.get('date_sortie')
+        if date_sortie_brute:
+            date_sortie = parse_datetime(date_sortie_brute)
+            if date_sortie is None:
+                return Response(
+                    {'detail': "'date_sortie' invalide (format ISO 8601 attendu)."},
+                    status=400,
+                )
+            if timezone.is_naive(date_sortie):
+                date_sortie = timezone.make_aware(date_sortie)
+        else:
+            date_sortie = timezone.now()
+
+        if decision == DecisionSortie.DECES and hasattr(passage.patient, 'deces'):
+            return Response(
+                {'detail': "Le décès de ce patient a déjà été enregistré."},
+                status=400,
+            )
+
+        passage.decision = decision
         passage.diagnostic = request.data.get('diagnostic', passage.diagnostic)
         passage.notes = request.data.get('notes', passage.notes)
-        passage.date_sortie = request.data.get('date_sortie') or timezone.now()
+        passage.date_sortie = date_sortie
         passage.statut = StatutUrgence.SORTI
+
+        if decision == DecisionSortie.DECES:
+            from morgue.services import enregistrer_deces
+
+            emp = get_employe(request.user)
+            enregistrer_deces(
+                patient=passage.patient,
+                date_deces=date_sortie,
+                necessite_autopsie=bool(request.data.get('necessite_autopsie', False)),
+                cause_presumee=request.data.get('cause_deces', passage.diagnostic or passage.motif),
+                medecin_constatant=passage.medecin_examinateur or emp,
+            )
+
         passage.save()
         return Response(PassageUrgenceSerializer(passage).data)
 
@@ -102,6 +156,11 @@ class PassageUrgenceViewSet(viewsets.ModelViewSet):
         from services.models import Service
 
         passage = self.get_object()
+        if passage.statut == StatutUrgence.SORTI:
+            return Response(
+                {'detail': "Ce passage est déjà clôturé."},
+                status=400,
+            )
         service_id = request.data.get('service')
         service = Service.objects.filter(id=service_id).first() if service_id else passage.service
 

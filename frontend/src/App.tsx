@@ -29,6 +29,10 @@ import FileAttenteService from './pages/FileAttenteService'
 import RechercheAdmission from './pages/RechercheAdmission'
 import BraceletsAdmission from './pages/BraceletsAdmission'
 import ControleAccompagnants from './pages/ControleAccompagnants'
+import Activites from './pages/Activites'
+import Facturation from './pages/Facturation'
+import FactureDetail from './pages/FactureDetail'
+import Caisse from './pages/Caisse'
 
 /**
  * Remplace un simple <Navigate to="/dashboard" /> pour "/" et le catch-all :
@@ -58,6 +62,9 @@ function App() {
                 {/* ── Tous les employés connectés ── */}
                 <Route path="/dashboard" element={
                     <ProtectedRoute><Dashboard /></ProtectedRoute>
+                } />
+                <Route path="/activites" element={
+                    <ProtectedRoute><Activites /></ProtectedRoute>
                 } />
                 <Route path="/patients" element={
                     <ProtectedRoute roles={['admin', 'medecin', 'infirmier', 'secretaire']}>
@@ -181,6 +188,23 @@ function App() {
                 <Route path="/conges" element={
                     <ProtectedRoute roles={['admin']}>
                         <DemandesConges />
+                    </ProtectedRoute>
+                } />
+
+                {/* ── Facturation & Encaissement ── */}
+                <Route path="/facturation" element={
+                    <ProtectedRoute roles={['admin', 'facturier']}>
+                        <Facturation />
+                    </ProtectedRoute>
+                } />
+                <Route path="/facturation/:id" element={
+                    <ProtectedRoute roles={['admin', 'facturier', 'caissier']}>
+                        <FactureDetail />
+                    </ProtectedRoute>
+                } />
+                <Route path="/caisse" element={
+                    <ProtectedRoute roles={['admin', 'caissier']}>
+                        <Caisse />
                     </ProtectedRoute>
                 } />
 

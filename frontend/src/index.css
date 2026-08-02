@@ -44,6 +44,8 @@
     --role-laborantin:      #ea580c;
     --role-agent_admission: #f59e0b;
     --role-chef_chirurgie:  #9f1239;
+    --role-facturier:       #0369a1;
+    --role-caissier:        #15803d;
 
     --tri-1-bg: #dc2626; --tri-1-text: #ffffff;
     --tri-2-bg: #ea580c; --tri-2-text: #ffffff;
@@ -160,6 +162,8 @@ body {
 .badge-role-laborantin { background-color: rgba(234,88,12,0.12); color: var(--role-laborantin); }
 .badge-role-agent_admission { background-color: rgba(245,158,11,0.12); color: var(--role-agent_admission); }
 .badge-role-chef_chirurgie { background-color: rgba(159,18,57,0.12); color: var(--role-chef_chirurgie); }
+.badge-role-facturier { background-color: rgba(3,105,161,0.12); color: var(--role-facturier); }
+.badge-role-caissier { background-color: rgba(21,128,61,0.12); color: var(--role-caissier); }
 
 .badge-gravite {
     display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.25rem 0.7rem 0.25rem 0.5rem;

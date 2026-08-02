@@ -8,6 +8,8 @@ import {
     FlaskConical,
     Scissors,
     ClipboardList,
+    Receipt,
+    Wallet,
     ArrowLeft,
     AlertCircle,
     CheckCircle2,
@@ -27,6 +29,8 @@ const ROLES: { value: RoleEmploye; label: string; icon: React.ComponentType<any>
     { value: 'laborantin', label: 'Laborantin', icon: FlaskConical },
     { value: 'chef_chirurgie', label: 'Chef de Chirurgie', icon: Scissors },
     { value: 'agent_admission', label: "Agent d'Admission", icon: ClipboardList },
+    { value: 'facturier', label: 'Facturier(ère)', icon: Receipt },
+    { value: 'caissier', label: 'Caissier(ère)', icon: Wallet },
 ]
 
 // ─── Champ texte réutilisable ─────────────────────────────────────────────────

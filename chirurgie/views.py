@@ -12,6 +12,7 @@ from .models import SalleBloc, InterventionChirurgicale, StatutIntervention, Sta
 from .serializers import SalleBlocSerializer, InterventionChirurgicaleSerializer
 from .permissions import PeutGererOperation
 from temps_reel.broadcast import diffuser_service
+from activites.models import journaliser
 
 
 class SalleBlocViewSet(viewsets.ModelViewSet):
@@ -140,6 +141,17 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save()
         self._diffuser(serializer.instance, 'cree')
+        intervention = serializer.instance
+        journaliser(
+            employe=get_employe(self.request.user),
+            type_objet='intervention',
+            action='creation',
+            description=(
+                f"Intervention programmée — {intervention.type_acte} pour "
+                f"{intervention.patient.prenom} {intervention.patient.nom}"
+            ),
+            objet_id=intervention.id,
+        )
 
     def perform_update(self, serializer):
         serializer.save()
@@ -278,6 +290,16 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
             intervention.complications = motif
         intervention.save(update_fields=['statut', 'complications', 'date_modification'])
         self._diffuser(intervention, 'annulee')
+        journaliser(
+            employe=get_employe(request.user),
+            type_objet='intervention',
+            action='annulation',
+            description=(
+                f"Intervention annulée — {intervention.type_acte} pour "
+                f"{intervention.patient.prenom} {intervention.patient.nom}"
+            ),
+            objet_id=intervention.id,
+        )
 
         return Response(InterventionChirurgicaleSerializer(intervention).data)
 
@@ -341,6 +363,19 @@ class InterventionChirurgicaleViewSet(viewsets.ModelViewSet):
             SalleBloc.objects.filter(pk=intervention.salle_id).update(statut=StatutSalle.DISPONIBLE)
 
         self._diffuser(intervention, 'cloturee')
+        journaliser(
+            employe=get_employe(request.user),
+            type_objet='intervention',
+            action='modification',
+            description=(
+                f"Intervention terminée — {intervention.type_acte} pour "
+                f"{intervention.patient.prenom} {intervention.patient.nom}"
+                if resultat == StatutIntervention.TERMINEE else
+                f"Décès au bloc — {intervention.type_acte} sur "
+                f"{intervention.patient.prenom} {intervention.patient.nom}"
+            ),
+            objet_id=intervention.id,
+        )
         return Response(InterventionChirurgicaleSerializer(intervention).data)
 
     def _traiter_deces_au_bloc(self, intervention, request):

@@ -13,12 +13,12 @@ import { Edit3, User, Lock, FileText, ClipboardList, CalendarClock, Clock, Check
 const ROLE_LABELS: Record<RoleEmploye, string> = {
     admin: 'Administrateur', medecin: 'Médecin', infirmier: 'Infirmier(ère)',
     secretaire: 'Secrétaire', laborantin: 'Laborantin', chef_chirurgie: 'Chef de Chirurgie',
-    agent_admission: "Agent d'Admission",
+    agent_admission: "Agent d'Admission", facturier: 'Facturier(ère)', caissier: 'Caissier(ère)',
 }
 const ROLE_COLORS: Record<RoleEmploye, string> = {
     admin: 'var(--ht-primary)', medecin: 'var(--role-medecin)', infirmier: 'var(--role-infirmier)',
     secretaire: 'var(--role-secretaire)', laborantin: 'var(--role-laborantin)', chef_chirurgie: 'var(--role-chef_chirurgie)',
-    agent_admission: 'var(--role-agent_admission)',
+    agent_admission: 'var(--role-agent_admission)', facturier: 'var(--role-facturier)', caissier: 'var(--role-caissier)',
 }
 const CONTRAT_LABELS: Record<string, string> = {
     cdi: 'CDI', cdd: 'CDD', stage: 'Stage', vacation: 'Vacation', benevolat: 'Bénévolat',
