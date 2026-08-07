@@ -10,11 +10,13 @@ from rest_framework.test import APIClient
 from comptes.models import Employe
 from patients.models import Patient
 from services.models import Service
+from hospitalisations.models import Hospitalisation, StatutHospitalisation
 
 from .models import (
-    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance,
+    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe,
     StatutFacture, StatutEcheance, TypeActe, ModePaiement, PeriodiciteEcheance,
 )
+from .nuitees import generer_nuitees_manquantes
 
 
 def creer_employe(username, role, service=None):
@@ -129,6 +131,58 @@ class LigneFactureVentilationTest(TestCase):
         ligne1.delete()
         self.facture.refresh_from_db()
         self.assertEqual(self.facture.montant_total, Decimal("20000.00"))
+
+
+class TarifActeModelTest(TestCase):
+    """
+    Le prix d'une ligne catalogée vient TOUJOURS du tarif au moment de la
+    création, jamais du client — et n'est jamais resynchronisé après coup.
+    """
+
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.patient = creer_patient(service=self.service)
+        self.facture = Facture.objects.create(patient=self.patient, service=self.service, part_assurance_pourcentage_defaut=Decimal("70"))
+        self.tarif = TarifActe.objects.create(
+            type_acte=TypeActe.CONSULTATION, code_acte="CONS-CARDIO",
+            libelle="Consultation cardiologie", prix_unitaire=Decimal("15000"),
+        )
+
+    def test_prix_copie_depuis_le_tarif_a_la_creation(self):
+        ligne = LigneFacture.objects.create(
+            facture=self.facture, tarif_acte=self.tarif, quantite=1, date_acte=timezone.now(),
+        )
+        self.assertEqual(ligne.prix_unitaire, Decimal("15000"))
+        self.assertEqual(ligne.description, "Consultation cardiologie")
+        self.assertEqual(ligne.type_acte, TypeActe.CONSULTATION)
+        self.assertEqual(ligne.code_acte, "CONS-CARDIO")
+
+    def test_prix_client_ignore_si_tarif_acte_fourni(self):
+        """Un prix falsifié envoyé par le client ne doit JAMAIS être retenu si un tarif catalogué est référencé."""
+        ligne = LigneFacture.objects.create(
+            facture=self.facture, tarif_acte=self.tarif, quantite=1,
+            prix_unitaire=Decimal("1"),  # tentative de contournement
+            date_acte=timezone.now(),
+        )
+        self.assertEqual(ligne.prix_unitaire, Decimal("15000"))
+
+    def test_changement_de_tarif_n_affecte_pas_une_ligne_deja_creee(self):
+        ligne = LigneFacture.objects.create(
+            facture=self.facture, tarif_acte=self.tarif, quantite=1, date_acte=timezone.now(),
+        )
+        self.tarif.prix_unitaire = Decimal("20000")
+        self.tarif.save()
+        ligne.refresh_from_db()
+        self.assertEqual(ligne.prix_unitaire, Decimal("15000"))
+
+    def test_acte_hors_nomenclature_sans_tarif_acte(self):
+        """Une ligne libre (sans tarif_acte) reste possible pour un acte non catalogué."""
+        ligne = LigneFacture.objects.create(
+            facture=self.facture, type_acte=TypeActe.AUTRE, description="Acte exceptionnel",
+            quantite=1, prix_unitaire=Decimal("5000"), date_acte=timezone.now(),
+        )
+        self.assertIsNone(ligne.tarif_acte)
+        self.assertEqual(ligne.prix_unitaire, Decimal("5000"))
 
 
 class FacturePaiementTest(TestCase):
@@ -456,4 +510,199 @@ class FacturationPermissionsAPITest(TestCase):
 
         self.client.force_authenticate(user=self.caissier_user)
         response = self.client.post(f'/api/echeances/{echeance.id}/marquer-impayee/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class TarifActeAPITest(TestCase):
+    """
+    Lecture ouverte à tout employé connecté, écriture réservée à l'admin —
+    si le facturier pouvait modifier les tarifs, la protection côté modèle
+    (le prix catalogué prime toujours) perdrait tout son sens.
+    """
+
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.facturier_user, _ = creer_employe("facturier2", "facturier", service=self.service)
+        self.caissier_user, _ = creer_employe("caissier2", "caissier", service=self.service)
+        self.admin_user, _ = creer_employe("admin2", "admin", service=self.service)
+        self.tarif = TarifActe.objects.create(
+            type_acte=TypeActe.CONSULTATION, code_acte="CONS-GEN",
+            libelle="Consultation généraliste", prix_unitaire=Decimal("10000"),
+        )
+        self.client = APIClient()
+
+    def test_facturier_peut_lire_la_grille_tarifaire(self):
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.get('/api/tarifs-actes/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_caissier_peut_lire_la_grille_tarifaire(self):
+        self.client.force_authenticate(user=self.caissier_user)
+        response = self.client.get('/api/tarifs-actes/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_facturier_ne_peut_pas_creer_un_tarif(self):
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.post('/api/tarifs-actes/', {
+            'type_acte': TypeActe.CONSULTATION, 'code_acte': 'CONS-X',
+            'libelle': 'Consultation X', 'prix_unitaire': '5000',
+        })
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_peut_creer_un_tarif(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post('/api/tarifs-actes/', {
+            'type_acte': TypeActe.CONSULTATION, 'code_acte': 'CONS-X',
+            'libelle': 'Consultation X', 'prix_unitaire': '5000',
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_ajouter_ligne_depuis_un_tarif_via_api(self):
+        facture = Facture.objects.create(
+            patient=creer_patient(service=self.service), service=self.service, statut=StatutFacture.BROUILLON,
+        )
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.post(
+            f'/api/factures/{facture.id}/ajouter-ligne/',
+            {'tarif_acte': self.tarif.id, 'quantite': 1, 'date_acte': timezone.now().isoformat()},
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Decimal(response.data['prix_unitaire']), Decimal("10000"))
+        self.assertEqual(response.data['description'], "Consultation généraliste")
+
+    def test_ajouter_ligne_avec_tarif_desactive_refuse(self):
+        self.tarif.actif = False
+        self.tarif.save()
+        facture = Facture.objects.create(
+            patient=creer_patient(service=self.service), service=self.service, statut=StatutFacture.BROUILLON,
+        )
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.post(
+            f'/api/factures/{facture.id}/ajouter-ligne/',
+            {'tarif_acte': self.tarif.id, 'quantite': 1, 'date_acte': timezone.now().isoformat()},
+        )
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+
+def creer_hospitalisation(patient, service, jours_ecoules, statut=StatutHospitalisation.EN_COURS, chambre=""):
+    return Hospitalisation.objects.create(
+        patient=patient, service=service, motif_admission="Test",
+        date_admission=timezone.now() - timedelta(days=jours_ecoules),
+        statut=statut, chambre=chambre,
+    )
+
+
+class GenerationNuiteesTest(TestCase):
+    """
+    Génération automatique des lignes de nuitée — jamais de prix fabriqué,
+    jamais de doublon, jamais touché à une facture non ouverte ou une
+    hospitalisation déjà terminée.
+    """
+
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.patient = creer_patient(service=self.service)
+        self.tarif_generique = TarifActe.objects.create(
+            type_acte=TypeActe.HOSPITALISATION, code_acte="NUIT-STD",
+            libelle="Nuitée standard", prix_unitaire=Decimal("25000"),
+        )
+
+    def _facture_ouverte(self, hosp):
+        return Facture.objects.create(
+            patient=self.patient, service=self.service,
+            hospitalisation=hosp, statut=StatutFacture.OUVERTE,
+        )
+
+    def test_aucune_nuit_le_jour_meme_de_l_admission(self):
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=0)
+        facture = self._facture_ouverte(hosp)
+        resultat = generer_nuitees_manquantes()
+        self.assertEqual(resultat['ajoutees'], 0)
+        self.assertEqual(facture.lignes.count(), 0)
+
+    def test_genere_une_ligne_par_nuit_passee(self):
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=3, chambre="204")
+        facture = self._facture_ouverte(hosp)
+        resultat = generer_nuitees_manquantes()
+        self.assertEqual(resultat['ajoutees'], 3)
+        self.assertEqual(facture.lignes.count(), 3)
+        ligne = facture.lignes.first()
+        self.assertEqual(ligne.prix_unitaire, Decimal("25000"))
+        self.assertIn("chambre 204", ligne.description)
+        facture.refresh_from_db()
+        self.assertEqual(facture.montant_total, Decimal("75000.00"))
+
+    def test_idempotent_ne_duplique_pas(self):
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=3)
+        facture = self._facture_ouverte(hosp)
+        generer_nuitees_manquantes()
+        resultat_2 = generer_nuitees_manquantes()
+        self.assertEqual(resultat_2['ajoutees'], 0)
+        self.assertEqual(facture.lignes.count(), 3)
+
+    def test_avertissement_si_aucun_tarif_configure(self):
+        self.tarif_generique.delete()
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=2)
+        facture = self._facture_ouverte(hosp)
+        resultat = generer_nuitees_manquantes()
+        self.assertEqual(resultat['ajoutees'], 0)
+        self.assertEqual(len(resultat['avertissements']), 1)
+        self.assertEqual(facture.lignes.count(), 0)
+
+    def test_tarif_specifique_au_service_prime_sur_le_generique(self):
+        TarifActe.objects.create(
+            type_acte=TypeActe.HOSPITALISATION, code_acte="NUIT-CARDIO",
+            libelle="Nuitée cardiologie", prix_unitaire=Decimal("40000"), service=self.service,
+        )
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=1)
+        facture = self._facture_ouverte(hosp)
+        generer_nuitees_manquantes()
+        self.assertEqual(facture.lignes.first().prix_unitaire, Decimal("40000"))
+
+    def test_ignore_facture_non_ouverte(self):
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=3)
+        facture = Facture.objects.create(
+            patient=self.patient, service=self.service,
+            hospitalisation=hosp, statut=StatutFacture.EN_ATTENTE,
+        )
+        resultat = generer_nuitees_manquantes()
+        self.assertEqual(resultat['ajoutees'], 0)
+        self.assertEqual(facture.lignes.count(), 0)
+
+    def test_ignore_hospitalisation_terminee(self):
+        hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=3, statut=StatutHospitalisation.TERMINEE)
+        facture = self._facture_ouverte(hosp)
+        resultat = generer_nuitees_manquantes()
+        self.assertEqual(resultat['ajoutees'], 0)
+        self.assertEqual(facture.lignes.count(), 0)
+
+
+class ActualiserNuiteesAPITest(TestCase):
+    """Déclenchement manuel depuis l'UI — réservé au facturier, comme toute écriture sur une facture."""
+
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.facturier_user, _ = creer_employe("facturier3", "facturier", service=self.service)
+        self.caissier_user, _ = creer_employe("caissier3", "caissier", service=self.service)
+        self.patient = creer_patient(service=self.service)
+        TarifActe.objects.create(
+            type_acte=TypeActe.HOSPITALISATION, code_acte="NUIT-STD",
+            libelle="Nuitée standard", prix_unitaire=Decimal("25000"),
+        )
+        self.hosp = creer_hospitalisation(self.patient, self.service, jours_ecoules=2)
+        self.facture = Facture.objects.create(
+            patient=self.patient, service=self.service,
+            hospitalisation=self.hosp, statut=StatutFacture.OUVERTE,
+        )
+        self.client = APIClient()
+
+    def test_facturier_peut_actualiser_les_nuitees(self):
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.post(f'/api/factures/{self.facture.id}/actualiser-nuitees/')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['nuitees_ajoutees'], 2)
+
+    def test_caissier_ne_peut_pas_actualiser_les_nuitees(self):
+        self.client.force_authenticate(user=self.caissier_user)
+        response = self.client.post(f'/api/factures/{self.facture.id}/actualiser-nuitees/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

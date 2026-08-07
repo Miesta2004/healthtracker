@@ -5,6 +5,7 @@ import { Capacite } from '../constants/capacites'
 import {
     getFacture, validerFacture, cloturerFacture, annulerFacture,
     supprimerLigneFacture, signerEcheancier, marquerEcheanceImpayee,
+    telechargerFacturePdf, telechargerRecuPaiement, actualiserNuitees,
 } from '../api/facturation'
 import {
     formatMontant, STATUT_FACTURE_BADGE, STATUT_FACTURE_LABELS, TYPE_ACTE_LABELS,
@@ -12,13 +13,13 @@ import {
     MODE_PAIEMENT_LABELS, type Facture,
 } from '../types'
 import Sidebar from '../components/Sidebar.tsx'
-import AjouterLigneFacture from '../components/facturation/AjouterLigneFacture.tsx'
+import AjouterLigneFactureModal from '../components/facturation/AjouterLigneFacture.tsx'
 import MettreEnPlaceEcheancierModal from '../components/facturation/MettreEnPlaceEcheancier.tsx'
 import EncaisserPaiementModal from '../components/facturation/EncaisserPaiement.tsx'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import {
     ArrowLeft, Plus, CheckCircle2, Lock, Ban, CalendarClock, Banknote,
-    Trash2, FileSignature,
+    Trash2, FileSignature, Download, BedDouble,
 } from 'lucide-react'
 
 const STATUTS_MODIFIABLE = ['brouillon', 'ouverte']
@@ -36,6 +37,7 @@ export default function FactureDetail() {
     const [ajouterLigneOuvert, setAjouterLigneOuvert] = useState(false)
     const [echeancierOuvert, setEcheancierOuvert] = useState(false)
     const [encaisserOuvert, setEncaisserOuvert] = useState(false)
+    const [avertissementsNuitees, setAvertissementsNuitees] = useState<string[]>([])
 
     const peutGerer = hasCapacite(Capacite.FACTURATION_GERER)
     const peutEncaisser = hasCapacite(Capacite.PAIEMENTS_ENCAISSER)
@@ -46,6 +48,18 @@ export default function FactureDetail() {
     }
 
     useEffect(() => { if (factureId) charger() }, [factureId])
+
+    const handleActualiserNuitees = async () => {
+        setErreur('')
+        setAvertissementsNuitees([])
+        try {
+            const resultat = await actualiserNuitees(factureId)
+            setFacture(resultat.facture)
+            setAvertissementsNuitees(resultat.avertissements)
+        } catch {
+            setErreur("Impossible d'actualiser les nuitées.")
+        }
+    }
 
     const executerAction = async (action: () => Promise<Facture>) => {
         setErreur('')
@@ -89,9 +103,20 @@ export default function FactureDetail() {
                 </div>
 
                 {erreur && <div className="ht-alert ht-alert-danger text-sm">{erreur}</div>}
+                {avertissementsNuitees.length > 0 && (
+                    <div className="ht-alert ht-alert-warning text-sm space-y-1">
+                        {avertissementsNuitees.map((a, i) => <p key={i}>{a}</p>)}
+                    </div>
+                )}
 
                 {/* ── Actions ── */}
                 <div className="flex flex-wrap gap-2">
+                    <button
+                        onClick={() => telechargerFacturePdf(facture.id).catch(() => setErreur('Impossible de générer le PDF.'))}
+                        className="btn btn-secondary btn-sm gap-1.5"
+                    >
+                        <Download size={14} /> Bordereau PDF
+                    </button>
                     {peutGerer && modifiable && (
                         <button onClick={() => setAjouterLigneOuvert(true)} className="btn btn-secondary btn-sm gap-1.5">
                             <Plus size={14} /> Ajouter une ligne
@@ -100,6 +125,11 @@ export default function FactureDetail() {
                     {peutGerer && facture.statut === 'brouillon' && (
                         <button onClick={() => executerAction(() => validerFacture(facture.id))} className="btn btn-primary btn-sm gap-1.5">
                             <CheckCircle2 size={14} /> Valider
+                        </button>
+                    )}
+                    {peutGerer && facture.statut === 'ouverte' && facture.hospitalisation && (
+                        <button onClick={handleActualiserNuitees} className="btn btn-secondary btn-sm gap-1.5">
+                            <BedDouble size={14} /> Actualiser les nuitées
                         </button>
                     )}
                     {peutGerer && facture.statut === 'ouverte' && (
@@ -200,12 +230,20 @@ export default function FactureDetail() {
                         <div>
                             {facture.paiements.map(p => (
                                 <div key={p.id} className="ht-table-row grid-cols-12 items-center">
-                                    <div className="col-span-3 text-sm" style={{ color: 'var(--ht-text)' }}>{formatMontant(p.montant)}</div>
+                                    <div className="col-span-2 text-sm" style={{ color: 'var(--ht-text)' }}>{formatMontant(p.montant)}</div>
                                     <div className="col-span-3 text-sm" style={{ color: 'var(--ht-text-secondary)' }}>{MODE_PAIEMENT_LABELS[p.mode_paiement]}</div>
-                                    <div className="col-span-3 text-xs" style={{ color: 'var(--ht-text-muted)' }}>{p.reference_transaction || '—'}</div>
+                                    <div className="col-span-2 text-xs" style={{ color: 'var(--ht-text-muted)' }}>{p.reference_transaction || '—'}</div>
                                     <div className="col-span-2 text-xs" style={{ color: 'var(--ht-text-muted)' }}>{p.encaisse_par_nom || '—'}</div>
-                                    <div className="col-span-1 text-right text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                    <div className="col-span-2 text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                         {new Date(p.date_paiement).toLocaleDateString('fr-FR')}
+                                    </div>
+                                    <div className="col-span-1 text-right">
+                                        <button
+                                            onClick={() => telechargerRecuPaiement(p.id).catch(() => setErreur('Impossible de générer le reçu.'))}
+                                            className="btn btn-ghost btn-sm !p-1.5" title="Télécharger le reçu"
+                                        >
+                                            <Download size={14} />
+                                        </button>
                                     </div>
                                 </div>
                             ))}
@@ -258,7 +296,7 @@ export default function FactureDetail() {
             </main>
 
             {ajouterLigneOuvert && (
-                <AjouterLigneFacture
+                <AjouterLigneFactureModal
                     factureId={facture.id}
                     onClose={() => setAjouterLigneOuvert(false)}
                     onAjoutee={() => { setAjouterLigneOuvert(false); charger() }}

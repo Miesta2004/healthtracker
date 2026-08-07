@@ -34,6 +34,11 @@ from disponibilites.models import (
 from morgue.models import Deces, Autopsie, LieuDeces, StatutDeces, TypeAutopsie
 from antecedents.models import Antecedent, TypeAntecedent, StatutAntecedent
 from chirurgie.models import InterventionChirurgicale, SalleBloc, StatutIntervention
+from activites.models import JournalActivite, journaliser
+from facturation.models import (
+    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance,
+    StatutFacture, TypeActe, ModePaiement, OperateurMobileMoney, PeriodiciteEcheance,
+)
 
 @transaction.atomic
 def run_seed():
@@ -45,8 +50,8 @@ def run_seed():
 
     # ─── CONFIG ───────────────────────────────────────────────────────────────────
     JOURS_HISTORIQUE = 180   # 6 mois de données
-    NB_PATIENTS      = 240   # x3 par rapport au seed précédent (80)
-    NB_URGENCES      = 420   # scalé avec le volume de patients (150 → x2.8)
+    NB_PATIENTS      = 480   # x2 par rapport au seed précédent (240)
+    NB_URGENCES      = 840   # x2, scalé avec le volume de patients
     NB_MESURES_MIN   = 6
     NB_MESURES_MAX   = 25
 
@@ -55,11 +60,13 @@ def run_seed():
     # ─── NETTOYAGE ────────────────────────────────────────────────────────────────
     print("🗑️  Nettoyage...")
     for Model, label in [
+        (JournalActivite, "entrée(s) de journal d'activité"),
         (Autopsie,        "autopsie(s)"),
         (Deces,           "décès enregistré(s)"),
         (AssignationPatient, "assignation(s) infirmier ↔ patient"),
         (DemandeAnalyse,  "demande(s) d'analyse"),
         (PassageUrgence,  "passage(s) urgences"),
+        (Facture,         "facture(s) (cascade : lignes, paiements, échéanciers)"),
         (InterventionChirurgicale, "opération(s) chirurgicale(s)"),
         (SalleBloc,       "salle(s) de bloc"),
         (Antecedent,      "antécédent(s) détaillé(s)"),
@@ -218,6 +225,8 @@ def run_seed():
          "cdd", date(2023, 10, 1), "Secrétaire médicale aux urgences. Enregistrement des arrivées, gestion administrative des passages, liaison avec les services d'hospitalisation."),
 
         # Chirurgie
+        ("Ousseynou", "Diagne",    "M", "chef_chirurgie", "Chirurgie digestive", "dr.odiagne",  "chirurgie123",  54, "Chirurgie générale",
+         "cdi", date(2008, 9, 1), "Chef de chirurgie. Supervise le bloc opératoire et l'ensemble des chirurgiens du service, valide les habilitations et gère les cas les plus complexes. Chirurgien viscéral senior, formé à Dakar et Bordeaux."),
         ("Aliou",     "Mendy",    "M", "medecin",    "Chirurgie digestive",        "dr.amendy",      "medecin123",    49, "Chirurgie générale",
          "cdi", date(2011, 5, 1), "Chirurgien digestif. Chirurgie laparoscopique, appendicectomies, cholécystectomies, hernies abdominales. Prise en charge des occlusions intestinales et des péritonites."),
         ("Soda",      "Lo",       "F", "medecin",    "Chirurgie orthopédique",     "dr.slo",         "medecin123",    45, "Chirurgie générale",
@@ -272,6 +281,16 @@ def run_seed():
          "cdi", date(2019, 4, 1), "Agent d'admission. Accueil administratif des patients, création des dossiers via le formulaire unique, orientation vers les services, contrôle des accompagnants et régularisation des identités provisoires admises en urgence."),
         ("Mamadou",     "Ba",     "M", "agent_admission", "",                     "adm.mba",        "admission123",  29, None,
          "cdd", date(2022, 6, 1), "Agent d'admission. Accueil, création de dossiers patients et gestion du contrôle des accompagnants au Service des Admissions."),
+
+        # Facturation
+        ("Aïssatou",  "Sy",       "F", "facturier", "",                           "fact.asy",       "facture123",    36, None,
+         "cdi", date(2019, 2, 1), "Facturière. Construction des factures patients (lignes d'actes, ventilation assurance/mutuelle), suivi des échéanciers de paiement fractionné."),
+        ("Modou",     "Gomis",    "M", "facturier", "",                           "fact.mgomis",    "facture123",    41, None,
+         "cdi", date(2017, 9, 1), "Facturier senior. Facturation des séjours d'hospitalisation et des actes chirurgicaux, soumission des dossiers à l'assurance et suivi des rejets."),
+        ("Astou",     "Tine",     "F", "caissier", "",                            "caisse.atine",   "caisse123",     30, None,
+         "cdi", date(2020, 4, 1), "Caissière. Encaissement des paiements patients (espèces, Mobile Money, carte), édition des reçus, aucun droit de modification sur les factures."),
+        ("Boubacar",  "Manga",    "M", "caissier", "",                            "caisse.bmanga",  "caisse123",     33, None,
+         "cdd", date(2023, 6, 1), "Caissier. Encaissement au guichet, gestion des règlements d'échéances."),
 
         # Laboratoire
         ("Oumar",     "Thiam",    "M", "laborantin", "Biologie médicale",          "lab.othiam",     "labo123",       38, "Laboratoire",
@@ -394,8 +413,8 @@ def run_seed():
         "Néphro-dialyse":               ["Néphrologie", "Dialyse péritonéale"],
         "ORL-Ophtalmologie":            ["ORL", "Ophtalmologie"],
     }
-    EXTRA_MEDECINS_PAR_SERVICE  = 3   # x11 services cliniques (hors Laboratoire) ≈ +33
-    EXTRA_INFIRMIERS_PAR_SERVICE = 4  # x12 services (Laboratoire compris) ≈ +24
+    EXTRA_MEDECINS_PAR_SERVICE  = 6   # x2 par rapport au seed précédent (3) — x11 services cliniques (hors Laboratoire)
+    EXTRA_INFIRMIERS_PAR_SERVICE = 8  # x2 par rapport au seed précédent (4) — x12 services (Laboratoire compris)
 
     usernames_pris = {e.user.username for e in employes}
 
@@ -1557,7 +1576,7 @@ def run_seed():
     # de médecin_responsable possible) — forcer_active=True pour que ça se
     # traduise bien par des séjours actifs visibles dans les dashboards, pas
     # par des séjours déjà clôturés.
-    MIN_HOSP_PAR_SERVICE = 10
+    MIN_HOSP_PAR_SERVICE = 20   # x2 par rapport au seed précédent (10)
     for svc_nom, svc_obj in services.items():
         if svc_nom == "Laboratoire":
             continue
@@ -1597,7 +1616,7 @@ def run_seed():
     sejours_termines = list(Hospitalisation.objects.filter(
         statut=StatutHospitalisation.TERMINEE, date_sortie__isnull=False,
     ))
-    for hosp in random.sample(sejours_termines, k=min(8, len(sejours_termines))):
+    for hosp in random.sample(sejours_termines, k=min(16, len(sejours_termines))):
         jours_apres = random.randint(5, 25)
         d_readmission = hosp.date_sortie + timedelta(days=jours_apres)
         if d_readmission >= now:
@@ -1839,24 +1858,25 @@ def run_seed():
     # ── 1. Couverture garantie de tous les cas ────────────────────────────────────
     # Chaque niveau × 4 (pour avoir des volumes dans les stats)
     for niv in [1, 2, 3, 4, 5]:
-        for _ in range(4):
+        for _ in range(8):
             creer_passage(random.choice(patients_list), niv, mode_aleatoire(),
                           StatutUrgence.SORTI, random.choice(list(DecisionSortie)),
                           jours_max=JOURS_HISTORIQUE)
             total_urgences += 1
 
-    # Chaque mode × 3
+    # Chaque mode × 6
     for mode in list(ModeArrivee):
-        for _ in range(3):
+        for _ in range(6):
             creer_passage(random.choice(patients_list), niveau_aleatoire(), mode,
                           StatutUrgence.SORTI, random.choice(list(DecisionSortie)),
                           jours_max=JOURS_HISTORIQUE)
             total_urgences += 1
 
-    # Chaque décision × 3 (décès × 2 — rare mais présent)
+    # Chaque décision × 6 (décès × 30 — x15 par rapport au seed précédent (2),
+    # demande explicite pour alimenter généreusement le module Morgue/Autopsie)
     deces_aux_urgences = []   # (passage, patient) — repris plus bas par l'app morgue
     for dec in list(DecisionSortie):
-        nb = 2 if dec == DecisionSortie.DECES else 3
+        nb = 30 if dec == DecisionSortie.DECES else 6
         for _ in range(nb):
             niv = random.choice([1, 2]) if dec == DecisionSortie.DECES else niveau_aleatoire()
             patient_choisi = random.choice(patients_list)
@@ -1867,14 +1887,14 @@ def run_seed():
             total_urgences += 1
 
     # ── 2. File d'attente en cours (patients présents maintenant) ─────────────────
-    # 4 à 7 en attente de tri
-    for _ in range(random.randint(4, 7)):
+    # 8 à 14 en attente de tri
+    for _ in range(random.randint(8, 14)):
         creer_passage(random.choice(patients_list), niveau_aleatoire(), mode_aleatoire(),
                       StatutUrgence.EN_ATTENTE, jours_max=0)
         total_urgences += 1
 
-    # 3 à 5 en consultation active
-    for _ in range(random.randint(3, 5)):
+    # 6 à 10 en consultation active
+    for _ in range(random.randint(6, 10)):
         creer_passage(random.choice(patients_list), random.choice([1, 2, 3]), mode_aleatoire(),
                       StatutUrgence.EN_CONSULTATION, jours_max=0)
         total_urgences += 1
@@ -2002,8 +2022,12 @@ def run_seed():
 
     # 2. Quelques décès supplémentaires en cours d'hospitalisation, pour ne pas
     #    dépendre uniquement des urgences (patients déjà admis qui se dégradent).
-    candidats_hospit = [h for h in hospitalisations_recentes if h.patient.statut_vital != h.patient.StatutVital.DECEDE]
-    for hosp in random.sample(candidats_hospit, k=min(4, len(candidats_hospit))):
+    candidats_hospit = list(
+        Hospitalisation.objects
+        .exclude(patient__statut_vital=Patient.StatutVital.DECEDE)
+        .select_related('patient', 'medecin_responsable')
+    )
+    for hosp in random.sample(candidats_hospit, k=min(60, len(candidats_hospit))):
         d_deces = hosp.date_sortie or (hosp.date_admission + timedelta(days=random.randint(1, 10)))
         deces = enregistrer_deces(
             hosp.patient, d_deces, random.choice(CAUSES_DECES_HOSPIT), LieuDeces.HOPITAL,
@@ -2044,6 +2068,192 @@ def run_seed():
             deces.save()
 
     print(f"✅ {total_deces} décès enregistrés, {total_autopsies} autopsies\n")
+
+    # ─── FACTURATION ────────────────────────────────────────────────────────────
+    print("💰 Facturation...")
+    total_factures = total_lignes_facture = total_paiements = total_echeanciers = 0
+
+    facturiers_list = [e for e in employes if e.role == 'facturier']
+    caissiers_list  = [e for e in employes if e.role == 'caissier']
+
+    TARIFS_ACTE = {
+        TypeActe.CONSULTATION:       (10000, 25000),
+        TypeActe.HOSPITALISATION:    (15000, 35000),
+        TypeActe.EXAMEN_LABORATOIRE: (5000, 20000),
+        TypeActe.ACTE_CHIRURGICAL:   (150000, 800000),
+        TypeActe.MEDICAMENT:         (2000, 15000),
+    }
+
+    def prix_acte(type_acte):
+        lo, hi = TARIFS_ACTE[type_acte]
+        return Decimal(random.randrange(lo, hi, 500))
+
+    MODES_PAIEMENT_PATIENT = [m for m in ModePaiement if m != ModePaiement.PRISE_EN_CHARGE_ASSURANCE]
+
+    def encaisser(facture, montant, echeance=None):
+        nonlocal total_paiements
+        if montant <= 0:
+            return
+        mode = random.choice(MODES_PAIEMENT_PATIENT)
+        Paiement.objects.create(
+            facture=facture, echeance=echeance, montant=montant, mode_paiement=mode,
+            operateur_mobile_money=random.choice(list(OperateurMobileMoney)) if mode == ModePaiement.MOBILE_MONEY else '',
+            encaisse_par=random.choice(caissiers_list) if caissiers_list else None,
+        )
+        total_paiements += 1
+
+    # 1. Factures de séjour — environ la moitié des hospitalisations (les plus
+    #    lourdes à facturer : nuitées + souvent un examen de labo).
+    toutes_hosp = list(Hospitalisation.objects.select_related('patient', 'service').all())
+    for hosp in random.sample(toutes_hosp, k=int(len(toutes_hosp) * 0.5)):
+        est_en_cours = hosp.statut == StatutHospitalisation.EN_COURS
+        facture = Facture.objects.create(
+            patient=hosp.patient, service=hosp.service, hospitalisation=hosp,
+            statut=StatutFacture.OUVERTE if est_en_cours else StatutFacture.EN_ATTENTE,
+            part_assurance_pourcentage_defaut=Decimal(random.choice([0, 0, 0, 50, 70, 80])),
+            cree_par=random.choice(facturiers_list) if facturiers_list else None,
+        )
+        total_factures += 1
+
+        nuitees = max(1, ((hosp.date_sortie or now) - hosp.date_admission).days)
+        LigneFacture.objects.create(
+            facture=facture, type_acte=TypeActe.HOSPITALISATION,
+            description=f"Séjour {hosp.service.nom} — {nuitees} nuitée(s)",
+            hospitalisation=hosp, quantite=nuitees, prix_unitaire=prix_acte(TypeActe.HOSPITALISATION),
+            date_acte=hosp.date_admission,
+        )
+        total_lignes_facture += 1
+
+        if random.random() < 0.6:
+            LigneFacture.objects.create(
+                facture=facture, type_acte=TypeActe.EXAMEN_LABORATOIRE,
+                description="Bilan biologique standard", quantite=1,
+                prix_unitaire=prix_acte(TypeActe.EXAMEN_LABORATOIRE),
+                date_acte=hosp.date_admission,
+            )
+            total_lignes_facture += 1
+
+        facture.refresh_from_db()
+
+        if est_en_cours:
+            # Facture "vivante" : parfois un acompte, jamais soldée avant sortie.
+            if random.random() < 0.3:
+                encaisser(facture, (facture.montant_part_patient * Decimal('0.3')).quantize(Decimal('0.01')))
+            continue
+
+        r = random.random()
+        if r < 0.5:
+            encaisser(facture, facture.montant_part_patient)
+        elif r < 0.7:
+            encaisser(facture, (facture.montant_part_patient * Decimal('0.4')).quantize(Decimal('0.01')))
+        elif r < 0.85 and facture.montant_part_patient > 0:
+            echeancier = EcheancierPaiement.objects.create(
+                facture=facture,
+                montant_total_echeancier=facture.montant_part_patient,
+                nombre_echeances=random.choice([3, 4, 6]),
+                periodicite=random.choice(list(PeriodiciteEcheance)),
+                date_premiere_echeance=(now + timedelta(days=15)).date(),
+                engagement_signe=random.random() < 0.6,
+                cree_par=random.choice(facturiers_list) if facturiers_list else None,
+            )
+            echeancier.generer_echeances()
+            total_echeanciers += 1
+            premiere = echeancier.echeances.first()
+            if random.random() < 0.5:
+                encaisser(facture, premiere.montant_prevu, echeance=premiere)
+        # r >= 0.85 : facture laissée en attente, sans paiement (impayé réel).
+
+    # 2. Factures de consultations autonomes — échantillon de consultations
+    #    terminées (réglées le jour même la plupart du temps).
+    consultations_terminees = list(Consultation.objects.filter(statut='terminee').select_related('patient'))
+    for consult in random.sample(consultations_terminees, k=min(150, len(consultations_terminees))):
+        facture = Facture.objects.create(
+            patient=consult.patient, service=consult.patient.service,
+            statut=StatutFacture.EN_ATTENTE,
+            part_assurance_pourcentage_defaut=Decimal(random.choice([0, 0, 0, 50, 70, 80])),
+            cree_par=random.choice(facturiers_list) if facturiers_list else None,
+        )
+        total_factures += 1
+        LigneFacture.objects.create(
+            facture=facture, type_acte=TypeActe.CONSULTATION,
+            description=f"Consultation — {consult.motif[:80]}",
+            consultation=consult, quantite=1, prix_unitaire=prix_acte(TypeActe.CONSULTATION),
+            date_acte=consult.date,
+        )
+        total_lignes_facture += 1
+        facture.refresh_from_db()
+
+        r = random.random()
+        if r < 0.75:
+            encaisser(facture, facture.montant_part_patient)
+        elif r < 0.9:
+            encaisser(facture, (facture.montant_part_patient * Decimal('0.5')).quantize(Decimal('0.01')))
+        # sinon en attente, non réglée.
+
+    print(f"✅ {total_factures} factures, {total_lignes_facture} lignes, {total_paiements} paiements, {total_echeanciers} échéanciers\n")
+
+    # ─── JOURNAL D'ACTIVITÉ (démo) ──────────────────────────────────────────────
+    # Le seed insère les objets directement en base (pas via l'API), donc les
+    # perform_create/perform_update qui appellent journaliser() ne se
+    # déclenchent jamais pendant ce script. On rejoue un échantillon a
+    # posteriori pour que le Dashboard et /activites ne soient pas vides sur
+    # une base fraîchement peuplée. date_creation est ensuite ré-étalée sur
+    # les 45 derniers jours (auto_now_add fige sinon tout à "maintenant").
+    print("🧾 Journal d'activité (échantillon rétroactif)...")
+    total_activites = 0
+    entrees_activite = []
+
+    for rdv in random.sample(list(RendezVous.objects.select_related('patient', 'medecin').all()),
+                             k=min(120, RendezVous.objects.count())):
+        action = 'annulation' if rdv.statut == 'annule' else 'creation'
+        entree = journaliser(
+            employe=rdv.medecin, type_objet='rendez_vous', action=action,
+            description=(
+                f"RDV {'annulé' if action == 'annulation' else 'créé'} — "
+                f"{rdv.patient.prenom} {rdv.patient.nom} avec Dr. {rdv.medecin.prenom} {rdv.medecin.nom}"
+            ),
+            objet_id=rdv.id,
+        )
+        entrees_activite.append(entree)
+        total_activites += 1
+
+    for consult in random.sample(list(Consultation.objects.select_related('patient').all()),
+                                 k=min(120, Consultation.objects.count())):
+        medecin_c = consult.patient.medecin_referent
+        action = 'modification' if consult.statut == 'terminee' else 'creation'
+        entree = journaliser(
+            employe=medecin_c, type_objet='consultation', action=action,
+            description=(
+                f"Consultation {'terminée' if action == 'modification' else 'créée'} — "
+                f"{consult.patient.prenom} {consult.patient.nom}"
+            ),
+            objet_id=consult.id,
+        )
+        entrees_activite.append(entree)
+        total_activites += 1
+
+    for op in random.sample(list(InterventionChirurgicale.objects.select_related('patient', 'chirurgien_principal').all()),
+                            k=min(60, InterventionChirurgicale.objects.count())):
+        action = 'annulation' if op.statut == StatutIntervention.ANNULEE else 'creation'
+        entree = journaliser(
+            employe=op.chirurgien_principal, type_objet='intervention', action=action,
+            description=(
+                f"Intervention {'annulée' if action == 'annulation' else 'programmée'} — "
+                f"{op.type_acte} pour {op.patient.prenom} {op.patient.nom}"
+            ),
+            objet_id=op.id,
+        )
+        entrees_activite.append(entree)
+        total_activites += 1
+
+    for entree in entrees_activite:
+        JournalActivite.objects.filter(pk=entree.pk).update(
+            date_creation=now - timedelta(
+                days=random.randint(0, 45), hours=random.randint(0, 23), minutes=random.randint(0, 59),
+            )
+        )
+
+    print(f"✅ {total_activites} entrées de journal d'activité\n")
 
     # ─── AJUSTEMENT FINAL DU PARCOURS ADMINISTRATIF (STATUT_ORIENTATION) ───────────
     # Consultation.save() et Hospitalisation.save() posent 'en_consultation' /
@@ -2118,10 +2328,12 @@ def run_seed():
     print(f"   🔬 Demandes d'analyse : {total_analyses}")
     print(f"   🛏️  Hospitalisations   : {total_hosp}")
     print(f"   🏥 Salles de bloc      : {total_salles}")
-    print(f"   ⚕️  Opérations chirurg : {total_operations}")
+    print(f"   ⚕️  Opérations chirurgicales : {total_operations}")
     print(f"   🚑 Passages urgences  : {total_urgences}")
     print(f"   🧑‍⚕️  Assignations shifts : {total_assignations}")
     print(f"   ⚰️  Décès / autopsies  : {total_deces} / {total_autopsies}")
+    print(f"   💰 Factures           : {total_factures} ({total_lignes_facture} lignes, {total_paiements} paiements, {total_echeanciers} échéanciers)")
+    print(f"   🧾 Journal d'activité : {total_activites}")
     print(f"   🚨 Alertes            : {total_alertes} (dont {total_alertes_analyses} résultats d'analyse)")
     print("═" * 60)
     print("✅ Base de données peuplée avec succès !")

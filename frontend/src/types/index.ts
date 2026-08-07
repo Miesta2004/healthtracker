@@ -840,6 +840,7 @@ export interface JournalActivite {
     objet_id: number | null
     date_creation: string
 }
+
 // ─── Module Facturation & Encaissement ─────────────────────────────────────
 // Miroir des modèles Django (facturation/models.py) et des serializers DRF.
 // Les statuts utilisent les classes .badge-* déjà définies dans index.css
@@ -933,9 +934,32 @@ export const STATUT_ECHEANCE_BADGE: Record<StatutEcheance, string> = {
     a_venir: 'badge-tint', payee: 'badge-success', en_retard: 'badge-warning', impayee: 'badge-danger',
 }
 
+export interface TarifActe {
+    id: number
+    type_acte: TypeActe
+    code_acte: string
+    libelle: string
+    prix_unitaire: number
+    service?: number | null
+    service_nom?: string | null
+    actif: boolean
+    date_creation: string
+    date_modification: string
+}
+
+export interface NouveauTarifActePayload {
+    type_acte: TypeActe
+    code_acte: string
+    libelle: string
+    prix_unitaire: number
+    service?: number
+    actif?: boolean
+}
+
 export interface LigneFacture {
     id: number
     facture: number
+    tarif_acte?: number | null
     type_acte: TypeActe
     description: string
     code_acte?: string
@@ -955,13 +979,14 @@ export interface LigneFacture {
 }
 
 export interface NouvelleLigneFacturePayload {
-    type_acte: TypeActe
-    description: string
+    tarif_acte?: number
+    type_acte?: TypeActe
+    description?: string
     consultation?: number
     hospitalisation?: number
     demande_analyse?: number
     quantite: number
-    prix_unitaire: number
+    prix_unitaire?: number
     taux_prise_en_charge_assurance?: number
     date_acte: string
     notes?: string

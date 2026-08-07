@@ -29,6 +29,21 @@ class Hospitalisation(models.Model):
         related_name='hospitalisations_suivies',
         limit_choices_to={'role': 'medecin'}
     )
+    consultation_origine = models.ForeignKey(
+        'consultations.Consultation',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='hospitalisations_decidees',
+        help_text="Consultation à l'issue de laquelle cette hospitalisation a "
+                  "été décidée (Consultation.decision_orientation == "
+                  "'hospitalisation'), quand ce dossier en découle "
+                  "directement plutôt que d'un passage aux urgences ou d'une "
+                  "admission programmée sans consultation préalable. "
+                  "Symétrique de "
+                  "chirurgie.InterventionChirurgicale.consultation_indication "
+                  "— permet de retrouver le contexte clinique qui a motivé "
+                  "l'admission.",
+    )
 
     chambre = models.CharField(max_length=20, blank=True)
     lit = models.CharField(max_length=10, blank=True)

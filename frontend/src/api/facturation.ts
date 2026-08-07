@@ -1,8 +1,8 @@
 import api from './client.ts'
 import type {
-    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance,
+    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe,
     NouvelleFacturePayload, NouvelleLigneFacturePayload, NouveauPaiementPayload,
-    NouvelEcheancierPayload,
+    NouvelEcheancierPayload, NouveauTarifActePayload,
 } from '../types'
 
 // ─── Factures ────────────────────────────────────────────────────────────────
@@ -62,6 +62,13 @@ export const mettreEnPlaceEcheancier = async (
     return response.data
 }
 
+export const actualiserNuitees = async (
+    factureId: number
+): Promise<{ facture: Facture; nuitees_ajoutees: number; avertissements: string[] }> => {
+    const response = await api.post(`/factures/${factureId}/actualiser-nuitees/`)
+    return response.data
+}
+
 // ─── Paiements ───────────────────────────────────────────────────────────────
 
 export const getPaiements = async (factureId: number): Promise<Paiement[]> => {
@@ -92,4 +99,45 @@ export const signerEcheancier = async (
 export const marquerEcheanceImpayee = async (id: number): Promise<Echeance> => {
     const response = await api.post(`/echeances/${id}/marquer-impayee/`)
     return response.data
+}
+
+// ─── Grille tarifaire ────────────────────────────────────────────────────────
+
+export const getTarifsActes = async (params?: { actif?: boolean; type_acte?: string }): Promise<TarifActe[]> => {
+    const query = new URLSearchParams()
+    if (params?.actif !== undefined) query.set('actif', String(params.actif))
+    if (params?.type_acte) query.set('type_acte', params.type_acte)
+    const qs = query.toString()
+    const response = await api.get(`/tarifs-actes/${qs ? `?${qs}` : ''}`)
+    return response.data
+}
+
+export const createTarifActe = async (data: NouveauTarifActePayload): Promise<TarifActe> => {
+    const response = await api.post('/tarifs-actes/', data)
+    return response.data
+}
+
+export const updateTarifActe = async (id: number, data: Partial<NouveauTarifActePayload>): Promise<TarifActe> => {
+    const response = await api.patch(`/tarifs-actes/${id}/`, data)
+    return response.data
+}
+
+// ─── PDF ─────────────────────────────────────────────────────────────────────
+
+function ouvrirBlobPdf(blob: Blob) {
+    const url = window.URL.createObjectURL(blob)
+    window.open(url, '_blank')
+    // Révoqué après un court délai plutôt qu'immédiatement — le temps que
+    // l'onglet/le viewer PDF ait fini de charger l'URL.
+    setTimeout(() => window.URL.revokeObjectURL(url), 60_000)
+}
+
+export const telechargerFacturePdf = async (factureId: number): Promise<void> => {
+    const response = await api.get(`/factures/${factureId}/pdf/`, { responseType: 'blob' })
+    ouvrirBlobPdf(response.data)
+}
+
+export const telechargerRecuPaiement = async (paiementId: number): Promise<void> => {
+    const response = await api.get(`/paiements/${paiementId}/recu/`, { responseType: 'blob' })
+    ouvrirBlobPdf(response.data)
 }

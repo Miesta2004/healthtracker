@@ -79,7 +79,7 @@ def journaliser(employe, type_objet, action, description, objet_id=None):
     acceptable pour les quelques cas système, à revoir si ça devient
     fréquent.
     """
-    JournalActivite.objects.create(
+    return JournalActivite.objects.create(
         employe=employe,
         service=employe.service if employe else None,
         type_objet=type_objet,

@@ -249,6 +249,46 @@ class PeutGererHabilitations(RequiertCapacite):
     capacite = Capacite.HABILITATIONS_GERER
 
 
+class PeutGererFacturation(RequiertCapacite):
+    """
+    Gestion des factures (créer/modifier les lignes d'actes, mettre en place
+    des échéanciers) — réservée au facturier (et à l'admin/chef de service,
+    via l'héritage des capacités). Aucun droit sur Paiement, séparation des
+    tâches volontaire avec caissier.
+    """
+    capacite = Capacite.FACTURATION_GERER
+
+
+class PeutEncaisserPaiement(RequiertCapacite):
+    """
+    Encaissement et édition des reçus — réservé au caissier. Accès en lecture
+    complet aux factures (le patient doit comprendre ce qu'il paie), mais
+    aucun droit de modifier Facture/LigneFacture/EcheancierPaiement.
+    """
+    capacite = Capacite.PAIEMENTS_ENCAISSER
+
+
+class PeutLireFacturation(IsAuthenticated):
+    """
+    Lecture des factures (données complètes) — ouverte à la fois au facturier
+    et au caissier (et à l'admin). Contrairement aux permissions d'écriture
+    (PeutGererFacturation vs PeutEncaisserPaiement qui sont mutuellement
+    exclusives), la lecture ne doit pas être cloisonnée : le caissier doit
+    voir les détails complets au guichet, et le facturier doit voir ce qui
+    a été payé.
+    """
+    def has_permission(self, request, view):
+        if not super().has_permission(request, view):
+            return False
+        if request.user.is_superuser:
+            return True
+        emp = get_employe(request.user)
+        if emp is None:
+            return False
+        # Autorise la lecture à FACTURATION_GERER (facturier) OU PAIEMENTS_ENCAISSER (caissier)
+        return emp.a_la_capacite(Capacite.FACTURATION_GERER) or emp.a_la_capacite(Capacite.PAIEMENTS_ENCAISSER)
+
+
 class IsInSameService(IsAuthenticated):
     """
     Vérifie que l'objet demandé appartient au même service que l'utilisateur.

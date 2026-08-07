@@ -33,6 +33,7 @@ import Activites from './pages/Activites'
 import Facturation from './pages/Facturation'
 import FactureDetail from './pages/FactureDetail'
 import Caisse from './pages/Caisse'
+import GrilleTarifaire from './pages/GrilleTarifaire'
 
 /**
  * Remplace un simple <Navigate to="/dashboard" /> pour "/" et le catch-all :
@@ -205,6 +206,11 @@ function App() {
                 <Route path="/caisse" element={
                     <ProtectedRoute roles={['admin', 'caissier']}>
                         <Caisse />
+                    </ProtectedRoute>
+                } />
+                <Route path="/grille-tarifaire" element={
+                    <ProtectedRoute roles={['admin']}>
+                        <GrilleTarifaire />
                     </ProtectedRoute>
                 } />
 

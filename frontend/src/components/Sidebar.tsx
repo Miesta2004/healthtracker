@@ -404,6 +404,16 @@ export default function Sidebar() {
                             />
                         )}
 
+                        {hasRole("admin") && (
+                            <SidebarItem
+                                icon={Tag}
+                                label="Grille tarifaire"
+                                active={isActive("/grille-tarifaire")}
+                                onClick={() => navigate("/grille-tarifaire")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
                         <SidebarItem
                             icon={CalendarClock}
                             label="Mes disponibilités"

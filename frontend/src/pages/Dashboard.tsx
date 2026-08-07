@@ -1,21 +1,19 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { getPatients } from "../api/patients";
+import { getPatients, getFileAttenteAccueil } from "../api/patients";
 import { getFileAttente } from "../api/urgences";
 import { getHospitalisationsEnCours } from "../api/hospitalisations";
 import { getConsultations } from "../api/consultations";
 import { getEmployes } from "../api/comptes";
 import { getServices } from "../api/services";
-import { getDemandesEnAttente, getDemandes } from "../api/analyses";
+import { getDemandes } from "../api/analyses";
 import { getAlertes } from "../api/alertes";
 import { getRappels } from "../api/rappels";
-import { getActivitesRecentes } from "../api/activites";
-import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri, Alerte, DemandeAnalyse, Rappel, JournalActivite } from "../types";
+import type { Patient, PassageUrgence, Hospitalisation, Consultation, NiveauTri, Alerte, DemandeAnalyse, Rappel } from "../types";
 import Sidebar from "../components/Sidebar.tsx";
 import PageBanner from "../components/PageBanner.tsx";
 import DayTimeline from "../components/dashboard/DayTimeLine.tsx";
-import PriorityPatientsCard from "../components/dashboard/PriorityPatientsCard.tsx";
-import BlocOperatoireCard from "../components/dashboard/BlocOperatoireCard.tsx";
+import RoleWorkspace from "../components/dashboard/RoleWorkspace.tsx";
 import ContinuerMonTravailCard, { type WorkItem } from "../components/dashboard/ContinuerMonTravailCard.tsx";
 import { useAuth } from "../contexts/AuthContext";
 import { useRealtimeCalendrier } from "../hooks/useRealtimeCalendrier";
@@ -39,9 +37,7 @@ import {
     ChevronRight,
     LayoutDashboard,
     Sunrise,
-    History,
 } from "lucide-react";
-import RappelsPanel from "../components/RappelsPanel.tsx";
 
 // ─── CONFIGURATION DES BADGES DE TRIAGE (déjà définis dans index.css) ─────────
 const TRI_BADGE: Record<NiveauTri, string> = {
@@ -52,14 +48,6 @@ const TRI_BADGE: Record<NiveauTri, string> = {
     5: "badge-tri-5",
 };
 
-function tempsEcoule(dateIso: string) {
-    const mins = Math.floor((Date.now() - new Date(dateIso).getTime()) / 60000)
-    if (mins < 1) return "à l'instant"
-    if (mins < 60) return `il y a ${mins} min`
-    const h = Math.floor(mins / 60)
-    if (h < 24) return `il y a ${h}h${(mins % 60).toString().padStart(2, '0')}`
-    return `il y a ${Math.floor(h / 24)} j`
-}
 
 // ─── COMPOSANT WIDGETCARD ─────────────────────────────────────────────────────
 interface WidgetCardProps {
@@ -144,36 +132,35 @@ export default function Dashboard() {
 
     const canSeePatients = hasRole("admin", "medecin", "secretaire");
     const canSeeUrgences = hasRole("admin", "medecin", "infirmier");
-    const canSeeHospit   = hasRole("admin", "medecin");
+    const canSeeHospit   = hasRole("admin", "medecin", "infirmier");
     const canSeeConsult  = hasRole("admin", "medecin", "infirmier");
     const canSeeRdv      = hasRole("admin", "medecin", "secretaire");
     const canSeeBloc     = hasRole("admin", "medecin", "chef_chirurgie");
     const isAdmin        = hasRole("admin");
     const isNurse         = hasRole("infirmier");
     const isSecretaire   = hasRole("secretaire");
+    const isLaborantin   = hasRole("laborantin");
     const isMedecin      = hasRole("medecin");
 
     const [patients, setPatients] = useState<Patient[] | null>(null);
     const [urgences, setUrgences] = useState<PassageUrgence[] | null>(null);
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[] | null>(null);
     const [consultations, setConsultations] = useState<Consultation[] | null>(null);
-    const [, setEffectif] = useState<{ employes: number; services: number } | null>(null);
-    const [demandesEnAttente, setDemandesEnAttente] = useState<number | null>(null);
+    const [effectif, setEffectif] = useState<{ employes: number; services: number } | null>(null);
     const [alertes, setAlertes] = useState<Alerte[] | null>(null);
     const [demandesAnalyses, setDemandesAnalyses] = useState<DemandeAnalyse[] | null>(null);
     const [rappels, setRappels] = useState<Rappel[] | null>(null);
-    const [activitesRecentes, setActivitesRecentes] = useState<JournalActivite[] | null>(null);
+    const [admissionsEnAttente, setAdmissionsEnAttente] = useState<Patient[] | null>(null);
 
     useEffect(() => {
         if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]));
         if (canSeeUrgences) getFileAttente().then(setUrgences).catch(() => setUrgences([]));
         if (canSeeHospit) getHospitalisationsEnCours().then(setHospitalisations).catch(() => setHospitalisations([]));
         if (canSeeConsult) getConsultations().then(setConsultations).catch(() => setConsultations([]));
-        if (hasRole("laborantin")) getDemandesEnAttente().then((d) => setDemandesEnAttente(d.length)).catch(() => setDemandesEnAttente(0));
-        if (isMedecin || isAdmin) getDemandes().then(setDemandesAnalyses).catch(() => setDemandesAnalyses([]));
+        if (isMedecin || isAdmin || isLaborantin) getDemandes().then(setDemandesAnalyses).catch(() => setDemandesAnalyses([]));
+        if (isSecretaire || isAdmin) getFileAttenteAccueil().then(setAdmissionsEnAttente).catch(() => setAdmissionsEnAttente([]));
         getRappels().then(setRappels).catch(() => setRappels([]));
         getAlertes().then(setAlertes).catch(() => setAlertes([]));
-        getActivitesRecentes().then(setActivitesRecentes).catch(() => setActivitesRecentes([]));
         if (isAdmin) {
             Promise.all([getEmployes(), getServices()])
                 .then(([emps, servs]) => setEffectif({
@@ -225,8 +212,16 @@ export default function Dashboard() {
         )
         : [];
 
+    // Une Alerte(type='resultat_analyse', statut='non_lue') est déjà créée
+    // automatiquement côté backend quand un laborantin soumet un résultat
+    // (analyses/views.py::soumettre_resultats) — on la croise avec les
+    // demandes déjà chargées pour ne garder que les résultats réellement
+    // nouveaux, sans appel réseau supplémentaire ni marquage de lecture ici.
+    const patientsAvecResultatNonLu = new Set(
+        (alertes ?? []).filter((a) => a.type === "resultat_analyse" && a.statut === "non_lue").map((a) => a.patient)
+    );
     const resultatsDisponibles = (isMedecin || isAdmin)
-        ? (demandesAnalyses ?? []).filter((d) => d.demandeur === user?.id && d.statut === "terminee")
+        ? (demandesAnalyses ?? []).filter((d) => d.demandeur === user?.id && d.statut === "terminee" && patientsAvecResultatNonLu.has(d.patient))
         : [];
 
     const rappelsEnAttente = (rappels ?? []).filter((r) => !r.fait);
@@ -234,7 +229,7 @@ export default function Dashboard() {
     const chargementTravail =
         (canSeeConsult && consultations === null) ||
         (canSeeBloc && blocLoading) ||
-        ((isMedecin || isAdmin) && demandesAnalyses === null) ||
+        ((isMedecin || isAdmin) && (demandesAnalyses === null || alertes === null)) ||
         rappels === null;
 
     const travailItems: WorkItem[] | null = chargementTravail ? null : [
@@ -258,7 +253,7 @@ export default function Dashboard() {
             id: "resultats",
             icon: FlaskConical,
             title: "Résultats biologiques",
-            subtitle: `${resultatsDisponibles.length} résultat${resultatsDisponibles.length > 1 ? "s" : ""} disponible${resultatsDisponibles.length > 1 ? "s" : ""}`,
+            subtitle: `${resultatsDisponibles.length} nouveau${resultatsDisponibles.length > 1 ? "x" : ""} résultat${resultatsDisponibles.length > 1 ? "s" : ""} disponible${resultatsDisponibles.length > 1 ? "s" : ""}`,
             ctaLabel: "Consulter",
             onClick: () => navigate(`/patients/${resultatsDisponibles[0].patient}`),
         }] : []),
@@ -392,13 +387,24 @@ export default function Dashboard() {
                     </section>
                 )}
 
-                {/* ── 4. Patients prioritaires · 5. Bloc opératoire ── */}
-                {(canSeeUrgences || canSeeBloc) && (
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        {canSeeUrgences && <PriorityPatientsCard urgences={urgences} hospitalisations={hospitalisations} />}
-                        {canSeeBloc && <BlocOperatoireCard operations={blocJour?.operations} loading={blocLoading} />}
-                    </div>
-                )}
+                {/* ── 4-5-6. Blocs métier selon le rôle connecté ── */}
+                <RoleWorkspace
+                    canSeeUrgences={canSeeUrgences}
+                    canSeeBloc={canSeeBloc}
+                    isNurse={isNurse}
+                    isSecretaire={isSecretaire}
+                    isLaborantin={isLaborantin}
+                    isAdmin={isAdmin}
+                    userId={user?.id}
+                    urgences={urgences}
+                    hospitalisations={hospitalisations}
+                    blocOperations={blocJour?.operations}
+                    blocLoading={blocLoading}
+                    admissionsEnAttente={admissionsEnAttente}
+                    patients={patients}
+                    demandesAnalyses={demandesAnalyses}
+                    effectif={effectif}
+                />
 
                 {/* ── Widgets complémentaires (fonctionnalités existantes conservées) ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -431,62 +437,8 @@ export default function Dashboard() {
                             </div>
                         </WidgetCard>
                     )}
-
-                    <WidgetCard
-                        title="Activité récente"
-                        loading={activitesRecentes === null}
-                        empty={(activitesRecentes?.length ?? 0) === 0}
-                        emptyLabel="Aucune activité récente dans votre service"
-                        linkLabel="Voir tout"
-                        onLink={() => navigate("/activites")}
-                    >
-                        <div className="divide-y divide-[var(--ht-border)]">
-                            {(activitesRecentes ?? []).map(a => (
-                                <div key={a.id} className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0 gap-3">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                        <div className="ht-kpi-icon" style={{ width: '2rem', height: '2rem', flexShrink: 0 }}>
-                                            <History size={14} style={{ color: "var(--ht-primary)" }} />
-                                        </div>
-                                        <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{a.description}</p>
-                                            <p className="text-xs text-[var(--ht-text-muted)] truncate mt-0.5">
-                                                {a.employe_prenom ? `${a.employe_prenom} ${a.employe_nom}` : "Système"} · {tempsEcoule(a.date_creation)}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <span className="badge badge-muted flex-shrink-0">{a.type_objet_label}</span>
-                                </div>
-                            ))}
-                        </div>
-                    </WidgetCard>
-
-                    <RappelsPanel />
-
                 </div>
 
-                {/* ── Module Laboratoire dédié pour les Laborantins ── */}
-                {hasRole("laborantin") && (
-                    <div className="ht-card ht-card-padded-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-4">
-                            <div className="ht-kpi-icon" style={{ backgroundColor: "var(--ht-primary-light)" }}>
-                                <FlaskConical size={22} style={{ color: "var(--ht-primary)" }} />
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-[var(--ht-text)]">
-                                    {demandesEnAttente === null
-                                        ? "Chargement des demandes…"
-                                        : demandesEnAttente === 0
-                                            ? "Aucune demande en attente"
-                                            : `${demandesEnAttente} demande${demandesEnAttente > 1 ? "s" : ""} en attente de traitement`}
-                                </p>
-                                <p className="text-xs text-[var(--ht-text-muted)] mt-0.5">Retrouvez toutes les demandes d'analyses biologiques assignées à votre labo</p>
-                            </div>
-                        </div>
-                        <button onClick={() => navigate("/laboratoire")} className="btn btn-primary w-full sm:w-auto">
-                            Ouvrir le laboratoire →
-                        </button>
-                    </div>
-                )}
             </main>
         </div>
     );

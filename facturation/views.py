@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
@@ -7,14 +8,15 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.response import Response
 
-from comptes.permissions import get_employe, IsAdminRole
-from facturation.permissions import (
-    PeutGererFacturation, PeutEncaisserPaiement, PeutLireFacturation,
+from comptes.permissions import (
+    get_employe, IsAdminRole, PeutGererFacturation, PeutEncaisserPaiement, PeutLireFacturation,
 )
-from .models import Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, StatutFacture, StatutEcheance
+from .models import Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe, StatutFacture, StatutEcheance
+from .nuitees import generer_nuitees_manquantes
+from .pdf_utils import generer_pdf_facture, generer_pdf_recu
 from .serializers import (
     FactureSerializer, LigneFactureSerializer, NouvelleLigneFactureSerializer,
-    PaiementSerializer, EcheancierPaiementSerializer, EcheanceSerializer,
+    PaiementSerializer, EcheancierPaiementSerializer, EcheanceSerializer, TarifActeSerializer,
 )
 
 # Statuts pendant lesquels une facture reste modifiable (lignes ajoutables/
@@ -176,6 +178,40 @@ class FactureViewSet(viewsets.ModelViewSet):
             EcheancierPaiementSerializer(echeancier).data, status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def telecharger_pdf(self, request, pk=None):
+        """
+        Bordereau complet (lignes + ventilation + échéancier) — même
+        permission que la lecture de la facture (PeutLireFacturation),
+        donc accessible au facturier ET au caissier, pas seulement à celui
+        qui l'a créée.
+        """
+        facture = self.get_object()
+        buffer = generer_pdf_facture(facture)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="{facture.numero_facture}.pdf"'
+        return response
+
+    @action(detail=True, methods=['post'], url_path='actualiser-nuitees')
+    def actualiser_nuitees(self, request, pk=None):
+        """
+        Déclenchement manuel (en plus du cron quotidien
+        `generer_nuitees`) : ajoute les nuits déjà passées et pas encore
+        facturées pour CETTE facture uniquement. Utile quand le facturier
+        veut un état à jour tout de suite, sans attendre le prochain
+        passage planifié.
+        """
+        facture = self.get_object()
+        if not facture.hospitalisation_id:
+            raise ValidationError("Cette facture n'est pas liée à une hospitalisation.")
+        resultat = generer_nuitees_manquantes(facture_id=facture.id)
+        facture.refresh_from_db()
+        return Response({
+            'facture': FactureSerializer(facture).data,
+            'nuitees_ajoutees': resultat['ajoutees'],
+            'avertissements': resultat['avertissements'],
+        })
+
 
 class LigneFactureViewSet(viewsets.ModelViewSet):
     """
@@ -243,6 +279,15 @@ class PaiementViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         emp = get_employe(self.request.user)
         serializer.save(encaisse_par=emp)  # Paiement.save() recalcule Facture + Echeance liée
+
+    @action(detail=True, methods=['get'], url_path='recu')
+    def recu_pdf(self, request, pk=None):
+        """Reçu court d'un encaissement précis — remis au guichet."""
+        paiement = self.get_object()
+        buffer = generer_pdf_recu(paiement)
+        response = HttpResponse(buffer, content_type='application/pdf')
+        response['Content-Disposition'] = f'inline; filename="recu-{paiement.facture.numero_facture}-{paiement.id}.pdf"'
+        return response
 
 
 class EcheancierPaiementViewSet(viewsets.ModelViewSet):
@@ -315,3 +360,31 @@ class EcheanceViewSet(viewsets.ModelViewSet):
         echeancier.save(update_fields=['statut'])
 
         return Response(self.get_serializer(echeance).data)
+
+
+class TarifActeViewSet(viewsets.ModelViewSet):
+    """
+    Nomenclature des actes facturables. Lecture ouverte à tout employé
+    connecté (c'est une liste de prix, pas une donnée sensible — le
+    facturier ET le caissier en ont besoin). Écriture réservée à l'admin
+    (chef de service / superuser) : si le facturier pouvait librement fixer
+    les tarifs, ça viderait de son sens la protection apportée par
+    LigneFacture.save() (le prix catalogué prime toujours sur ce qu'envoie
+    le client).
+    """
+    serializer_class = TarifActeSerializer
+
+    def get_queryset(self):
+        qs = TarifActe.objects.select_related('service')
+        actif = self.request.query_params.get('actif')
+        if actif is not None:
+            qs = qs.filter(actif=actif.lower() in ('1', 'true'))
+        type_acte = self.request.query_params.get('type_acte')
+        if type_acte:
+            qs = qs.filter(type_acte=type_acte)
+        return qs
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [IsAuthenticated()]
+        return [IsAdminRole()]

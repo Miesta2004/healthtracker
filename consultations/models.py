@@ -18,6 +18,20 @@ class Consultation(models.Model):
         ('annulee','Annulée')
     ]
 
+    class DecisionOrientation(models.TextChoices):
+        """
+        Où va le patient à l'issue de la consultation. Renseignée par le
+        médecin (ConsultSerializer.validate rend ce champ obligatoire dès que
+        statut passe à 'terminee') — avant l'ajout de ce champ, rien ne
+        capturait cette décision : Consultation.save() faisait toujours
+        'terminée + pas d'hospitalisation active → sorti', sans distinguer
+        une vraie sortie d'un patient qu'il fallait en réalité hospitaliser
+        ou renvoyer prendre un rendez-vous de suivi au secrétariat.
+        """
+        SORTIE           = 'sortie',           'Retour à domicile'
+        HOSPITALISATION  = 'hospitalisation',  'Hospitalisation'
+        RENDEZ_VOUS      = 'rendez_vous',      'Rendez-vous de suivi à prendre'
+
     #Relation avec Patient
     patient = models.ForeignKey(
         Patient,
@@ -51,6 +65,17 @@ class Consultation(models.Model):
         default = 'planifiee'
     )
 
+    decision_orientation = models.CharField(
+        max_length=20,
+        choices=DecisionOrientation.choices,
+        blank=True,
+        default='',
+        help_text="Décision du médecin sur le devenir du patient à la fin de "
+                  "la consultation (sortie / hospitalisation / rendez-vous de "
+                  "suivi). Voir save() : pilote la mise à jour de "
+                  "Patient.statut_orientation.",
+    )
+
     #Metadonnées
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
@@ -61,11 +86,20 @@ class Consultation(models.Model):
         #
         # - Consultation planifiée/en cours (à sa création) : le patient est
         #   "en consultation".
-        # - Consultation TERMINÉE : c'était une simple visite (consultation,
-        #   examen…) sans suite — le patient repart, donc "sorti". Sauf s'il a
-        #   une hospitalisation active en parallèle (décidée pendant cette
-        #   même consultation) : dans ce cas, HOSPITALISE prime, on ne
-        #   l'écrase pas.
+        # - Consultation TERMINÉE : on suit la décision explicite du médecin
+        #   (decision_orientation) :
+        #     · SORTIE           → patient "sorti"
+        #     · HOSPITALISATION  → "à hospitaliser" (file d'attente : le
+        #       service ouvre ensuite le dossier via HospitalisationViewSet,
+        #       qui peut être lié à cette consultation via
+        #       Hospitalisation.consultation_origine)
+        #     · RENDEZ_VOUS      → "en attente de rendez-vous de suivi" (file
+        #       d'attente secrétariat)
+        #     · non renseignée (consultations créées avant ce champ, ou hors
+        #       API) → comportement historique inchangé : "sorti"
+        #   Dans tous les cas, si une hospitalisation est déjà EN_COURS en
+        #   parallèle (décidée pendant cette même consultation), HOSPITALISE
+        #   prime et on ne l'écrase pas.
         # - Consultation ANNULÉE : la visite n'a jamais vraiment eu lieu, on
         #   ne touche pas au parcours du patient.
         #
@@ -81,9 +115,16 @@ class Consultation(models.Model):
             a_hospitalisation_active = Hospitalisation.objects.filter(
                 patient_id=self.patient_id, statut=StatutHospitalisation.EN_COURS
             ).exists()
+
             if not a_hospitalisation_active:
+                if self.decision_orientation == self.DecisionOrientation.HOSPITALISATION:
+                    nouveau_statut = Patient.StatutOrientation.A_HOSPITALISER
+                elif self.decision_orientation == self.DecisionOrientation.RENDEZ_VOUS:
+                    nouveau_statut = Patient.StatutOrientation.EN_ATTENTE_RDV_SUIVI
+                else:
+                    nouveau_statut = Patient.StatutOrientation.SORTI
                 Patient.objects.filter(pk=self.patient_id).update(
-                    statut_orientation=Patient.StatutOrientation.SORTI
+                    statut_orientation=nouveau_statut
                 )
         elif est_nouvelle and self.statut in ('planifiee', 'en_cours'):
             Patient.objects.filter(pk=self.patient_id).update(

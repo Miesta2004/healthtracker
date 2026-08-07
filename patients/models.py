@@ -83,8 +83,10 @@ class Patient(Personne):
         EN_ATTENTE_VALIDATION_SERVICE = 'en_attente_validation_service', "En attente de validation par le service"
         ADMIS_DANS_LE_SERVICE         = 'admis_dans_le_service',         'Admis dans le service'
         EN_CONSULTATION               = 'en_consultation',               'En consultation'
+        A_HOSPITALISER                = 'a_hospitaliser',                'À hospitaliser'
         HOSPITALISE                  = 'hospitalise',                   'Hospitalisé'
         ADMIS_URGENCES                = 'admis_urgences',                'Admis aux urgences'
+        EN_ATTENTE_RDV_SUIVI          = 'en_attente_rdv_suivi',          'En attente de rendez-vous de suivi'
         SORTI                         = 'sorti',                         'Sorti'
 
     statut_orientation = models.CharField(
@@ -94,11 +96,17 @@ class Patient(Personne):
         help_text="Parcours administratif du patient depuis son admission : "
                   "'en_attente_validation_service' (créé + orienté par les Admissions, "
                   "en attente que le secrétariat du service confirme l'arrivée) → "
-                  "'admis_dans_le_service' (confirmé) → 'en_consultation' / 'hospitalise' "
-                  "(mis à jour AUTOMATIQUEMENT par les apps consultations/hospitalisations "
-                  "à la création d'un enregistrement, voir leurs save()) → 'sorti'. Chemin "
-                  "parallèle : 'admis_urgences' pour une admission d'urgence vitale à "
-                  "identité provisoire (voir identite_provisoire), avant régularisation.",
+                  "'admis_dans_le_service' (confirmé) → 'en_consultation' (mis à jour "
+                  "AUTOMATIQUEMENT par consultations.Consultation.save()) → à l'issue de la "
+                  "consultation, selon Consultation.decision_orientation choisie par le "
+                  "médecin : 'a_hospitaliser' (en attente qu'un service ouvre le dossier "
+                  "d'hospitalisation, cf. Hospitalisation.consultation_origine), "
+                  "'en_attente_rdv_suivi' (le secrétariat doit programmer un RDV), ou "
+                  "directement 'sorti'. 'hospitalise' est positionné automatiquement par "
+                  "hospitalisations.Hospitalisation.save() dès qu'un dossier "
+                  "d'hospitalisation est réellement ouvert. Chemin parallèle : "
+                  "'admis_urgences' pour une admission d'urgence vitale à identité "
+                  "provisoire (voir identite_provisoire), avant régularisation.",
     )
 
     # ── Admission d'urgence / identité provisoire ───────────────────────────

@@ -208,6 +208,57 @@ class Facture(models.Model):
         ]
 
 
+# ─── TarifActe (nomenclature) ────────────────────────────────────────────────
+
+class TarifActe(models.Model):
+    """
+    Nomenclature des actes facturables avec leur tarif — évite la ressaisie
+    manuelle du prix à chaque ligne et les incohérences entre deux factures
+    pour le même acte.
+
+    IMPORTANT : LigneFacture.prix_unitaire est TOUJOURS copié depuis ce
+    modèle au moment de la création (voir LigneFacture.save()) et n'est
+    JAMAIS relu après coup — un changement de tarif ici ne modifie donc
+    jamais rétroactivement une facture déjà émise. `tarif_acte` sur
+    LigneFacture ne sert qu'à la traçabilité ("cette ligne vient de quel
+    tarif catalogué") et au calcul serveur du prix à la création.
+    """
+
+    type_acte   = models.CharField(max_length=20, choices=TypeActe.choices)
+    code_acte   = models.CharField(max_length=30, unique=True)
+    libelle     = models.CharField(max_length=255)
+    prix_unitaire = models.DecimalField(max_digits=12, decimal_places=2)
+
+    # Si renseigné, ce tarif ne s'applique qu'à ce service (ex: consultation
+    # cardiologie plus chère qu'une consultation généraliste). Laisser vide
+    # pour un tarif générique valable dans tout l'hôpital.
+    service = models.ForeignKey(
+        'services.Service', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='tarifs_actes',
+    )
+
+    actif = models.BooleanField(
+        default=True,
+        help_text="Un tarif désactivé disparaît du sélecteur de nouvelle "
+                  "ligne, mais reste consultable pour les factures déjà "
+                  "émises qui le référencent (jamais supprimé physiquement).",
+    )
+
+    date_creation     = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.code_acte} — {self.libelle} ({self.prix_unitaire} FCFA)"
+
+    class Meta:
+        verbose_name = "Tarif d'acte"
+        verbose_name_plural = "Tarifs d'actes"
+        ordering = ['type_acte', 'libelle']
+        constraints = [
+            models.CheckConstraint(condition=models.Q(prix_unitaire__gte=0), name='tarif_acte_prix_positif'),
+        ]
+
+
 # ─── LigneFacture ────────────────────────────────────────────────────────────
 
 class LigneFacture(models.Model):
@@ -219,6 +270,15 @@ class LigneFacture(models.Model):
     """
 
     facture = models.ForeignKey(Facture, on_delete=models.CASCADE, related_name='lignes')
+
+    # Référence optionnelle à la grille tarifaire — si renseignée, le prix
+    # est TOUJOURS recalculé depuis TarifActe.prix_unitaire à la création
+    # (voir save()), jamais accepté tel quel du client, pour empêcher un
+    # prix falsifié sur un acte pourtant standardisé.
+    tarif_acte = models.ForeignKey(
+        TarifActe, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='lignes_facture',
+    )
 
     type_acte    = models.CharField(max_length=20, choices=TypeActe.choices)
     description  = models.CharField(max_length=255)
@@ -254,6 +314,18 @@ class LigneFacture(models.Model):
     notes = models.TextField(blank=True)
 
     def save(self, *args, **kwargs):
+        # Le prix d'un acte catalogué vient TOUJOURS du tarif au moment de
+        # la CRÉATION (jamais resynchronisé sur une modification ultérieure
+        # de la ligne, ni sur un futur changement du tarif lui-même).
+        if self._state.adding and self.tarif_acte_id:
+            self.prix_unitaire = self.tarif_acte.prix_unitaire
+            if not self.description:
+                self.description = self.tarif_acte.libelle
+            if not self.type_acte:
+                self.type_acte = self.tarif_acte.type_acte
+            if not self.code_acte:
+                self.code_acte = self.tarif_acte.code_acte
+
         self.montant_ligne = (self.quantite * self.prix_unitaire).quantize(Decimal('0.01'))
 
         taux = self.taux_prise_en_charge_assurance

@@ -8,10 +8,27 @@ class ConsultSerializer(serializers.ModelSerializer):
     patient_nom    = serializers.CharField(source='patient.nom', read_only=True)
     patient_prenom = serializers.CharField(source='patient.prenom', read_only=True)
     statut_label   = serializers.CharField(source='get_statut_display', read_only=True)
+    decision_orientation_label = serializers.CharField(
+        source='get_decision_orientation_display', read_only=True, default=''
+    )
 
     class Meta:
         model  = Consultation
         fields = '__all__'
+
+    def validate(self, data):
+        statut = data.get('statut', getattr(self.instance, 'statut', None))
+        decision = data.get(
+            'decision_orientation', getattr(self.instance, 'decision_orientation', '')
+        )
+        if statut == 'terminee' and not decision:
+            raise serializers.ValidationError({
+                'decision_orientation': (
+                    "Indiquez où va le patient (sortie, hospitalisation, "
+                    "rendez-vous de suivi) avant de terminer la consultation."
+                )
+            })
+        return data
 
 
 class RdvSerializer(serializers.ModelSerializer):

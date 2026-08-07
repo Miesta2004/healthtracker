@@ -1,8 +1,16 @@
 from rest_framework import serializers
 
 from .models import (
-    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance,
+    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe,
 )
+
+
+class TarifActeSerializer(serializers.ModelSerializer):
+    service_nom = serializers.CharField(source='service.nom', default=None, read_only=True)
+
+    class Meta:
+        model = TarifActe
+        fields = '__all__'
 
 
 class LigneFactureSerializer(serializers.ModelSerializer):
@@ -12,7 +20,8 @@ class LigneFactureSerializer(serializers.ModelSerializer):
         # montant_ligne / montant_part_assurance_ligne / montant_part_patient_ligne
         # sont calculés dans LigneFacture.save() — jamais acceptés en entrée,
         # sinon un client pourrait forcer un montant qui ne correspond pas à
-        # quantite * prix_unitaire.
+        # quantite * prix_unitaire. prix_unitaire reste en lecture seule dès
+        # qu'un tarif_acte est déjà associé (voir validate()).
         read_only_fields = (
             'montant_ligne', 'montant_part_assurance_ligne', 'montant_part_patient_ligne',
         )
@@ -121,7 +130,29 @@ class NouvelleLigneFactureSerializer(serializers.ModelSerializer):
     Payload de création d'une ligne, utilisé par l'action
     FactureViewSet.ajouter_ligne() — distinct de LigneFactureSerializer pour
     ne jamais accepter `facture` en entrée (déduit de l'URL, pas du body).
+
+    type_acte / description / prix_unitaire deviennent optionnels dès qu'un
+    tarif_acte est fourni : LigneFacture.save() les déduit du tarif catalogué
+    et IGNORE tout prix_unitaire envoyé par le client dans ce cas (défense
+    contre un prix falsifié sur un acte pourtant standardisé) — voir
+    LigneFacture.save().
     """
     class Meta:
         model = LigneFacture
         exclude = ('facture', 'montant_ligne', 'montant_part_assurance_ligne', 'montant_part_patient_ligne')
+        extra_kwargs = {
+            'prix_unitaire': {'required': False},
+            'type_acte':     {'required': False},
+            'description':   {'required': False},
+        }
+
+    def validate(self, attrs):
+        if not attrs.get('tarif_acte'):
+            manquants = [c for c in ('type_acte', 'description', 'prix_unitaire') if not attrs.get(c)]
+            if manquants:
+                raise serializers.ValidationError(
+                    f"{', '.join(manquants)} requis pour un acte hors nomenclature (sans tarif_acte)."
+                )
+        elif attrs['tarif_acte'].actif is False:
+            raise serializers.ValidationError("Ce tarif est désactivé — il ne peut plus être utilisé pour une nouvelle ligne.")
+        return attrs
