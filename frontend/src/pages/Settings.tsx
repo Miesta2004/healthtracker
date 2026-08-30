@@ -344,7 +344,7 @@ const JETONS_DOCUMENTS = [
     '{{medecin.nom}}', '{{medecin.prenom}}', '{{medecin.signature}}', '{{service.nom}}', '{{date_jour}}',
 ]
 
-const MODELE_VIDE = { nom: '', type_document: 'autre', corps: '', actif: true }
+const MODELE_VIDE = { nom: '', type_document: 'autre', entete: '', pied_de_page: '', actif: true }
 
 function FormulaireModele({ initial, onCancel, onSaved }: {
     initial: ModeleDocument | typeof MODELE_VIDE
@@ -354,20 +354,22 @@ function FormulaireModele({ initial, onCancel, onSaved }: {
     const estEdition = 'id' in initial
     const [nom, setNom] = useState(initial.nom)
     const [typeDocument, setTypeDocument] = useState(initial.type_document)
-    const [corps, setCorps] = useState(initial.corps)
+    const [entete, setEntete] = useState(initial.entete)
+    const [piedDePage, setPiedDePage] = useState(initial.pied_de_page)
     const [actif, setActif] = useState(initial.actif)
     const [saving, setSaving] = useState(false)
     const [feedback, setFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null)
+    const [champCible, setChampCible] = useState<'entete' | 'pied_de_page'>('entete')
 
     const handleSave = async () => {
-        if (!nom.trim() || !corps.trim()) {
-            setFeedback({ type: 'error', msg: 'Le nom et le contenu sont obligatoires.' })
+        if (!nom.trim()) {
+            setFeedback({ type: 'error', msg: 'Le nom est obligatoire.' })
             return
         }
         setSaving(true)
         setFeedback(null)
         try {
-            const data = { nom: nom.trim(), type_document: typeDocument, corps, actif }
+            const data = { nom: nom.trim(), type_document: typeDocument, entete, pied_de_page: piedDePage, actif }
             const saved = estEdition
                 ? await modifierModele((initial as ModeleDocument).id, data)
                 : await creerModele(data)
@@ -379,12 +381,17 @@ function FormulaireModele({ initial, onCancel, onSaved }: {
         }
     }
 
+    const inserer = (jeton: string) => {
+        if (champCible === 'entete') setEntete(prev => prev + jeton)
+        else setPiedDePage(prev => prev + jeton)
+    }
+
     return (
         <div className="border rounded-xl p-4 space-y-4" style={{ borderColor: 'var(--ht-primary)', backgroundColor: 'var(--ht-primary-light)' }}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="ht-field">
                     <label className="ht-label">Nom du modèle</label>
-                    <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex : Certificat de non contre-indication sportive" className="ht-input" />
+                    <input value={nom} onChange={e => setNom(e.target.value)} placeholder="Ex : Habillage standard — Ordonnance" className="ht-input" />
                 </div>
                 <div className="ht-field">
                     <label className="ht-label">Type de document</label>
@@ -396,31 +403,63 @@ function FormulaireModele({ initial, onCancel, onSaved }: {
                 </div>
             </div>
 
+            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                Le contenu médical (motif, prescription, diagnostic…) est saisi directement dans l'éditeur au moment de la
+                consultation — ici, tu personnalises seulement l'en-tête et le pied de page affichés autour de ce contenu
+                (logo, coordonnées de l'établissement, mentions légales).
+            </p>
+
             <div className="ht-field">
-                <label className="ht-label">Contenu</label>
-                <textarea value={corps} onChange={e => setCorps(e.target.value)} rows={10} className="ht-input ht-textarea ht-mono" />
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="flex items-center justify-between mb-1">
+                    <label className="ht-label mb-0">En-tête</label>
+                    <button type="button" onClick={() => setChampCible('entete')}
+                            className="text-[11px] font-semibold"
+                            style={{ color: champCible === 'entete' ? 'var(--ht-primary)' : 'var(--ht-text-muted)' }}>
+                        Insérer un jeton ici
+                    </button>
+                </div>
+                <textarea value={entete} onChange={e => setEntete(e.target.value)} onFocus={() => setChampCible('entete')}
+                          rows={3} placeholder="Ex : Clinique Sainte-Marie — {{service.nom}}&#10;Dakar, Sénégal"
+                          className="ht-input ht-textarea ht-mono" />
+            </div>
+
+            <div className="ht-field">
+                <div className="flex items-center justify-between mb-1">
+                    <label className="ht-label mb-0">Pied de page / mentions légales</label>
+                    <button type="button" onClick={() => setChampCible('pied_de_page')}
+                            className="text-[11px] font-semibold"
+                            style={{ color: champCible === 'pied_de_page' ? 'var(--ht-primary)' : 'var(--ht-text-muted)' }}>
+                        Insérer un jeton ici
+                    </button>
+                </div>
+                <textarea value={piedDePage} onChange={e => setPiedDePage(e.target.value)} onFocus={() => setChampCible('pied_de_page')}
+                          rows={3} placeholder="Ex : Dr {{medecin.prenom}} {{medecin.nom}}&#10;{{medecin.signature}}"
+                          className="ht-input ht-textarea ht-mono" />
+            </div>
+
+            <div>
+                <div className="flex flex-wrap gap-1.5">
                     {JETONS_DOCUMENTS.map(j => (
                         <button
                             key={j}
                             type="button"
-                            onClick={() => setCorps(prev => prev + j)}
+                            onClick={() => inserer(j)}
                             className="text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors hover:bg-white"
                             style={{ borderColor: 'var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}
-                            title="Cliquer pour insérer à la fin"
+                            title={`Insérer dans : ${champCible === 'entete' ? "l'en-tête" : 'le pied de page'}`}
                         >
                             {j}
                         </button>
                     ))}
                 </div>
                 <p className="text-xs text-[var(--ht-text-muted)] mt-1">
-                    Clique un jeton pour l'ajouter au contenu — il sera remplacé par la vraie donnée à la génération.
+                    Clique un jeton pour l'insérer dans le champ actif (en-tête ou pied de page) — il sera remplacé par la vraie donnée à la génération.
                 </p>
             </div>
 
             <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--ht-text-secondary)' }}>
                 <input type="checkbox" checked={actif} onChange={e => setActif(e.target.checked)} />
-                Actif (visible pour générer un document)
+                Actif (utilisé pour habiller les documents générés)
             </label>
 
             {feedback && <Feedback type={feedback.type} message={feedback.msg} />}

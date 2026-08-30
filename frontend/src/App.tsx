@@ -7,6 +7,7 @@ import Dashboard from './pages/Dashboard'
 import Patients from './pages/Patients'
 import PatientDetail from './pages/PatientDetail'
 import ConsultationDetail from './pages/ConsultationDetail'
+import DocumentEditeur from './pages/DocumentEditeur'
 import Employes from './pages/Employes'
 import AddEmploye from './pages/AddEmploye'
 import Services from './pages/Services'
@@ -34,6 +35,8 @@ import Facturation from './pages/Facturation'
 import FactureDetail from './pages/FactureDetail'
 import Caisse from './pages/Caisse'
 import GrilleTarifaire from './pages/GrilleTarifaire'
+import Assurance from './pages/Assurance'
+import BordereauDetail from './pages/BordereauDetail'
 
 /**
  * Remplace un simple <Navigate to="/dashboard" /> pour "/" et le catch-all :
@@ -80,6 +83,9 @@ function App() {
                 } />
                 <Route path="/patients/:id/consultations/:consultId" element={
                     <ProtectedRoute><ConsultationDetail /></ProtectedRoute>
+                } />
+                <Route path="/patients/:id/documents/:documentId" element={
+                    <ProtectedRoute><DocumentEditeur /></ProtectedRoute>
                 } />
                 <Route path="/patients/:id/signes_vitaux/newSignes" element={
                     <ProtectedRoute roles={['admin', 'medecin', 'infirmier']}>
@@ -211,6 +217,16 @@ function App() {
                 <Route path="/grille-tarifaire" element={
                     <ProtectedRoute roles={['admin']}>
                         <GrilleTarifaire />
+                    </ProtectedRoute>
+                } />
+                <Route path="/assurance" element={
+                    <ProtectedRoute roles={['admin', 'facturier']}>
+                        <Assurance />
+                    </ProtectedRoute>
+                } />
+                <Route path="/assurance/:id" element={
+                    <ProtectedRoute roles={['admin', 'facturier']}>
+                        <BordereauDetail />
                     </ProtectedRoute>
                 } />
 

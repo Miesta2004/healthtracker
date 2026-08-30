@@ -460,18 +460,109 @@ export interface DemandeAnalyse {
     date_resultat: string | null
 }
 
-// ─── Documents (bibliothèque de modèles + documents générés) ─────────────────
+// ─── Documents (bibliothèque de modèles + éditeur structuré) ──────────────────
 export type TypeDocument =
     | 'compte_rendu_consultation' | 'ordonnance' | 'certificat_medical'
     | 'demande_analyse' | 'demande_imagerie' | 'lettre_orientation'
     | 'arret_travail' | 'autre'
+
+export type StatutDocument = 'brouillon' | 'finalise'
+
+export interface ContextePatientDocument {
+    nom: string
+    prenom: string
+    age: number | null
+    sexe: string
+    numero_dossier: string
+    date_naissance: string
+}
+export interface ContexteConsultationDocument {
+    motif: string
+    diagnostic: string
+    symptomes: string
+    date: string
+}
+export interface ContexteMedecinDocument {
+    nom: string
+    prenom: string
+    signature: string
+}
+export interface ContexteServiceDocument {
+    nom: string
+}
+export interface ContexteDocument {
+    patient: ContextePatientDocument
+    consultation: ContexteConsultationDocument | null
+    medecin: ContexteMedecinDocument | null
+    service: ContexteServiceDocument | null
+    date_jour: string
+}
+
+export interface LigneMedicament {
+    nom: string
+    dosage: string
+    posologie: string
+    frequence: string
+    duree: string
+    quantite: string
+    conseils: string
+}
+export interface ChampsOrdonnance {
+    medicaments: LigneMedicament[]
+    conseils_generaux: string
+}
+export interface ChampsCertificatMedical {
+    motif: string
+    constat: string
+    duree_repos_jours: number | null
+    date_debut: string
+    date_fin: string
+    observations: string
+}
+export interface LigneExamen {
+    nom: string
+    categorie: 'biologie' | 'imagerie'
+}
+export interface ChampsDemandeExamen {
+    examens: LigneExamen[]
+    indication_clinique: string
+    urgence: 'normale' | 'urgente'
+    commentaires: string
+}
+export interface ChampsCompteRendu {
+    resume: string
+    evolution: string
+    recommandations: string
+}
+export interface ChampsLettreOrientation {
+    destinataire: string
+    motif_orientation: string
+    elements_cliniques: string
+    conclusion: string
+}
+export interface ChampsArretTravail {
+    motif_medical: string
+    date_debut: string
+    date_fin: string
+    duree_jours: number | null
+}
+export interface ChampsAutre {
+    texte_libre: string
+}
+
+export interface DonneesDocument {
+    contexte: ContexteDocument
+    champs: ChampsOrdonnance | ChampsCertificatMedical | ChampsDemandeExamen
+        | ChampsCompteRendu | ChampsLettreOrientation | ChampsArretTravail | ChampsAutre
+}
 
 export interface ModeleDocument {
     id: number
     nom: string
     type_document: TypeDocument
     type_document_label?: string
-    corps: string
+    entete: string
+    pied_de_page: string
     actif: boolean
     cree_par: number | null
     cree_par_nom?: string | null
@@ -489,11 +580,25 @@ export interface DocumentGenere {
     modele_nom?: string | null
     type_document: TypeDocument
     type_document_label?: string
+    statut: StatutDocument
+    statut_label?: string
     titre: string
+    donnees: DonneesDocument
     contenu: string
     genere_par: number | null
     genere_par_nom?: string | null
     date_creation: string
+    date_modification: string
+    entete_rendue?: string
+    pied_de_page_rendu?: string
+}
+
+export interface Medicament {
+    id: number
+    nom: string
+    dci: string
+    forme: string
+    dosages_courants: string
 }
 
 // ─── Alertes ─────────────────────────────────────────────────────────────────
@@ -840,7 +945,6 @@ export interface JournalActivite {
     objet_id: number | null
     date_creation: string
 }
-
 // ─── Module Facturation & Encaissement ─────────────────────────────────────
 // Miroir des modèles Django (facturation/models.py) et des serializers DRF.
 // Les statuts utilisent les classes .badge-* déjà définies dans index.css
@@ -934,6 +1038,35 @@ export const STATUT_ECHEANCE_BADGE: Record<StatutEcheance, string> = {
     a_venir: 'badge-tint', payee: 'badge-success', en_retard: 'badge-warning', impayee: 'badge-danger',
 }
 
+export type StatutBordereauAssurance = 'brouillon' | 'soumis' | 'traite'
+
+export const STATUT_BORDEREAU_LABELS: Record<StatutBordereauAssurance, string> = {
+    brouillon: 'Brouillon', soumis: 'Soumis', traite: 'Traité',
+}
+export const STATUT_BORDEREAU_BADGE: Record<StatutBordereauAssurance, string> = {
+    brouillon: 'badge-muted', soumis: 'badge-tint', traite: 'badge-success',
+}
+
+export interface BordereauAssurance {
+    id: number
+    numero_bordereau: string
+    mutuelle_nom: string
+    statut: StatutBordereauAssurance
+    date_creation: string
+    date_soumission?: string | null
+    cree_par?: number | null
+    cree_par_nom?: string | null
+    notes?: string
+    nombre_lignes: number
+    montant_total_demande: number
+}
+
+export interface ReponseAssurancePayload {
+    statut: 'valide' | 'rejete' | 'rejete_partiel'
+    montant_valide?: number
+    motif_rejet?: string
+}
+
 export interface TarifActe {
     id: number
     type_acte: TypeActe
@@ -974,6 +1107,8 @@ export interface LigneFacture {
     montant_part_patient_ligne: number
     statut_assurance: StatutValidationAssurance
     motif_rejet?: string
+    bordereau_assurance?: number | null
+    montant_assurance_demande?: number | null
     date_acte: string
     notes?: string
 }

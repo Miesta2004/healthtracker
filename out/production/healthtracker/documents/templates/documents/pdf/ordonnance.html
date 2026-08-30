@@ -1,0 +1,16 @@
+{% extends "documents/pdf/base.html" %}
+{% block corps %}
+<div class="section">
+    <div class="section-titre">Prescription</div>
+    <table class="medicaments">
+        <tr><th>Médicament</th><th>Dosage</th><th>Posologie</th><th>Durée</th><th>Qté</th></tr>
+        {% for m in champs.medicaments %}
+        <tr>
+            <td><strong>{{ m.nom }}</strong>{% if m.conseils %}<br><span style="font-size:8.5pt;color:#666666;">{{ m.conseils }}</span>{% endif %}</td>
+            <td>{{ m.dosage }}</td><td>{{ m.posologie }} {{ m.frequence }}</td><td>{{ m.duree }}</td><td>{{ m.quantite }}</td>
+        </tr>
+        {% empty %}<tr><td colspan="5" style="color:#999999;">Aucun médicament prescrit.</td></tr>{% endfor %}
+    </table>
+</div>
+{% if champs.conseils_generaux %}<div class="section"><div class="section-titre">Conseils</div><div class="section-contenu">{{ champs.conseils_generaux }}</div></div>{% endif %}
+{% endblock %}

@@ -4,7 +4,8 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from datetime import date
 
-from .models import ModeleDocument, DocumentGenere
+from .models import ModeleDocument, DocumentGenere, Medicament, construire_contexte
+from .rendu import champs_vides_pour, resumer_donnees
 from comptes.models import Employe
 from consultations.models import Consultation
 from patients.models import Patient
@@ -20,9 +21,7 @@ def creer_employe(username, role, service=None):
     return user, employe
 
 
-class ModeleDocumentModelTest(TestCase):
-    """Tests du rendu de modèle (remplacement des jetons {{...}})"""
-
+class ContexteEtRenduTest(TestCase):
     def setUp(self):
         self.service = Service.objects.create(nom="Pédiatrie")
         self.medecin_user, self.medecin = creer_employe("medecin1", "medecin", service=self.service)
@@ -34,197 +33,154 @@ class ModeleDocumentModelTest(TestCase):
             patient=self.patient, type_evenement="consultation",
             motif="Douleurs abdominales", diagnostic="Suspicion d'appendicite",
         )
-        self.modele = ModeleDocument.objects.create(
-            nom="Test modèle",
-            type_document="compte_rendu_consultation",
-            corps="Patient {{patient.prenom}} {{patient.nom}}, motif : {{consultation.motif}}. Dr {{medecin.nom}}.",
-        )
 
-    def test_rendre_remplace_les_jetons_connus(self):
-        """Vérifie que les jetons patient/consultation/médecin sont bien remplacés"""
-        texte = self.modele.rendre(patient=self.patient, consultation=self.consultation, medecin=self.medecin)
-        self.assertIn("Diariatou Ba", texte)
-        self.assertIn("Douleurs abdominales", texte)
-        self.assertIn("Test", texte)  # nom de l'employé de test
-        self.assertNotIn("{{", texte)
+    def test_construire_contexte_inclut_patient_consultation_medecin(self):
+        contexte = construire_contexte(patient=self.patient, consultation=self.consultation, medecin=self.medecin)
+        self.assertEqual(contexte['patient']['nom'], "Ba")
+        self.assertEqual(contexte['consultation']['motif'], "Douleurs abdominales")
+        self.assertEqual(contexte['medecin']['nom'], "Test")
+        self.assertEqual(contexte['service']['nom'], "Pédiatrie")
 
-    def test_rendre_inclut_la_signature_du_medecin(self):
-        """Le jeton {{medecin.signature}} est bien remplacé par Employe.signature_medicale"""
-        self.medecin.signature_medicale = "Dr Test — Pédiatre, Ordre des médecins n°12345"
-        self.medecin.save(update_fields=['signature_medicale'])
-        modele = ModeleDocument.objects.create(
-            nom="Avec signature", type_document="ordonnance",
-            corps="Dr {{medecin.prenom}} {{medecin.nom}}\n{{medecin.signature}}",
-        )
-        texte = modele.rendre(patient=self.patient, medecin=self.medecin)
-        self.assertIn("Ordre des médecins n°12345", texte)
+    def test_construire_contexte_sans_consultation_ni_medecin(self):
+        contexte = construire_contexte(patient=self.patient)
+        self.assertIsNone(contexte['consultation'])
+        self.assertIsNone(contexte['medecin'])
 
-    def test_rendre_sans_signature_renseignee_ne_plante_pas(self):
-        """Un médecin sans signature configurée ne fait pas planter le rendu (chaîne vide)"""
-        modele = ModeleDocument.objects.create(
-            nom="Sans signature", type_document="ordonnance",
-            corps="Signature : [{{medecin.signature}}]",
-        )
-        texte = modele.rendre(patient=self.patient, medecin=self.medecin)
-        self.assertIn("Signature : []", texte)
+    def test_champs_vides_ordonnance(self):
+        self.assertEqual(champs_vides_pour('ordonnance'), {'medicaments': [], 'conseils_generaux': ''})
 
-    def test_rendre_sans_consultation_laisse_le_jeton_tel_quel(self):
-        """Un jeton sans donnée disponible ne fait pas planter le rendu"""
-        modele = ModeleDocument.objects.create(
-            nom="Avec diagnostic", type_document="autre",
-            corps="Diagnostic : {{consultation.diagnostic}}",
-        )
-        texte = modele.rendre(patient=self.patient)
-        self.assertIn("{{consultation.diagnostic}}", texte)
+    def test_champs_vides_demande_imagerie_partage_celui_de_demande_analyse(self):
+        self.assertEqual(champs_vides_pour('demande_imagerie'), champs_vides_pour('demande_analyse'))
+
+    def test_resumer_donnees_ordonnance(self):
+        donnees = {'champs': {'medicaments': [
+            {'nom': 'Oméprazole', 'dosage': '20 mg', 'posologie': '1 gélule', 'frequence': 'le matin', 'duree': '14 jours'},
+        ], 'conseils_generaux': ''}}
+        resume = resumer_donnees('ordonnance', donnees)
+        self.assertIn('Oméprazole', resume)
+        self.assertIn('20 mg', resume)
+
+    def test_resumer_donnees_vide_ne_plante_pas(self):
+        self.assertTrue(resumer_donnees('ordonnance', {}))
+        self.assertTrue(resumer_donnees('certificat_medical', None))
 
 
-class DocumentsAPITest(TestCase):
-    """Tests de l'API modèles + génération de documents"""
-
+class DocumentGenereAPITest(TestCase):
     def setUp(self):
         self.service = Service.objects.create(nom="Pédiatrie")
         self.medecin_user, self.medecin = creer_employe("medecin1", "medecin", service=self.service)
         self.infirmier_user, self.infirmier = creer_employe("infirmier1", "infirmier", service=self.service)
         self.admin_user, self.admin = creer_employe("admin1", "admin", service=self.service)
-
-        self.patient = Patient.objects.create(
-            nom="Ba", prenom="Diariatou", date_naissance=date(1960, 3, 12), sexe="F",
-        )
-        self.modele = ModeleDocument.objects.create(
-            nom="Certificat", type_document="certificat_medical",
-            corps="Certificat pour {{patient.prenom}} {{patient.nom}}.",
-        )
+        self.patient = Patient.objects.create(nom="Ba", prenom="Diariatou", date_naissance=date(1960, 3, 12), sexe="F")
+        self.consultation = Consultation.objects.create(patient=self.patient, type_evenement="consultation", motif="Douleurs abdominales")
         self.client = APIClient()
 
-    def test_lister_modeles_authentifie(self):
-        """Tout utilisateur authentifié peut lister les modèles"""
-        self.client.force_authenticate(user=self.infirmier_user)
-        response = self.client.get('/api/modeles-documents/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-
-    def test_creer_modele_medecin_refuse(self):
-        """Un médecin ne peut pas créer de modèle — réservé à la gestion de la bibliothèque (admin)"""
-        self.client.force_authenticate(user=self.medecin_user)
-        response = self.client.post('/api/modeles-documents/', {
-            'nom': 'Nouveau', 'type_document': 'autre', 'corps': 'Contenu',
-        })
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_creer_modele_admin_ok(self):
-        """Un admin (chef de service) peut créer un modèle"""
-        self.client.force_authenticate(user=self.admin_user)
-        response = self.client.post('/api/modeles-documents/', {
-            'nom': 'Nouveau', 'type_document': 'autre', 'corps': 'Contenu',
-        })
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response.data['cree_par'], self.admin.id)
-
-    def test_generer_document_medecin(self):
-        """Un médecin peut générer un document à partir d'un modèle"""
-        self.client.force_authenticate(user=self.medecin_user)
-        response = self.client.post(f'/api/modeles-documents/{self.modele.id}/generer/', {
-            'patient': self.patient.id,
-        })
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertIn("Diariatou Ba", response.data['contenu'])
-        self.assertEqual(DocumentGenere.objects.count(), 1)
-        self.assertEqual(DocumentGenere.objects.first().genere_par, self.medecin)
-
-    def test_generer_document_infirmier_refuse(self):
-        """Un infirmier ne peut pas générer de document (pas la capacité DOCUMENTS_GENERER)"""
-        self.client.force_authenticate(user=self.infirmier_user)
-        response = self.client.post(f'/api/modeles-documents/{self.modele.id}/generer/', {
-            'patient': self.patient.id,
-        })
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_generer_sans_patient_refuse(self):
-        """Le patient est obligatoire pour générer un document"""
-        self.client.force_authenticate(user=self.medecin_user)
-        response = self.client.post(f'/api/modeles-documents/{self.modele.id}/generer/', {})
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    def test_lister_documents_generes_filtre_par_patient(self):
-        """?patient= filtre bien les documents générés"""
-        autre_patient = Patient.objects.create(nom="Fall", prenom="Awa", date_naissance=date(1990, 1, 1), sexe="F")
-        DocumentGenere.objects.create(
-            patient=self.patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc 1", contenu="...", genere_par=self.medecin,
-        )
-        DocumentGenere.objects.create(
-            patient=autre_patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc 2", contenu="...", genere_par=self.medecin,
-        )
-        self.client.force_authenticate(user=self.medecin_user)
-        response = self.client.get(f'/api/documents-generes/?patient={self.patient.id}')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['titre'], "Doc 1")
-
-    def test_creation_directe_document_genere_interdite(self):
-        """On ne peut pas POST directement sur /documents-generes/ — seul generer() peut créer"""
+    def test_creer_brouillon_medecin(self):
         self.client.force_authenticate(user=self.medecin_user)
         response = self.client.post('/api/documents-generes/', {
-            'patient': self.patient.id, 'titre': 'Fabriqué', 'contenu': 'Texte libre', 'type_document': 'autre',
-        })
-        self.assertEqual(response.status_code, status.HTTP_405_METHOD_NOT_ALLOWED)
+            'patient': self.patient.id, 'consultation': self.consultation.id, 'type_document': 'ordonnance',
+        }, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['statut'], 'brouillon')
+        self.assertEqual(response.data['donnees']['champs']['medicaments'], [])
+        self.assertEqual(response.data['donnees']['contexte']['patient']['nom'], 'Ba')
 
-    def test_supprimer_document_par_son_auteur(self):
-        """L'auteur d'un document généré peut le supprimer"""
-        doc = DocumentGenere.objects.create(
-            patient=self.patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc", contenu="...", genere_par=self.medecin,
-        )
+    def test_creer_brouillon_type_invalide_refuse(self):
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.post('/api/documents-generes/', {'patient': self.patient.id, 'type_document': 'pas_un_type'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_creer_brouillon_infirmier_refuse(self):
+        self.client.force_authenticate(user=self.infirmier_user)
+        response = self.client.post('/api/documents-generes/', {'patient': self.patient.id, 'type_document': 'ordonnance'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_modifier_champs_et_finaliser(self):
+        self.client.force_authenticate(user=self.medecin_user)
+        creation = self.client.post('/api/documents-generes/', {'patient': self.patient.id, 'type_document': 'ordonnance'}, format='json')
+        doc_id = creation.data['id']
+        donnees = creation.data['donnees']
+        donnees['champs']['medicaments'] = [{'nom': 'Paracétamol', 'dosage': '1 g', 'posologie': '1 cp', 'frequence': '3x/j', 'duree': '5 jours', 'quantite': '1 boîte', 'conseils': ''}]
+        response = self.client.patch(f'/api/documents-generes/{doc_id}/', {'donnees': donnees}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertIn('Paracétamol', response.data['contenu'])
+        finalisation = self.client.patch(f'/api/documents-generes/{doc_id}/', {'statut': 'finalise'}, format='json')
+        self.assertEqual(finalisation.data['statut'], 'finalise')
+
+    def test_modifier_par_un_autre_refuse(self):
+        doc = DocumentGenere.objects.create(patient=self.patient, type_document='ordonnance', titre="Doc", donnees={'contexte': {}, 'champs': {}}, genere_par=self.medecin)
+        autre_user, _ = creer_employe("medecin2", "medecin", service=self.service)
+        self.client.force_authenticate(user=autre_user)
+        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {'statut': 'finalise'}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_supprimer_par_son_auteur(self):
+        doc = DocumentGenere.objects.create(patient=self.patient, type_document='ordonnance', titre="Doc", donnees={'contexte': {}, 'champs': {}}, genere_par=self.medecin)
         self.client.force_authenticate(user=self.medecin_user)
         response = self.client.delete(f'/api/documents-generes/{doc.id}/')
         self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
 
-    def test_supprimer_document_par_un_autre_refuse(self):
-        """Un autre médecin (pas l'auteur, pas admin) ne peut pas supprimer le document"""
-        autre_user, _ = creer_employe("medecin2", "medecin", service=self.service)
-        doc = DocumentGenere.objects.create(
-            patient=self.patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc", contenu="...", genere_par=self.medecin,
-        )
-        self.client.force_authenticate(user=autre_user)
-        response = self.client.delete(f'/api/documents-generes/{doc.id}/')
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_modifier_contenu_par_son_auteur(self):
-        """L'auteur peut compléter/corriger le contenu généré (ex. dates d'arrêt de travail)"""
-        doc = DocumentGenere.objects.create(
-            patient=self.patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc", contenu="Durée de l'arrêt : du __/__/____ au __/__/____", genere_par=self.medecin,
-        )
-        self.client.force_authenticate(user=self.medecin_user)
-        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {
-            'contenu': "Durée de l'arrêt : du 01/08/2026 au 08/08/2026",
-        })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        doc.refresh_from_db()
-        self.assertIn("01/08/2026", doc.contenu)
-
-    def test_modifier_contenu_par_un_autre_refuse(self):
-        """Un autre médecin (pas l'auteur, pas admin) ne peut pas modifier le document"""
-        autre_user, _ = creer_employe("medecin2", "medecin", service=self.service)
-        doc = DocumentGenere.objects.create(
-            patient=self.patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc", contenu="...", genere_par=self.medecin,
-        )
-        self.client.force_authenticate(user=autre_user)
-        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {'contenu': "Modifié"})
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    def test_modifier_champs_proteges_ignore(self):
-        """patient/type_document/genere_par restent en lecture seule même via PATCH"""
+    def test_lister_filtre_par_patient(self):
         autre_patient = Patient.objects.create(nom="Fall", prenom="Awa", date_naissance=date(1990, 1, 1), sexe="F")
+        DocumentGenere.objects.create(patient=self.patient, type_document='ordonnance', titre="Doc 1", donnees={}, genere_par=self.medecin)
+        DocumentGenere.objects.create(patient=autre_patient, type_document='ordonnance', titre="Doc 2", donnees={}, genere_par=self.medecin)
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.get(f'/api/documents-generes/?patient={self.patient.id}')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['titre'], "Doc 1")
+
+    def test_pdf_sans_xhtml2pdf_installe_renvoie_message_clair(self):
         doc = DocumentGenere.objects.create(
-            patient=self.patient, modele=self.modele, type_document='certificat_medical',
-            titre="Doc", contenu="...", genere_par=self.medecin,
+            patient=self.patient, type_document='ordonnance', titre="Doc",
+            donnees={'contexte': construire_contexte(patient=self.patient), 'champs': champs_vides_pour('ordonnance')},
+            genere_par=self.medecin,
         )
         self.client.force_authenticate(user=self.medecin_user)
-        response = self.client.patch(f'/api/documents-generes/{doc.id}/', {'patient': autre_patient.id})
+        response = self.client.get(f'/api/documents-generes/{doc.id}/pdf/')
+        self.assertIn(response.status_code, (status.HTTP_200_OK, status.HTTP_501_NOT_IMPLEMENTED))
+
+
+class ModeleDocumentAPITest(TestCase):
+    def setUp(self):
+        self.service = Service.objects.create(nom="Pédiatrie")
+        self.medecin_user, self.medecin = creer_employe("medecin1", "medecin", service=self.service)
+        self.admin_user, self.admin = creer_employe("admin1", "admin", service=self.service)
+        self.client = APIClient()
+
+    def test_creer_modele_medecin_refuse(self):
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.post('/api/modeles-documents/', {'nom': 'Ordonnance standard', 'type_document': 'ordonnance', 'entete': '', 'pied_de_page': ''})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_creer_modele_admin_ok(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.post('/api/modeles-documents/', {
+            'nom': 'Ordonnance standard', 'type_document': 'ordonnance',
+            'entete': 'Clinique X — {{service.nom}}', 'pied_de_page': 'Dr {{medecin.prenom}} {{medecin.nom}}',
+        })
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+    def test_rendre_entete_remplace_les_jetons(self):
+        modele = ModeleDocument.objects.create(nom="Test", type_document="ordonnance", entete="Service : {{service.nom}}")
+        self.assertEqual(modele.rendre_entete({'service': {'nom': 'Pédiatrie'}}), "Service : Pédiatrie")
+
+
+class MedicamentAPITest(TestCase):
+    def setUp(self):
+        self.service = Service.objects.create(nom="Pédiatrie")
+        self.medecin_user, _ = creer_employe("medecin1", "medecin", service=self.service)
+        Medicament.objects.create(nom="Paracétamol", forme="comprimé")
+        Medicament.objects.create(nom="Amoxicilline", forme="gélule")
+        self.client = APIClient()
+
+    def test_recherche_medicament(self):
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.get('/api/medicaments/?search=parac')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        doc.refresh_from_db()
-        self.assertEqual(doc.patient_id, self.patient.id)  # inchangé
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['nom'], 'Paracétamol')
+
+    def test_liste_sans_recherche_renvoie_tout(self):
+        self.client.force_authenticate(user=self.medecin_user)
+        response = self.client.get('/api/medicaments/')
+        self.assertEqual(len(response.data), 2)

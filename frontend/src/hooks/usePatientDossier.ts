@@ -7,11 +7,12 @@ import { getDemandesPatient } from '../api/analyses'
 import { getRendezVousPatient } from '../api/rendezvous'
 import { getUrgencesPatient } from '../api/urgences'
 import { getHospitalisations } from '../api/hospitalisations'
+import { getOperations } from '../api/chirurgie'
 import { getAssignations } from '../api/disponibilites'
 import { getEmployes } from '../api/comptes'
 import type {
     Patient, SignesVitaux, Antecedent, Consultation, DemandeAnalyse,
-    RendezVous, PassageUrgence, Hospitalisation, Alerte,
+    RendezVous, PassageUrgence, Hospitalisation, Alerte, Operation,
     AssignationPatient, Employe,
 } from '../types'
 
@@ -23,6 +24,7 @@ export interface PatientDossierSectionErrors {
     rdvs?: boolean
     urgences?: boolean
     hospitalisations?: boolean
+    operations?: boolean
     alertes?: boolean
 }
 
@@ -30,7 +32,7 @@ type SectionKey = keyof PatientDossierSectionErrors
 
 const SECTIONS_INITIALES: Record<SectionKey, boolean> = {
     signes: true, antecedents: true, consultations: true, demandes: true,
-    rdvs: true, urgences: true, hospitalisations: true, alertes: true,
+    rdvs: true, urgences: true, hospitalisations: true, operations: true, alertes: true,
 }
 
 // Sections cliniques réservées à la capacité DOSSIER_MEDICAL_LIRE — un rôle
@@ -39,7 +41,7 @@ const SECTIONS_INITIALES: Record<SectionKey, boolean> = {
 // ("échec de chargement, réessayer") pour un accès qui ne sera JAMAIS accordé
 // par un nouvel essai. Voir PatientDetail.tsx pour l'affichage RestrictedAccess.
 const SECTIONS_CLINIQUES: SectionKey[] = [
-    'signes', 'antecedents', 'consultations', 'urgences', 'hospitalisations', 'alertes',
+    'signes', 'antecedents', 'consultations', 'urgences', 'hospitalisations', 'operations', 'alertes',
 ]
 
 export function usePatientDossier(patientId: number | undefined, options?: { skipClinical?: boolean }) {
@@ -52,6 +54,7 @@ export function usePatientDossier(patientId: number | undefined, options?: { ski
     const [rdvs, setRdvs] = useState<RendezVous[]>([])
     const [urgences, setUrgences] = useState<PassageUrgence[]>([])
     const [hospitalisations, setHospitalisations] = useState<Hospitalisation[]>([])
+    const [operations, setOperations] = useState<Operation[]>([])
     const [alertes, setAlertes] = useState<Alerte[]>([])
 
     // Ne concerne que le fetch du patient lui-même : c'est la SEULE chose qui
@@ -112,6 +115,7 @@ export function usePatientDossier(patientId: number | undefined, options?: { ski
                     loadSection('consultations', getConsultations(patientId), setConsultations)
                     loadSection('urgences', getUrgencesPatient(patientId), setUrgences)
                     loadSection('hospitalisations', getHospitalisations(patientId), setHospitalisations)
+                    loadSection('operations', getOperations(patientId), setOperations)
                     loadSection('alertes', getAlertes(), (al) =>
                         setAlertes(al.filter(x => x.patient === patientId))
                     )
@@ -138,6 +142,7 @@ export function usePatientDossier(patientId: number | undefined, options?: { ski
         rdvs,
         urgences,
         hospitalisations,
+        operations,
         alertes, setAlertes,
         patientLoading,
         error,

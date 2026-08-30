@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from patients.models import Patient
 
@@ -259,6 +260,96 @@ class TarifActe(models.Model):
         ]
 
 
+# ─── Circuit de soumission à l'assurance ─────────────────────────────────────
+
+class StatutBordereauAssurance(models.TextChoices):
+    BROUILLON = 'brouillon', 'Brouillon'
+    SOUMIS    = 'soumis',    'Soumis'
+    TRAITE    = 'traite',    'Traité (toutes les lignes ont une réponse)'
+
+
+class BordereauAssurance(models.Model):
+    """
+    Regroupe les lignes de facture "à soumettre" à un même assureur/mutuelle
+    en un seul envoi — c'est le document réellement transmis à l'assureur,
+    distinct de la facture patient. Une facture individuelle n'est PAS
+    soumise telle quelle : ce sont ses lignes non-couvertes qui rejoignent
+    un bordereau, potentiellement mélangées à des lignes d'autres factures
+    du même assureur sur la période (cycle mensuel typique).
+
+    Centralisé : pas de scoping par service côté permissions (comme la
+    Caisse) — le circuit tiers-payant est généralement géré par une seule
+    équipe pour tout l'hôpital, pas service par service.
+    """
+
+    numero_bordereau = models.CharField(max_length=20, unique=True, blank=True)
+    mutuelle_nom = models.CharField(max_length=150)
+
+    statut = models.CharField(
+        max_length=15, choices=StatutBordereauAssurance.choices,
+        default=StatutBordereauAssurance.BROUILLON,
+    )
+
+    date_creation   = models.DateTimeField(auto_now_add=True)
+    date_soumission = models.DateTimeField(null=True, blank=True)
+
+    cree_par = models.ForeignKey(
+        'comptes.Employe', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='bordereaux_assurance_crees',
+    )
+    notes = models.TextField(blank=True)
+
+    def save(self, *args, **kwargs):
+        if not self.numero_bordereau:
+            from healthtracker.identifiers import generer_identifiant_unique
+            self.numero_bordereau = generer_identifiant_unique(BordereauAssurance, 'numero_bordereau', 'BORD', 8)
+        super().save(*args, **kwargs)
+
+    def soumettre(self):
+        """
+        Fige officiellement l'envoi : passe le bordereau et toutes ses
+        lignes rattachées à SOUMIS, avec un horodatage commun. Snapshote
+        montant_assurance_demande sur chaque ligne — le montant réellement
+        réclamé à l'assureur, qui reste lisible même après une réponse
+        partielle/rejetée qui modifiera ensuite montant_part_assurance_ligne.
+        """
+        if self.statut != StatutBordereauAssurance.BROUILLON:
+            raise ValidationError("Seul un bordereau en brouillon peut être soumis.")
+        if not self.lignes.exists():
+            raise ValidationError("Impossible de soumettre un bordereau sans aucune ligne.")
+
+        maintenant = timezone.now()
+        self.statut = StatutBordereauAssurance.SOUMIS
+        self.date_soumission = maintenant
+        self.save(update_fields=['statut', 'date_soumission'])
+
+        self.lignes.update(
+            statut_assurance=StatutValidationAssurance.SOUMIS,
+            date_soumission_assurance=maintenant,
+        )
+        # montant_assurance_demande copié ligne par ligne (pas de bulk update
+        # possible pour "copier un champ dans un autre" en une requête simple).
+        for ligne in self.lignes.all():
+            ligne.montant_assurance_demande = ligne.montant_part_assurance_ligne
+            ligne.save(update_fields=['montant_assurance_demande'])
+
+    def rafraichir_statut(self):
+        """Passe à TRAITE dès qu'aucune ligne rattachée n'est plus en attente de réponse."""
+        if self.statut != StatutBordereauAssurance.SOUMIS:
+            return
+        if not self.lignes.filter(statut_assurance=StatutValidationAssurance.SOUMIS).exists():
+            self.statut = StatutBordereauAssurance.TRAITE
+            self.save(update_fields=['statut'])
+
+    def __str__(self):
+        return f"Bordereau {self.numero_bordereau} — {self.mutuelle_nom}"
+
+    class Meta:
+        verbose_name = "Bordereau assurance"
+        verbose_name_plural = "Bordereaux assurance"
+        ordering = ['-date_creation']
+
+
 # ─── LigneFacture ────────────────────────────────────────────────────────────
 
 class LigneFacture(models.Model):
@@ -310,6 +401,17 @@ class LigneFacture(models.Model):
     date_soumission_assurance = models.DateTimeField(null=True, blank=True)
     date_reponse_assurance    = models.DateTimeField(null=True, blank=True)
 
+    # Circuit de soumission — une ligne rejoint au plus un bordereau à la
+    # fois. montant_assurance_demande est figé au moment de la soumission
+    # (BordereauAssurance.soumettre()) : le montant réellement réclamé à
+    # l'assureur, qui reste lisible même après une réponse partielle/rejetée
+    # qui aura ensuite réduit montant_part_assurance_ligne.
+    bordereau_assurance = models.ForeignKey(
+        'BordereauAssurance', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='lignes',
+    )
+    montant_assurance_demande = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+
     date_acte = models.DateTimeField()
     notes = models.TextField(blank=True)
 
@@ -328,14 +430,72 @@ class LigneFacture(models.Model):
 
         self.montant_ligne = (self.quantite * self.prix_unitaire).quantize(Decimal('0.01'))
 
-        taux = self.taux_prise_en_charge_assurance
-        if taux is None:
-            taux = self.facture.part_assurance_pourcentage_defaut
-        self.montant_part_assurance_ligne = (self.montant_ligne * taux / 100).quantize(Decimal('0.01'))
-        self.montant_part_patient_ligne   = self.montant_ligne - self.montant_part_assurance_ligne
+        # Ventilation calculée depuis le taux UNIQUEMENT tant qu'aucune
+        # réponse de l'assureur n'a encore été enregistrée. Une fois une
+        # réponse posée (valide/rejete/rejete_partiel), la ventilation
+        # réelle est figée par appliquer_reponse_assurance() — un save()
+        # ultérieur quelconque (même pour un champ sans rapport, ex. notes)
+        # ne doit JAMAIS l'écraser en la recalculant depuis le taux.
+        if self.statut_assurance in (StatutValidationAssurance.NON_SOUMIS, StatutValidationAssurance.SOUMIS):
+            taux = self.taux_prise_en_charge_assurance
+            if taux is None:
+                taux = self.facture.part_assurance_pourcentage_defaut
+            self.montant_part_assurance_ligne = (self.montant_ligne * taux / 100).quantize(Decimal('0.01'))
+            self.montant_part_patient_ligne   = self.montant_ligne - self.montant_part_assurance_ligne
 
         super().save(*args, **kwargs)
         self.facture.recalculer_montants()
+
+    def appliquer_reponse_assurance(self, statut, montant_valide=None, motif_rejet=""):
+        """
+        Enregistre la réponse de l'assureur et ajuste la ventilation RÉELLE
+        en conséquence — la part que l'assureur ne couvre finalement pas
+        bascule sur le patient (réalité du terrain : un "payé" côté hôpital
+        n'est jamais garanti tant que l'assureur n'a pas validé, cf.
+        discussion produit).
+
+        N'appelle PAS le save() standard ci-dessus, qui recalculerait
+        montant_part_assurance_ligne depuis le taux et écraserait cet
+        ajustement : on ne touche qu'aux champs concernés, via update().
+        """
+        if statut not in (
+            StatutValidationAssurance.VALIDE, StatutValidationAssurance.REJETE,
+            StatutValidationAssurance.REJETE_PARTIEL,
+        ):
+            raise ValidationError("Statut de réponse invalide.")
+
+        if statut == StatutValidationAssurance.VALIDE:
+            montant_valide = self.montant_part_assurance_ligne
+        elif statut == StatutValidationAssurance.REJETE:
+            montant_valide = Decimal('0')
+        elif montant_valide is None:
+            raise ValidationError("montant_valide est requis pour un rejet partiel.")
+
+        montant_valide = Decimal(str(montant_valide)).quantize(Decimal('0.01'))
+        if not (0 <= montant_valide <= self.montant_part_assurance_ligne):
+            raise ValidationError(
+                "Le montant validé par l'assurance doit être compris entre 0 "
+                "et le montant initialement demandé."
+            )
+
+        ecart = self.montant_part_assurance_ligne - montant_valide  # part rejetée -> patient
+        self.montant_part_assurance_ligne = montant_valide
+        self.montant_part_patient_ligne = self.montant_part_patient_ligne + ecart
+        self.statut_assurance = statut
+        self.motif_rejet = motif_rejet
+        self.date_reponse_assurance = timezone.now()
+
+        LigneFacture.objects.filter(pk=self.pk).update(
+            montant_part_assurance_ligne=self.montant_part_assurance_ligne,
+            montant_part_patient_ligne=self.montant_part_patient_ligne,
+            statut_assurance=self.statut_assurance,
+            motif_rejet=self.motif_rejet,
+            date_reponse_assurance=self.date_reponse_assurance,
+        )
+        self.facture.recalculer_montants()
+        if self.bordereau_assurance_id:
+            self.bordereau_assurance.rafraichir_statut()
+
 
     def delete(self, *args, **kwargs):
         facture = self.facture

@@ -1,0 +1,14 @@
+{% extends "documents/pdf/base.html" %}
+{% block corps %}
+<div class="section"><div class="section-titre">Urgence : {% if champs.urgence == 'urgente' %}<span style="color:#c0392b;">URGENTE</span>{% else %}Normale{% endif %}</div></div>
+{% if champs.indication_clinique %}<div class="section"><div class="section-titre">Indication clinique</div><div class="section-contenu">{{ champs.indication_clinique }}</div></div>{% endif %}
+<div class="section">
+    <div class="section-titre">Examens demandés</div>
+    <table class="medicaments">
+        <tr><th>Examen</th><th>Catégorie</th></tr>
+        {% for e in champs.examens %}<tr><td>{{ e.nom }}</td><td>{% if e.categorie == 'imagerie' %}Imagerie{% else %}Biologie{% endif %}</td></tr>
+        {% empty %}<tr><td colspan="2" style="color:#999999;">Aucun examen sélectionné.</td></tr>{% endfor %}
+    </table>
+</div>
+{% if champs.commentaires %}<div class="section"><div class="section-titre">Commentaires</div><div class="section-contenu">{{ champs.commentaires }}</div></div>{% endif %}
+{% endblock %}

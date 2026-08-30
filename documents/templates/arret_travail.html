@@ -1,0 +1,6 @@
+{% extends "documents/pdf/base.html" %}
+{% block corps %}
+<div class="section"><div class="section-contenu">Je soussigné(e) Dr {{ contexte.medecin.prenom }} {{ contexte.medecin.nom }}, certifie que l'état de santé de {{ contexte.patient.prenom }} {{ contexte.patient.nom }} nécessite un arrêt de travail.</div></div>
+{% if champs.motif_medical %}<div class="section"><div class="section-titre">Motif médical</div><div class="section-contenu">{{ champs.motif_medical }}</div></div>{% endif %}
+<div class="section"><div class="section-titre">Durée de l'arrêt</div><div class="section-contenu">{% if champs.date_debut and champs.date_fin %}Du {{ champs.date_debut }} au {{ champs.date_fin }}{% if champs.duree_jours %} ({{ champs.duree_jours }} jour(s)){% endif %}{% else %}À compléter{% endif %}</div></div>
+{% endblock %}

@@ -14,7 +14,8 @@ from hospitalisations.models import Hospitalisation, StatutHospitalisation
 
 from .models import (
     Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe,
-    StatutFacture, StatutEcheance, TypeActe, ModePaiement, PeriodiciteEcheance,
+    BordereauAssurance, StatutBordereauAssurance,
+    StatutFacture, StatutEcheance, StatutValidationAssurance, TypeActe, ModePaiement, PeriodiciteEcheance,
 )
 from .nuitees import generer_nuitees_manquantes
 
@@ -705,4 +706,187 @@ class ActualiserNuiteesAPITest(TestCase):
     def test_caissier_ne_peut_pas_actualiser_les_nuitees(self):
         self.client.force_authenticate(user=self.caissier_user)
         response = self.client.post(f'/api/factures/{self.facture.id}/actualiser-nuitees/')
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+
+class ReponseAssuranceModelTest(TestCase):
+    """
+    La part non couverte par l'assureur bascule TOUJOURS sur le patient —
+    et peut rouvrir une facture déjà payée si le rejet arrive après coup.
+    """
+
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.patient = creer_patient(service=self.service, mutuelle="IPM Sénégal")
+        self.facture = Facture.objects.create(
+            patient=self.patient, service=self.service,
+            mutuelle_nom="IPM Sénégal", part_assurance_pourcentage_defaut=Decimal("70"),
+            statut=StatutFacture.EN_ATTENTE,
+        )
+        self.ligne = LigneFacture.objects.create(
+            facture=self.facture, type_acte=TypeActe.CONSULTATION, description="Consultation",
+            quantite=1, prix_unitaire=Decimal("10000"), date_acte=timezone.now(),
+        )
+        # montant_ligne=10000, part_assurance=7000, part_patient=3000
+
+    def test_validation_totale_ne_change_rien(self):
+        self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.VALIDE)
+        self.ligne.refresh_from_db()
+        self.assertEqual(self.ligne.montant_part_assurance_ligne, Decimal("7000.00"))
+        self.assertEqual(self.ligne.montant_part_patient_ligne, Decimal("3000.00"))
+        self.assertEqual(self.ligne.statut_assurance, StatutValidationAssurance.VALIDE)
+
+    def test_rejet_total_bascule_tout_sur_le_patient(self):
+        self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.REJETE, motif_rejet="Acte hors nomenclature assureur")
+        self.ligne.refresh_from_db()
+        self.assertEqual(self.ligne.montant_part_assurance_ligne, Decimal("0.00"))
+        self.assertEqual(self.ligne.montant_part_patient_ligne, Decimal("10000.00"))
+        self.facture.refresh_from_db()
+        self.assertEqual(self.facture.montant_part_patient, Decimal("10000.00"))
+
+    def test_rejet_partiel_ne_bascule_que_l_ecart(self):
+        self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.REJETE_PARTIEL, montant_valide=Decimal("4000"))
+        self.ligne.refresh_from_db()
+        self.assertEqual(self.ligne.montant_part_assurance_ligne, Decimal("4000.00"))
+        self.assertEqual(self.ligne.montant_part_patient_ligne, Decimal("6000.00"))  # 3000 initial + 3000 rejetés
+
+    def test_montant_valide_superieur_au_demande_refuse(self):
+        with self.assertRaises(Exception):
+            self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.REJETE_PARTIEL, montant_valide=Decimal("99999"))
+
+    def test_rejet_reouvre_une_facture_deja_payee(self):
+        Paiement.objects.create(facture=self.facture, montant=Decimal("3000"), mode_paiement=ModePaiement.ESPECES)
+        self.facture.refresh_from_db()
+        self.assertEqual(self.facture.statut, StatutFacture.PAYEE)
+
+        self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.REJETE)
+        self.facture.refresh_from_db()
+        # part_patient passe à 10000, payé=3000 -> restant=7000 -> plus "payee"
+        self.assertEqual(self.facture.statut, StatutFacture.PAYEE_PARTIELLEMENT)
+
+    def test_reponse_assurance_ne_reecrase_pas_via_un_save_standard(self):
+        """
+        Vérifie explicitement que la fuite identifiée en conception (save()
+        recalculant depuis le taux) ne se reproduit pas : la ventilation
+        ajustée après rejet doit survivre à un save() ultérieur sans
+        changement de quantite/prix/taux.
+        """
+        self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.REJETE)
+        self.ligne.refresh_from_db()
+        self.ligne.notes = "commentaire sans rapport"
+        self.ligne.save()
+        self.ligne.refresh_from_db()
+        self.assertEqual(self.ligne.montant_part_assurance_ligne, Decimal("0.00"))
+        self.assertEqual(self.ligne.montant_part_patient_ligne, Decimal("10000.00"))
+
+
+class BordereauAssuranceModelTest(TestCase):
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.patient = creer_patient(service=self.service, mutuelle="IPM Sénégal")
+        self.facture = Facture.objects.create(
+            patient=self.patient, service=self.service, mutuelle_nom="IPM Sénégal",
+            part_assurance_pourcentage_defaut=Decimal("70"), statut=StatutFacture.EN_ATTENTE,
+        )
+        self.ligne = LigneFacture.objects.create(
+            facture=self.facture, type_acte=TypeActe.CONSULTATION, description="Consultation",
+            quantite=1, prix_unitaire=Decimal("10000"), date_acte=timezone.now(),
+        )
+
+    def test_soumettre_sans_ligne_refuse(self):
+        bordereau = BordereauAssurance.objects.create(mutuelle_nom="IPM Sénégal")
+        with self.assertRaises(Exception):
+            bordereau.soumettre()
+
+    def test_soumettre_fige_le_montant_demande_et_le_statut_des_lignes(self):
+        bordereau = BordereauAssurance.objects.create(mutuelle_nom="IPM Sénégal")
+        self.ligne.bordereau_assurance = bordereau
+        self.ligne.save(update_fields=['bordereau_assurance'])
+
+        bordereau.soumettre()
+        self.ligne.refresh_from_db()
+        bordereau.refresh_from_db()
+
+        self.assertEqual(bordereau.statut, StatutBordereauAssurance.SOUMIS)
+        self.assertIsNotNone(bordereau.date_soumission)
+        self.assertEqual(self.ligne.statut_assurance, StatutValidationAssurance.SOUMIS)
+        self.assertEqual(self.ligne.montant_assurance_demande, Decimal("7000.00"))
+
+    def test_rafraichir_statut_passe_a_traite_quand_tout_est_repondu(self):
+        bordereau = BordereauAssurance.objects.create(mutuelle_nom="IPM Sénégal")
+        self.ligne.bordereau_assurance = bordereau
+        self.ligne.save(update_fields=['bordereau_assurance'])
+        bordereau.soumettre()
+
+        self.ligne.appliquer_reponse_assurance(statut=StatutValidationAssurance.VALIDE)
+        bordereau.refresh_from_db()
+        self.assertEqual(bordereau.statut, StatutBordereauAssurance.TRAITE)
+
+
+class CircuitAssuranceAPITest(TestCase):
+    def setUp(self):
+        self.service = Service.objects.create(nom="Cardiologie")
+        self.facturier_user, _ = creer_employe("facturier4", "facturier", service=self.service)
+        self.caissier_user, _ = creer_employe("caissier4", "caissier", service=self.service)
+        self.patient = creer_patient(service=self.service, mutuelle="IPM Sénégal")
+
+        self.facture_finalisee = Facture.objects.create(
+            patient=self.patient, service=self.service, mutuelle_nom="IPM Sénégal",
+            part_assurance_pourcentage_defaut=Decimal("70"), statut=StatutFacture.EN_ATTENTE,
+        )
+        self.ligne = LigneFacture.objects.create(
+            facture=self.facture_finalisee, type_acte=TypeActe.CONSULTATION, description="Consultation",
+            quantite=1, prix_unitaire=Decimal("10000"), date_acte=timezone.now(),
+        )
+
+        # Facture encore en brouillon — sa ligne ne doit JAMAIS être éligible.
+        self.facture_brouillon = Facture.objects.create(
+            patient=self.patient, service=self.service, mutuelle_nom="IPM Sénégal",
+            part_assurance_pourcentage_defaut=Decimal("70"), statut=StatutFacture.BROUILLON,
+        )
+        LigneFacture.objects.create(
+            facture=self.facture_brouillon, type_acte=TypeActe.CONSULTATION, description="Consultation brouillon",
+            quantite=1, prix_unitaire=Decimal("5000"), date_acte=timezone.now(),
+        )
+
+        self.client = APIClient()
+
+    def test_generer_bordereau_exclut_les_factures_non_finalisees(self):
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.post('/api/bordereaux-assurance/generer/', {'mutuelle_nom': 'IPM Sénégal'})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['nombre_lignes'], 1)  # pas la ligne du brouillon
+
+    def test_generer_bordereau_sans_ligne_eligible_400(self):
+        self.client.force_authenticate(user=self.facturier_user)
+        response = self.client.post('/api/bordereaux-assurance/generer/', {'mutuelle_nom': 'Mutuelle inexistante'})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_caissier_ne_peut_pas_generer_de_bordereau(self):
+        self.client.force_authenticate(user=self.caissier_user)
+        response = self.client.post('/api/bordereaux-assurance/generer/', {'mutuelle_nom': 'IPM Sénégal'})
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_soumettre_puis_repondre_via_api(self):
+        self.client.force_authenticate(user=self.facturier_user)
+        creation = self.client.post('/api/bordereaux-assurance/generer/', {'mutuelle_nom': 'IPM Sénégal'})
+        bordereau_id = creation.data['id']
+
+        soumission = self.client.post(f'/api/bordereaux-assurance/{bordereau_id}/soumettre/')
+        self.assertEqual(soumission.status_code, status.HTTP_200_OK)
+        self.assertEqual(soumission.data['statut'], StatutBordereauAssurance.SOUMIS)
+
+        reponse = self.client.post(
+            f'/api/lignes-facture/{self.ligne.id}/reponse-assurance/',
+            {'statut': StatutValidationAssurance.REJETE_PARTIEL, 'montant_valide': '5000', 'motif_rejet': 'Plafond annuel atteint'},
+        )
+        self.assertEqual(reponse.status_code, status.HTTP_200_OK)
+        self.assertEqual(Decimal(reponse.data['montant_part_assurance_ligne']), Decimal("5000.00"))
+
+    def test_caissier_ne_peut_pas_enregistrer_une_reponse_assurance(self):
+        self.client.force_authenticate(user=self.caissier_user)
+        response = self.client.post(
+            f'/api/lignes-facture/{self.ligne.id}/reponse-assurance/',
+            {'statut': StatutValidationAssurance.VALIDE},
+        )
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

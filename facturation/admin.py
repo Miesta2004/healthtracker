@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe
+from .models import Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe, BordereauAssurance
 
 
 class LigneFactureInline(admin.TabularInline):
@@ -21,6 +21,13 @@ class FactureAdmin(admin.ModelAdmin):
     search_fields = ('numero_facture', 'patient__nom', 'patient__prenom', 'patient__numero_dossier')
     readonly_fields = ('numero_facture', 'montant_total', 'montant_part_assurance', 'montant_part_patient', 'montant_paye', 'montant_restant')
     inlines = [LigneFactureInline, PaiementInline]
+
+
+@admin.register(BordereauAssurance)
+class BordereauAssuranceAdmin(admin.ModelAdmin):
+    list_display = ('numero_bordereau', 'mutuelle_nom', 'statut', 'date_creation', 'date_soumission')
+    list_filter = ('statut',)
+    search_fields = ('numero_bordereau', 'mutuelle_nom')
 
 
 @admin.register(TarifActe)

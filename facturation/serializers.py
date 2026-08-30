@@ -1,8 +1,36 @@
+from django.db.models import Sum
 from rest_framework import serializers
 
 from .models import (
-    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe,
+    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe, BordereauAssurance,
+    StatutValidationAssurance,
 )
+
+
+class BordereauAssuranceSerializer(serializers.ModelSerializer):
+    nombre_lignes = serializers.SerializerMethodField()
+    montant_total_demande = serializers.SerializerMethodField()
+    cree_par_nom = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BordereauAssurance
+        fields = '__all__'
+        # numero_bordereau/statut/date_soumission changent uniquement via
+        # les actions dédiées (generer/soumettre) — jamais par PATCH direct,
+        # pour garder une trace cohérente de qui a soumis quoi et quand.
+        read_only_fields = ('numero_bordereau', 'statut', 'date_soumission', 'cree_par')
+
+    def get_nombre_lignes(self, obj):
+        return obj.lignes.count()
+
+    def get_montant_total_demande(self, obj):
+        total = obj.lignes.aggregate(total=Sum('montant_part_assurance_ligne'))['total']
+        return total or 0
+
+    def get_cree_par_nom(self, obj):
+        if obj.cree_par:
+            return f"{obj.cree_par.prenom} {obj.cree_par.nom}"
+        return None
 
 
 class TarifActeSerializer(serializers.ModelSerializer):
@@ -156,3 +184,24 @@ class NouvelleLigneFactureSerializer(serializers.ModelSerializer):
         elif attrs['tarif_acte'].actif is False:
             raise serializers.ValidationError("Ce tarif est désactivé — il ne peut plus être utilisé pour une nouvelle ligne.")
         return attrs
+
+
+class ReponseAssuranceSerializer(serializers.Serializer):
+    """Payload de l'action LigneFactureViewSet.reponse_assurance()."""
+    statut = serializers.ChoiceField(choices=[
+        StatutValidationAssurance.VALIDE,
+        StatutValidationAssurance.REJETE,
+        StatutValidationAssurance.REJETE_PARTIEL,
+    ])
+    montant_valide = serializers.DecimalField(max_digits=12, decimal_places=2, required=False)
+    motif_rejet = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate(self, attrs):
+        if attrs['statut'] == StatutValidationAssurance.REJETE_PARTIEL and 'montant_valide' not in attrs:
+            raise serializers.ValidationError("montant_valide est requis pour un rejet partiel.")
+        return attrs
+
+
+class GenererBordereauSerializer(serializers.Serializer):
+    """Payload de l'action BordereauAssuranceViewSet.generer()."""
+    mutuelle_nom = serializers.CharField(max_length=150)

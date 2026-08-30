@@ -10,7 +10,7 @@ import { updateAlerteStatut } from '../api/alertes'
 import { createDemande } from '../api/analyses'
 import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
 import { createAssignation, deleteAssignation } from '../api/disponibilites'
-import type { RendezVous, PassageUrgence, Hospitalisation, AssignationPatient, Shift } from '../types'
+import type { RendezVous, PassageUrgence, Hospitalisation, Operation, AssignationPatient, Shift } from '../types'
 import { useAuth } from '../contexts/AuthContext'
 import { Capacite } from '../constants/capacites'
 import { SkeletonDetailPage, SkeletonListRows } from '../components/Skeleton'
@@ -21,7 +21,7 @@ import { computeGravite } from '../utils/gravite'
 import { usePatientDossier, usePatientAssignations, type PatientDossierSectionErrors } from '../hooks/usePatientDossier'
 import {
     Activity, Trash2, Edit3, X, Plus, ArrowLeft, ChevronRight,
-    User, Stethoscope, AlertTriangle, Bell, Calendar, Check, LogOut,
+    User, Stethoscope, AlertTriangle, Bell, Calendar, Check, LogOut, Scissors,
     Droplet, Thermometer, Heart, FileText, RefreshCw, type LucideIcon
 } from 'lucide-react'
 
@@ -68,6 +68,17 @@ const STATUT_HOSPIT_CONFIG: Record<string, { label: string; badge: string }> = {
     transferee: { label: 'Transféré',        badge: 'badge-warning' },
 }
 
+// Couvre les 5 valeurs réelles de StatutIntervention (types/index.ts) — y
+// compris le cas décès_au_bloc, qui doit rester visuellement distinct d'une
+// simple annulation ou d'une clôture normale.
+const STATUT_INTERVENTION_CONFIG: Record<string, { label: string; badge: string }> = {
+    programmee:     { label: 'Programmée',      badge: 'badge-warning' },
+    en_cours:       { label: 'En cours',        badge: 'badge-tint' },
+    terminee:       { label: 'Terminée',        badge: 'badge-success' },
+    deces_au_bloc:  { label: 'Décès au bloc',   badge: 'badge-danger' },
+    annulee:        { label: 'Annulée',         badge: 'badge-muted' },
+}
+
 const SHIFT_LABELS: Record<Shift, string> = {
     matin:      'Matin (7h–15h)',
     apres_midi: 'Après-midi (15h–23h)',
@@ -83,6 +94,7 @@ const SECTION_LABELS: Record<keyof PatientDossierSectionErrors, string> = {
     rdvs: 'rendez-vous',
     urgences: 'passages aux urgences',
     hospitalisations: 'hospitalisations',
+    operations: 'opérations chirurgicales',
     alertes: 'alertes',
 }
 
@@ -686,6 +698,45 @@ function HospitalisationsPanel({ hospitalisations, loading, forbidden }: { hospi
     )
 }
 
+// ─── Panel historique des opérations chirurgicales ───────────────────────────
+function OperationsPanel({ operations, loading, forbidden }: { operations: Operation[]; loading: boolean; forbidden?: boolean }) {
+    const tries = [...operations].sort((a, b) => new Date(b.heure_debut).getTime() - new Date(a.heure_debut).getTime())
+    return (
+        <div className="ht-card ht-card-padded-sm">
+            <h2 className="text-sm font-semibold mb-4 flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
+                <Scissors size={15} style={{ color: 'var(--ht-text-muted)' }} /> Opérations chirurgicales
+            </h2>
+            {forbidden ? (
+                <RestrictedAccess message="Votre rôle ne vous permet pas de consulter les opérations chirurgicales." />
+            ) : loading ? (
+                <SkeletonListRows rows={2} />
+            ) : tries.length === 0 ? (
+                <div className="ht-empty">Aucune opération enregistrée</div>
+            ) : (
+                <div className="space-y-2.5">
+                    {tries.map(o => (
+                        <div key={o.id} className="flex items-center justify-between gap-3 p-2.5 rounded-xl border" style={{ borderColor: 'var(--ht-border-input)', backgroundColor: 'var(--ht-bg)' }}>
+                            <div className="min-w-0">
+                                <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{o.type_acte || 'Type non précisé'}</p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-secondary)' }}>
+                                    {o.service_chirurgie_nom && `${o.service_chirurgie_nom} `}
+                                    {o.salle_nom && `· ${o.salle_nom}`}
+                                    {o.chirurgien_nom && ` · Dr. ${o.chirurgien_prenom} ${o.chirurgien_nom}`}
+                                </p>
+                                <p className="text-[11px] mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
+                                    {formatDateHeure(o.heure_debut)}
+                                    {o.date_fin_reelle && ` · Terminée le ${formatDateHeure(o.date_fin_reelle)}`}
+                                </p>
+                            </div>
+                            <StatutMini statut={o.statut} config={STATUT_INTERVENTION_CONFIG} />
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
+
 // ─── Modale : demander une analyse ───────────────────────────────────────────
 function DemandeAnalyseModal({ onSave, onCancel, loading, error }: {
     onSave: (data: { type_analyse: TypeAnalyse; urgence: UrgenceAnalyse; notes_medecin: string }) => void
@@ -809,6 +860,7 @@ export default function PatientDetail() {
         rdvs,
         urgences,
         hospitalisations,
+        operations,
         alertes, setAlertes,
         patientLoading,
         error,
@@ -1303,7 +1355,12 @@ export default function PatientDetail() {
                             ) : sectionsLoading.signes ? (
                                 <SkeletonListRows rows={2} />
                             ) : (
-                                <SignesVitauxCharts data={signes} />
+                                <SignesVitauxCharts
+                                    data={signes}
+                                    patientNom={patient.nom}
+                                    patientPrenom={patient.prenom}
+                                    patientDossier={patient.numero_dossier || `P${String(patient.id).padStart(6, '0')}`}
+                                />
                             )}
                         </div>
 
@@ -1342,10 +1399,11 @@ export default function PatientDetail() {
                             />
                         </div>
 
-                        {/* ─── Urgences & Hospitalisations ─── */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* ─── Urgences, Hospitalisations & Opérations ─── */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <UrgencesPanel passages={urgences} loading={sectionsLoading.urgences} forbidden={clinicalForbidden} />
                             <HospitalisationsPanel hospitalisations={hospitalisations} loading={sectionsLoading.hospitalisations} forbidden={clinicalForbidden} />
+                            <OperationsPanel operations={operations} loading={sectionsLoading.operations} forbidden={clinicalForbidden} />
                         </div>
 
                         {/* ─── Infirmiers assignés ─── */}

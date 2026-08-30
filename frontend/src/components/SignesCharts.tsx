@@ -16,10 +16,17 @@ import {
     Minus,
     AlertTriangle,
     Maximize2,
-    Info
+    Info,
+    Download,
+    ArrowRightLeft,
 } from 'lucide-react'
 
-interface Props { data: SignesVitaux[] }
+interface Props {
+    data: SignesVitaux[]
+    patientNom?: string
+    patientPrenom?: string
+    patientDossier?: string
+}
 
 // ─── Config de chaque signe vital ────────────────────────────────────────────
 const SIGNES_CONFIG = {
@@ -104,6 +111,70 @@ function getVal(s: SignesVitaux, key: SigneKey): number | null {
     return s[key as keyof SignesVitaux] as number | null
 }
 
+// ─── Plage de dates ───────────────────────────────────────────────────────────
+const RANGE_OPTIONS = [
+    { value: '7', label: '7 jours' },
+    { value: '30', label: '30 jours' },
+    { value: '90', label: '90 jours' },
+    { value: 'tout', label: 'Tout' },
+] as const
+type RangeValue = typeof RANGE_OPTIONS[number]['value']
+
+function filtrerParPlage(data: SignesVitaux[], range: RangeValue): SignesVitaux[] {
+    if (range === 'tout') return data
+    const jours = Number(range)
+    const seuil = Date.now() - jours * 24 * 3600 * 1000
+    return data.filter(s => new Date(s.date).getTime() >= seuil)
+}
+
+function rangeLabel(range: RangeValue): string {
+    return range === 'tout' ? 'toute la période' : `${range} derniers jours`
+}
+
+// ─── Export CSV ───────────────────────────────────────────────────────────────
+function slug(texte: string): string {
+    return texte
+        .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // enlève les accents
+        .toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+function exporterCSV(rows: { date: string; val: number }[], nomSigne: string, unite: string, nomPatient?: string, numeroDossier?: string) {
+    const entetePatient = nomPatient ? `Patient : ${nomPatient}${numeroDossier ? ` (N° ${numeroDossier})` : ''}` : null
+    const lignesEntete = entetePatient ? [[entetePatient]] : []
+    const entetes = ['Date', `${nomSigne} (${unite})`]
+    const lignes = rows.map(r => [fmtFull(r.date), String(r.val)])
+    const csv = [...lignesEntete, entetes, ...lignes].map(l => l.map(c => `"${c.replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const prefixePatient = nomPatient ? `${slug(nomPatient)}${numeroDossier ? `-${slug(numeroDossier)}` : ''}-` : ''
+    a.download = `${prefixePatient}${slug(nomSigne)}-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+}
+
+function exporterCSVComplet(data: SignesVitaux[], nomPatient?: string, numeroDossier?: string) {
+    const entetePatient = nomPatient ? `Patient : ${nomPatient}${numeroDossier ? ` (N° ${numeroDossier})` : ''}` : null
+    const lignesEntete = entetePatient ? [[entetePatient]] : []
+    const entetes = ['Date', 'Tension systolique (mmHg)', 'Tension diastolique (mmHg)', 'Température (°C)', 'Poids (kg)', 'Glycémie (mmol/L)', 'Fréquence cardiaque (bpm)']
+    const sorted = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const lignes = sorted.map(s => [
+        fmtFull(s.date),
+        s.tension_systolique ?? '', s.tension_diastolique ?? '',
+        s.temperature ?? '', s.poids ?? '', s.glycemie ?? '', s.frequence_cardiaque ?? '',
+    ].map(String))
+    const csv = [...lignesEntete, entetes, ...lignes].map(l => l.map(c => `"${c.replace(/"/g, '""')}"`).join(';')).join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    const prefixePatient = nomPatient ? `${slug(nomPatient)}${numeroDossier ? `-${slug(numeroDossier)}` : ''}-` : ''
+    a.download = `${prefixePatient}signes-vitaux-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+}
+
 // ─── Mini stat box ────────────────────────────────────────────────────────────
 function StatBox({ label, value, unit, highlight = false }: {
     label: string; value: string; unit: string; highlight?: boolean
@@ -118,13 +189,17 @@ function StatBox({ label, value, unit, highlight = false }: {
 }
 
 // ─── Sidebar détail ───────────────────────────────────────────────────────────
-function DetailSidebar({ signeKey, data, onClose }: {
+function DetailSidebar({ signeKey, data, range, nomPatient, numeroDossier, onClose }: {
     signeKey: SigneKey
     data: SignesVitaux[]
+    range: RangeValue
+    nomPatient?: string
+    numeroDossier?: string
     onClose: () => void
 }) {
     const cfg = SIGNES_CONFIG[signeKey]
-    const sorted = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    const dataRange = filtrerParPlage(data, range)
+    const sorted = [...dataRange].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
 
     const vals30 = sorted
         .map(s => ({ date: s.date, val: getVal(s, signeKey) }))
@@ -143,6 +218,28 @@ function DetailSidebar({ signeKey, data, onClose }: {
     const last = vals30.length ? vals30[vals30.length - 1] : null
     const maxEntry = vals30.find(x => x.val === max)
     const minEntry = vals30.find(x => x.val === min)
+
+    // ── Comparaison à la période précédente de même longueur ──
+    let comparaison: { avgPrecedent: number; ecartPourcent: number } | null = null
+    if (range !== 'tout' && allVals.length >= 2) {
+        const jours = Number(range)
+        const debutActuelle = now - jours * 24 * 3600 * 1000
+        const debutPrecedente = debutActuelle - jours * 24 * 3600 * 1000
+        const valsPrecedents = [...data]
+            .filter(s => {
+                const t = new Date(s.date).getTime()
+                return t >= debutPrecedente && t < debutActuelle
+            })
+            .map(s => getVal(s, signeKey))
+            .filter((v): v is number => v !== null)
+        if (valsPrecedents.length > 0 && avg !== null) {
+            const avgPrecedent = Math.round(valsPrecedents.reduce((a, b) => a + b, 0) / valsPrecedents.length * 10) / 10
+            comparaison = {
+                avgPrecedent,
+                ecartPourcent: avgPrecedent !== 0 ? Math.round(((avg - avgPrecedent) / avgPrecedent) * 1000) / 10 : 0,
+            }
+        }
+    }
 
     let tendance: 'hausse' | 'baisse' | 'stable' = 'stable'
     if (vals30.length >= 4) {
@@ -186,16 +283,27 @@ function DetailSidebar({ signeKey, data, onClose }: {
                         </div>
                         <div>
                             <h2 className="font-bold text-base" style={{ color: 'var(--ht-text)' }}>{cfg.label}</h2>
-                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{cfg.unit} · 30 derniers jours</p>
+                            <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{cfg.unit} · {rangeLabel(range)}</p>
                         </div>
                     </div>
-                    <button onClick={onClose}
+                    <div className="flex items-center gap-1">
+                        <button
+                            onClick={() => exporterCSV(vals30, cfg.label, cfg.unit, nomPatient, numeroDossier)}
+                            title="Exporter en CSV"
                             className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
                             style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}
                             onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--ht-border)'}
                             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--ht-muted-bg)'}>
-                        <X size={16} />
-                    </button>
+                            <Download size={16} />
+                        </button>
+                        <button onClick={onClose}
+                                className="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                                style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}
+                                onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--ht-border)'}
+                                onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--ht-muted-bg)'}>
+                            <X size={16} />
+                        </button>
+                    </div>
                 </div>
 
                 <div className="px-6 py-5 space-y-6">
@@ -242,6 +350,28 @@ function DetailSidebar({ signeKey, data, onClose }: {
                         <StatBox label="Maximum" value={max !== null ? String(max) : '—'} unit={cfg.unit} />
                     </div>
 
+                    {/* Comparaison à la période précédente de même longueur */}
+                    {comparaison && (
+                        <div className="rounded-xl p-3.5 flex items-center gap-3 border" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                            <div className="p-2 rounded-lg" style={{ backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-text-secondary)' }}>
+                                <ArrowRightLeft size={16} />
+                            </div>
+                            <div className="flex-1">
+                                <p className="text-xs font-bold" style={{ color: 'var(--ht-text)' }}>vs période précédente</p>
+                                <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
+                                    Moyenne {rangeLabel(range)} précédente : {comparaison.avgPrecedent} {cfg.unit}
+                                </p>
+                            </div>
+                            <p
+                                className="text-sm font-bold flex items-center gap-1"
+                                style={{ color: comparaison.ecartPourcent > 0 ? 'var(--ht-danger)' : comparaison.ecartPourcent < 0 ? 'var(--ht-success)' : 'var(--ht-text-muted)' }}
+                            >
+                                {comparaison.ecartPourcent > 0 ? <TrendingUp size={14} /> : comparaison.ecartPourcent < 0 ? <TrendingDown size={14} /> : <Minus size={14} />}
+                                {comparaison.ecartPourcent > 0 ? '+' : ''}{comparaison.ecartPourcent}%
+                            </p>
+                        </div>
+                    )}
+
                     {/* Dates min/max */}
                     {(minEntry || maxEntry) && (
                         <div className="grid grid-cols-2 gap-3 text-xs">
@@ -264,44 +394,50 @@ function DetailSidebar({ signeKey, data, onClose }: {
 
                     {/* Graphe 30 jours */}
                     <div>
-                        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>Évolution sur 30 jours</p>
-                        <ResponsiveContainer width="100%" height={180}>
-                            {signeKey === 'tension' ? (
-                                <LineChart data={chartTension}>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ht-border)" opacity={0.3} />
-                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
-                                    <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={[50, 200]} />
-                                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12, backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}
-                                             formatter={(v, n) => [`${v} mmHg`, n === 'sys' ? 'Systolique' : 'Diastolique']} />
-                                    {cfg.normal && <>
-                                        <ReferenceLine y={cfg.normal.max} stroke="#ef4444" strokeDasharray="4 2" opacity={0.5} />
-                                        <ReferenceLine y={cfg.normal.min} stroke="#10b981" strokeDasharray="4 2" opacity={0.5} />
-                                    </>}
-                                    <Line type="monotone" dataKey="sys" stroke="#3B82F6" strokeWidth={2} dot={{ r: 2 }} connectNulls />
-                                    <Line type="monotone" dataKey="dia" stroke="#93C5FD" strokeWidth={2} dot={{ r: 2 }} connectNulls />
-                                </LineChart>
-                            ) : (
-                                <AreaChart data={chart30}>
-                                    <defs>
-                                        <linearGradient id={`grad-${signeKey}`} x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="5%" stopColor={cfg.color} stopOpacity={0.25} />
-                                            <stop offset="95%" stopColor={cfg.color} stopOpacity={0} />
-                                        </linearGradient>
-                                    </defs>
-                                    <CartesianGrid strokeDasharray="3 3" stroke="var(--ht-border)" opacity={0.3} />
-                                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
-                                    <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={cfg.domain} />
-                                    <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12, backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}
-                                             formatter={(v) => [`${v} ${cfg.unit}`, cfg.label]} />
-                                    {cfg.normal && <>
-                                        <ReferenceLine y={cfg.normal.max} stroke="#ef4444" strokeDasharray="4 2" opacity={0.5} />
-                                        <ReferenceLine y={cfg.normal.min} stroke="#10b981" strokeDasharray="4 2" opacity={0.5} />
-                                    </>}
-                                    <Area type="monotone" dataKey="val" stroke={cfg.color} strokeWidth={2}
-                                          fill={`url(#grad-${signeKey})`} dot={{ r: 2 }} connectNulls />
-                                </AreaChart>
-                            )}
-                        </ResponsiveContainer>
+                        <p className="text-xs font-bold uppercase tracking-wider mb-3" style={{ color: 'var(--ht-text-muted)' }}>Évolution sur {rangeLabel(range)}</p>
+                        {vals30.length === 0 ? (
+                            <div className="rounded-xl p-6 text-center text-xs border border-dashed" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text-muted)' }}>
+                                Aucune mesure de {cfg.label.toLowerCase()} dans {rangeLabel(range)}
+                            </div>
+                        ) : (
+                            <ResponsiveContainer width="100%" height={180}>
+                                {signeKey === 'tension' ? (
+                                    <LineChart data={chartTension}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--ht-border)" opacity={0.3} />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                        <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={[50, 200]} />
+                                        <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12, backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}
+                                                 formatter={(v, n) => [`${v} mmHg`, n === 'sys' ? 'Systolique' : 'Diastolique']} />
+                                        {cfg.normal && <>
+                                            <ReferenceLine y={cfg.normal.max} stroke="#ef4444" strokeDasharray="4 2" opacity={0.5} />
+                                            <ReferenceLine y={cfg.normal.min} stroke="#10b981" strokeDasharray="4 2" opacity={0.5} />
+                                        </>}
+                                        <Line type="monotone" dataKey="sys" stroke="#3B82F6" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+                                        <Line type="monotone" dataKey="dia" stroke="#93C5FD" strokeWidth={2} dot={{ r: 2 }} connectNulls />
+                                    </LineChart>
+                                ) : (
+                                    <AreaChart data={chart30}>
+                                        <defs>
+                                            <linearGradient id={`grad-${signeKey}`} x1="0" y1="0" x2="0" y2="1">
+                                                <stop offset="5%" stopColor={cfg.color} stopOpacity={0.25} />
+                                                <stop offset="95%" stopColor={cfg.color} stopOpacity={0} />
+                                            </linearGradient>
+                                        </defs>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="var(--ht-border)" opacity={0.3} />
+                                        <XAxis dataKey="date" tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} />
+                                        <YAxis tick={{ fontSize: 10, fill: 'var(--ht-text-muted)' }} domain={cfg.domain} />
+                                        <Tooltip contentStyle={{ fontSize: 11, borderRadius: 12, backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)' }}
+                                                 formatter={(v) => [`${v} ${cfg.unit}`, cfg.label]} />
+                                        {cfg.normal && <>
+                                            <ReferenceLine y={cfg.normal.max} stroke="#ef4444" strokeDasharray="4 2" opacity={0.5} />
+                                            <ReferenceLine y={cfg.normal.min} stroke="#10b981" strokeDasharray="4 2" opacity={0.5} />
+                                        </>}
+                                        <Area type="monotone" dataKey="val" stroke={cfg.color} strokeWidth={2}
+                                              fill={`url(#grad-${signeKey})`} dot={{ r: 2 }} connectNulls />
+                                    </AreaChart>
+                                )}
+                            </ResponsiveContainer>
+                        )}
                     </div>
 
                     {/* Graphe 24h */}
@@ -485,13 +621,16 @@ function ChartCard({ title, unit, children, onClick }: {
 }
 
 // ─── Composant principal ──────────────────────────────────────────────────────
-export default function SignesVitauxCharts({ data }: Props) {
+export default function SignesVitauxCharts({ data, patientNom, patientPrenom, patientDossier }: Props) {
     const [activeSigne, setActiveSigne] = useState<SigneKey | null>(null)
+    const [range, setRange] = useState<RangeValue>('30')
+    const nomPatient = patientPrenom && patientNom ? `${patientPrenom} ${patientNom}` : undefined
 
     const formatted = useMemo(() =>
             [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()),
         [data]
     )
+    const formattedRange = useMemo(() => filtrerParPlage(formatted, range), [formatted, range])
 
     if (data.length === 0) return (
         <div className="ht-card p-8 border" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
@@ -501,7 +640,7 @@ export default function SignesVitauxCharts({ data }: Props) {
         </div>
     )
 
-    const chart30 = formatted.map(s => ({
+    const chart30 = formattedRange.map(s => ({
         date: fmt(s.date),
         tension_systolique: s.tension_systolique,
         tension_diastolique: s.tension_diastolique,
@@ -511,17 +650,81 @@ export default function SignesVitauxCharts({ data }: Props) {
         frequence_cardiaque: s.frequence_cardiaque,
     }))
 
+    // Plage sélecteur, réutilisé par la vue normale ET l'état vide ci-dessous,
+    // pour toujours pouvoir changer de plage même quand elle est vide.
+    const selecteurPlage = (
+        <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-1 p-1 rounded-xl" style={{ backgroundColor: 'var(--ht-muted-bg)' }}>
+                {RANGE_OPTIONS.map(opt => (
+                    <button
+                        key={opt.value}
+                        onClick={() => setRange(opt.value)}
+                        className="px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                        style={range === opt.value
+                            ? { backgroundColor: 'var(--ht-primary)', color: 'var(--ht-primary-contrast)' }
+                            : { color: 'var(--ht-text-muted)' }}
+                    >
+                        {opt.label}
+                    </button>
+                ))}
+            </div>
+            <button
+                onClick={() => exporterCSVComplet(formattedRange, nomPatient, patientDossier)}
+                disabled={formattedRange.length === 0}
+                className="btn btn-secondary btn-sm gap-1.5"
+            >
+                <Download size={14} /> Exporter en CSV
+            </button>
+        </div>
+    )
+
+    // Des mesures existent globalement, mais aucune dans la plage choisie —
+    // état différent de "aucune mesure du tout" (cas géré plus haut) : on
+    // explique pourquoi c'est vide plutôt que d'afficher des graphes sans
+    // courbe ni message, et on propose la plage la plus étroite qui aurait
+    // des données.
+    if (formattedRange.length === 0) {
+        const derniereMesure = formatted[formatted.length - 1]
+        const joursDepuisDerniere = Math.floor((Date.now() - new Date(derniereMesure.date).getTime()) / (24 * 3600 * 1000))
+        const suggestion = RANGE_OPTIONS.find(opt => opt.value === 'tout' || joursDepuisDerniere <= Number(opt.value))
+
+        return (
+            <div className="space-y-6">
+                {selecteurPlage}
+                <div className="ht-card p-8 border text-center" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                    <p className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>
+                        Aucune mesure dans {rangeLabel(range)}
+                    </p>
+                    <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                        Dernière mesure enregistrée il y a {joursDepuisDerniere} jour{joursDepuisDerniere > 1 ? 's' : ''} ({fmtFull(derniereMesure.date)})
+                    </p>
+                    {suggestion && suggestion.value !== range && (
+                        <button onClick={() => setRange(suggestion.value)} className="btn btn-secondary btn-sm mt-4">
+                            Voir sur {suggestion.label.toLowerCase()}
+                        </button>
+                    )}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <>
             {activeSigne && (
                 <DetailSidebar
                     signeKey={activeSigne}
                     data={data}
+                    range={range}
+                    nomPatient={nomPatient}
+                    numeroDossier={patientDossier}
                     onClose={() => setActiveSigne(null)}
                 />
             )}
 
             <div className="space-y-6">
+                {/* Plage de dates + export */}
+                {selecteurPlage}
+
                 <div>
                     <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--ht-text)' }}>
                         Dernières mesures
@@ -531,7 +734,7 @@ export default function SignesVitauxCharts({ data }: Props) {
                             <SummaryCard
                                 key={key}
                                 signeKey={key}
-                                data={formatted}
+                                data={formattedRange}
                                 onClick={() => setActiveSigne(key)}
                             />
                         ))}

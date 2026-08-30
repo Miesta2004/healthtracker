@@ -33,6 +33,7 @@ import {
     RefreshCw,
     Tag,
     ShieldCheck,
+    HeartHandshake,
     History,
     Receipt,
     Wallet,
@@ -410,6 +411,16 @@ export default function Sidebar() {
                                 label="Grille tarifaire"
                                 active={isActive("/grille-tarifaire")}
                                 onClick={() => navigate("/grille-tarifaire")}
+                                collapsed={collapsed}
+                            />
+                        )}
+
+                        {hasRole("admin", "facturier") && (
+                            <SidebarItem
+                                icon={HeartHandshake}
+                                label="Assurance"
+                                active={isActive("/assurance")}
+                                onClick={() => navigate("/assurance")}
                                 collapsed={collapsed}
                             />
                         )}

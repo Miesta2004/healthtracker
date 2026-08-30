@@ -42,54 +42,40 @@ from facturation.models import (
 
 @transaction.atomic
 def run_seed():
-    """Nettoie puis régénère l'intégralité du jeu de données de démonstration,
-    dans une seule transaction (tout ou rien : en cas d'erreur en cours de
-    route, la base repart exactement dans l'état où elle était avant)."""
+    """Complète le jeu de données de démonstration de façon ADDITIVE — ne
+    supprime plus rien : les services/employés déjà en base sont réutilisés
+    (get_or_create sur une clé stable), le personnel de renfort et les
+    patients sont complétés jusqu'à atteindre les volumes cibles ci-dessous,
+    et tout le reste (consultations, RDV, hospitalisations, factures...)
+    s'ajoute par-dessus l'existant sans y toucher. Toujours dans une seule
+    transaction (tout ou rien en cas d'erreur en cours de route).
 
-    random.seed(42)
+    Pas de random.seed() fixe : sur une base déjà peuplée, on veut du
+    contenu VARIÉ à chaque exécution, pas un rejeu identique qui ajouterait
+    des doublons de noms à l'infini.
+    """
 
     # ─── CONFIG ───────────────────────────────────────────────────────────────────
-    JOURS_HISTORIQUE = 180   # 6 mois de données
-    NB_PATIENTS      = 480   # x2 par rapport au seed précédent (240)
-    NB_URGENCES      = 840   # x2, scalé avec le volume de patients
+    JOURS_HISTORIQUE = 730   # ~2 ans de données (au lieu de 6 mois) — nécessaire
+    # pour que les calculs d'ancienneté/tendances des
+    # modules Analytics aient du répondant sur la durée.
+    NB_PATIENTS      = 480   # patients AJOUTÉS à cette exécution (pas un total)
+    NB_URGENCES      = 840   # passages AJOUTÉS à cette exécution
     NB_MESURES_MIN   = 6
     NB_MESURES_MAX   = 25
 
     now = timezone.now()
 
-    # ─── NETTOYAGE ────────────────────────────────────────────────────────────────
-    print("🗑️  Nettoyage...")
-    for Model, label in [
-        (JournalActivite, "entrée(s) de journal d'activité"),
-        (Autopsie,        "autopsie(s)"),
-        (Deces,           "décès enregistré(s)"),
-        (AssignationPatient, "assignation(s) infirmier ↔ patient"),
-        (DemandeAnalyse,  "demande(s) d'analyse"),
-        (PassageUrgence,  "passage(s) urgences"),
-        (Facture,         "facture(s) (cascade : lignes, paiements, échéanciers)"),
-        (InterventionChirurgicale, "opération(s) chirurgicale(s)"),
-        (SalleBloc,       "salle(s) de bloc"),
-        (Antecedent,      "antécédent(s) détaillé(s)"),
-        (Accompagnant,    "accompagnant(s)"),
-        (Hospitalisation, "hospitalisation(s)"),
-        (Alerte,          "alerte(s)"),
-        (RendezVous,      "rendez-vous"),
-        (Consultation,    "consultation(s)"),
-        (SignesVitaux,    "signes vitaux"),
-        (Patient,         "patient(s)"),
-        (ExceptionDisponibilite, "exception(s) de disponibilité"),
-        (CreneauDisponibilite,   "créneau(x) de disponibilité"),
-        (HabilitationService,    "habilitation(s) service"),
-        (Employe,         "employé(s)"),
-        (Service,         "service(s)"),
-    ]:
-        nb = Model.objects.count()
-        if nb:
-            Model.objects.all().delete()
-            print(f"   - {nb} {label} supprimé(s)")
-
-    nb, _ = User.objects.filter(is_superuser=False).delete()
-    print(f"   - {nb} user(s) Django supprimé(s)\n✅ Nettoyé.\n")
+    # ─── MODE ADDITIF ─────────────────────────────────────────────────────────────
+    # Plus de suppression : services, salles, employés « repères » (comptes de
+    # démo nommés) sont retrouvés via get_or_create sur leur clé stable
+    # (nom / username) au lieu d'être recréés — donc jamais dupliqués d'une
+    # exécution à l'autre. Patients et tout ce qui en découle (consultations,
+    # RDV, hospitalisations, urgences, décès, factures, activités...) sont en
+    # revanche du volume PUR AJOUT : chaque exécution en crée NB_PATIENTS de
+    # plus, sans toucher à ceux déjà en base.
+    print(f"➕ Mode additif — {Service.objects.count()} service(s) et "
+          f"{Employe.objects.count()} employé(s) déjà en base, réutilisés tels quels.\n")
 
     # ─── SPÉCIALITÉS MÉDICALES ────────────────────────────────────────────────────
     # Specialite est maintenant un enum (comptes/models.py), plus un modèle à
@@ -120,9 +106,14 @@ def run_seed():
         ("Laboratoire",              "Analyses biologiques, hématologie et biochimie"),
     ]
     services = {}
+    n_services_crees = 0
     for nom, desc in SERVICES_DATA:
-        services[nom] = Service.objects.create(nom=nom, description=desc, actif=True)
-    print(f"✅ {len(services)} services\n")
+        service, cree = Service.objects.get_or_create(
+            nom=nom, defaults={'description': desc, 'actif': True}
+        )
+        services[nom] = service
+        n_services_crees += int(cree)
+    print(f"✅ {len(services)} services ({n_services_crees} créé(s), {len(services) - n_services_crees} déjà existant(s))\n")
 
     # ─── DONNÉES NOMS/PRÉNOMS SÉNÉGALAIS ─────────────────────────────────────────
     PRENOMS_F = [
@@ -304,12 +295,18 @@ def run_seed():
     ]
 
     employes = []
+    n_employes_crees = 0
     for (prenom, nom, sexe, role, specialite, username, password, age,
          svc_nom, type_contrat, date_debut, desc) in EMPLOYES_DATA:
+        user_existant = User.objects.filter(username=username).first()
+        if user_existant:
+            emp_existant = getattr(user_existant, 'employe', None)
+            if emp_existant:
+                employes.append(emp_existant)
+            continue
+
         annee = date.today().year - age
         dnaiss = date(annee, random.randint(1, 12), random.randint(1, 28))
-        if User.objects.filter(username=username).exists():
-            continue
         user = User.objects.create_user(
             username=username, email=f"{username}@healthtracker.sn",
             password=password, first_name=prenom, last_name=nom,
@@ -334,8 +331,10 @@ def run_seed():
             description_poste=desc,
         )
         employes.append(emp)
+        n_employes_crees += 1
 
-    print(f"✅ {len(employes)} employés\n")
+    print(f"✅ {len(employes)} employés « repères » ({n_employes_crees} créé(s), "
+          f"{len(employes) - n_employes_crees} déjà existant(s))\n")
 
     # ── Chefs de service ──────────────────────────────────────────────────────────
     print("🩺 Chefs de service...")
@@ -364,13 +363,16 @@ def run_seed():
     # Chaque employé est habilité sur au moins son service de rattachement
     for emp in employes:
         if emp.service:
-            HabilitationService.objects.create(
+            _, cree = HabilitationService.objects.get_or_create(
                 employe=emp, service=emp.service,
-                date_debut=emp.date_debut_contrat or date.today(),
-                date_fin=emp.date_fin_contrat,  # null si CDI
-                actif=emp.actif
+                defaults={
+                    'date_debut': emp.date_debut_contrat or date.today(),
+                    'date_fin': emp.date_fin_contrat,  # null si CDI
+                    'actif': emp.actif,
+                }
             )
-            total_habilitations += 1
+            if cree:
+                total_habilitations += 1
 
     # Quelques habilitations supplémentaires pour refléter la mobilité réelle
     # (chirurgiens pouvant intervenir dans plusieurs services, consultants externes)
@@ -380,16 +382,16 @@ def run_seed():
         autres_services = [s for s in services.values() if s.id != medecin.service_id]
         if autres_services:
             svc_supp = random.choice(autres_services)
-            try:
-                HabilitationService.objects.create(
-                    employe=medecin, service=svc_supp,
-                    date_debut=date.today() - timedelta(days=random.randint(30, 365)),
-                    date_fin=None,  # Sans limitation pour ces habilitations supplémentaires
-                    actif=True
-                )
+            _, cree = HabilitationService.objects.get_or_create(
+                employe=medecin, service=svc_supp,
+                defaults={
+                    'date_debut': date.today() - timedelta(days=random.randint(30, 365)),
+                    'date_fin': None,  # Sans limitation pour ces habilitations supplémentaires
+                    'actif': True,
+                }
+            )
+            if cree:
                 total_habilitations += 1
-            except:
-                pass  # Doublon possible
 
     print(f"✅ {total_habilitations} habilitations (service principal + complémentaires)\n")
 
@@ -416,7 +418,13 @@ def run_seed():
     EXTRA_MEDECINS_PAR_SERVICE  = 6   # x2 par rapport au seed précédent (3) — x11 services cliniques (hors Laboratoire)
     EXTRA_INFIRMIERS_PAR_SERVICE = 8  # x2 par rapport au seed précédent (4) — x12 services (Laboratoire compris)
 
-    usernames_pris = {e.user.username for e in employes}
+    # Toujours interrogé en base, pas depuis `employes` : sur un rerun, les
+    # employés générés aléatoirement lors d'une exécution précédente
+    # (dr.sarr, inf.xxx...) n'appartiennent pas à EMPLOYES_DATA et ne sont
+    # PAS encore resynchronisés dans `employes` à ce stade du script (ça
+    # n'arrive qu'après le topup, plus bas) — les ignorer ici a provoqué un
+    # doublon de username en base réelle (IntegrityError sur PostgreSQL).
+    usernames_pris = set(User.objects.values_list('username', flat=True))
 
     def username_libre(prefixe, nom):
         base = f"{prefixe}.{nom.lower().replace(' ', '').replace('-', '')[:10]}"
@@ -461,25 +469,49 @@ def run_seed():
         employes.append(emp)
         return emp
 
+    # Combien de médecins/infirmiers « repères » (EMPLOYES_DATA) comptent déjà
+    # dans le total par service — sert à ne compléter que ce qu'il manque pour
+    # atteindre la cible, plutôt que de rajouter EXTRA_*_PAR_SERVICE de plus à
+    # CHAQUE exécution (mode additif : on top up, on n'empile pas).
+    medecins_fixes_par_service = defaultdict(int)
+    infirmiers_fixes_par_service = defaultdict(int)
+    for (_, _, _, role_fixe, _, _, _, _, svc_nom_fixe, *_rest) in EMPLOYES_DATA:
+        if role_fixe == 'medecin':
+            medecins_fixes_par_service[svc_nom_fixe] += 1
+        elif role_fixe == 'infirmier':
+            infirmiers_fixes_par_service[svc_nom_fixe] += 1
+
     nb_medecins_generes, nb_infirmiers_generes = 0, 0
     for svc_nom in SERVICES_DATA:
         svc_nom = svc_nom[0]
         if svc_nom == "Laboratoire":
             continue  # pas de médecin au laboratoire, cf. logique chef de service plus haut
         specialites_service = SPECIALITES_PAR_SERVICE.get(svc_nom, [""])
-        for _ in range(EXTRA_MEDECINS_PAR_SERVICE):
+        medecins_actuels = Employe.objects.filter(role='medecin', service=services[svc_nom]).count()
+        manquants = max(0, EXTRA_MEDECINS_PAR_SERVICE - (medecins_actuels - medecins_fixes_par_service[svc_nom]))
+        for _ in range(manquants):
             creer_employe_genere('medecin', svc_nom, 'dr', 'medecin123', random.choice(specialites_service))
             nb_medecins_generes += 1
 
     for svc_nom in SERVICES_DATA:
         svc_nom = svc_nom[0]
-        for _ in range(EXTRA_INFIRMIERS_PAR_SERVICE):
+        infirmiers_actuels = Employe.objects.filter(role='infirmier', service=services[svc_nom]).count()
+        manquants = max(0, EXTRA_INFIRMIERS_PAR_SERVICE - (infirmiers_actuels - infirmiers_fixes_par_service[svc_nom]))
+        for _ in range(manquants):
             creer_employe_genere('infirmier', svc_nom, 'inf', 'infirmier123')
             nb_infirmiers_generes += 1
 
-    print(f"✅ +{nb_medecins_generes} médecins, +{nb_infirmiers_generes} infirmiers "
-          f"(total : {sum(1 for e in employes if e.role == 'medecin')} médecins, "
-          f"{sum(1 for e in employes if e.role == 'infirmier')} infirmiers)\n")
+    print(f"✅ +{nb_medecins_generes} médecins, +{nb_infirmiers_generes} infirmiers")
+
+    # Resynchronisation complète depuis la base : le topup ci-dessus n'ajoute
+    # à `employes` que les employés VRAIMENT créés à cette exécution (fixes
+    # nouveaux + renfort manquant) — sur un rerun où tout est déjà au complet,
+    # `employes` resterait incomplet (sans le personnel généré lors d'un run
+    # précédent) et casserait tout ce qui en dépend plus bas (créneaux,
+    # chirurgiens, infirmiers de service, chefs de service...).
+    employes = list(Employe.objects.select_related('user', 'service').all())
+    print(f"   → effectif complet : {sum(1 for e in employes if e.role == 'medecin')} médecins, "
+          f"{sum(1 for e in employes if e.role == 'infirmier')} infirmiers\n")
 
     # ─── DISPONIBILITÉS ────────────────────────────────────────────────────────────
     # Sans ces créneaux récurrents, l'agenda de prise de rendez-vous est vide pour
@@ -488,11 +520,12 @@ def run_seed():
     print("🗓️  Créneaux de disponibilité...")
 
     medecins_tous = [e for e in employes if e.role == 'medecin']
+    medecins_sans_creneaux = [m for m in medecins_tous if not m.creneaux.exists()]
 
     JOURS_OUVRES = [JourSemaine.LUNDI, JourSemaine.MARDI, JourSemaine.MERCREDI, JourSemaine.JEUDI, JourSemaine.VENDREDI]
 
     nb_creneaux = 0
-    for medecin in medecins_tous:
+    for medecin in medecins_sans_creneaux:
         # Variante d'emploi du temps selon le service pour éviter que tout le
         # monde ait exactement le même agenda (peu réaliste et un peu ennuyeux
         # en démo).
@@ -546,7 +579,8 @@ def run_seed():
             )
             nb_creneaux += 1
 
-    print(f"✅ {nb_creneaux} créneaux pour {len(medecins_tous)} médecins\n")
+    print(f"✅ {nb_creneaux} créneaux pour {len(medecins_sans_creneaux)} médecin(s) nouvellement programmé(s) "
+          f"({len(medecins_tous)} médecins au total)\n")
 
     # ─── CONGÉS / ABSENCES (demandes) ──────────────────────────────────────────────
     # Un mélange de statuts (validé / en attente / rejeté) pour pouvoir tester
@@ -1651,11 +1685,13 @@ def run_seed():
     services_chirurgie = [s for n, s in services.items() if n in ["Chirurgie générale", "Gynécologie-Obstétrique"]]
     salles_bloc = {}
     for svc in services_chirurgie:
-        nb_salles = random.randint(2, 3)
-        for i in range(1, nb_salles + 1):
-            salle = SalleBloc.objects.create(nom=f"Salle {i}", service=svc)
+        nb_salles_cible = random.randint(2, 3)
+        nb_salles_actuel = SalleBloc.objects.filter(service=svc).count()
+        for i in range(1, max(nb_salles_cible, nb_salles_actuel) + 1):
+            salle, cree = SalleBloc.objects.get_or_create(nom=f"Salle {i}", service=svc)
             salles_bloc[svc.id] = salles_bloc.get(svc.id, []) + [salle]
-            total_salles += 1
+            if cree:
+                total_salles += 1
 
     # Créer des interventions liées aux hospitalisations
     chirurgiens_list = [e for e in employes if e.role == 'medecin'
@@ -1873,17 +1909,24 @@ def run_seed():
             total_urgences += 1
 
     # Chaque décision × 6 (décès × 30 — x15 par rapport au seed précédent (2),
-    # demande explicite pour alimenter généreusement le module Morgue/Autopsie)
+    # demande explicite pour alimenter généreusement le module Morgue/Autopsie).
+    # Deces.patient est OneToOne : on tire des patients DISTINCTS pour la
+    # décision "décès" (sinon un même patient piqué deux fois fait planter
+    # la contrainte d'unicité), random.choice() reste OK pour les autres
+    # décisions où plusieurs passages par patient sont réalistes.
     deces_aux_urgences = []   # (passage, patient) — repris plus bas par l'app morgue
+    patients_pour_deces = random.sample(patients_list, k=min(30, len(patients_list)))
     for dec in list(DecisionSortie):
-        nb = 30 if dec == DecisionSortie.DECES else 6
-        for _ in range(nb):
-            niv = random.choice([1, 2]) if dec == DecisionSortie.DECES else niveau_aleatoire()
-            patient_choisi = random.choice(patients_list)
-            passage = creer_passage(patient_choisi, niv, mode_aleatoire(),
-                                    StatutUrgence.SORTI, dec, jours_max=JOURS_HISTORIQUE)
-            if dec == DecisionSortie.DECES:
+        if dec == DecisionSortie.DECES:
+            for patient_choisi in patients_pour_deces:
+                passage = creer_passage(patient_choisi, random.choice([1, 2]), mode_aleatoire(),
+                                        StatutUrgence.SORTI, dec, jours_max=JOURS_HISTORIQUE)
                 deces_aux_urgences.append((passage, patient_choisi))
+                total_urgences += 1
+            continue
+        for _ in range(6):
+            creer_passage(random.choice(patients_list), niveau_aleatoire(), mode_aleatoire(),
+                          StatutUrgence.SORTI, dec, jours_max=JOURS_HISTORIQUE)
             total_urgences += 1
 
     # ── 2. File d'attente en cours (patients présents maintenant) ─────────────────
@@ -1946,14 +1989,12 @@ def run_seed():
         while jour <= jour_fin:
             for shift in SHIFTS:
                 infirmier = random.choice(equipe)
-                try:
-                    AssignationPatient.objects.create(
-                        infirmier=infirmier, patient=hosp.patient, service=hosp.service,
-                        date=jour, shift=shift,
-                    )
+                _, cree = AssignationPatient.objects.get_or_create(
+                    infirmier=infirmier, patient=hosp.patient, service=hosp.service,
+                    date=jour, shift=shift,
+                )
+                if cree:
                     total_assignations += 1
-                except Exception:
-                    pass  # doublon (infirmier, patient, date, shift) déjà généré — sans conséquence
             jour += timedelta(days=1)
 
     aujourdhui_date = timezone.localdate()
@@ -2011,39 +2052,46 @@ def run_seed():
         total_deces += 1
         return deces
 
+    deces_crees_ce_run = []
+
     # 1. Décès déjà générés côté urgences (cohérence : le patient est bien mort
     #    à l'hôpital, constaté par le médecin qui l'a examiné).
     for passage, patient in deces_aux_urgences:
-        deces = enregistrer_deces(
+        deces_crees_ce_run.append(enregistrer_deces(
             patient, passage.date_sortie or passage.date_arrivee,
             random.choice(CAUSES_DECES_URGENCE), LieuDeces.HOPITAL,
             passage.medecin_examinateur, necessite_autopsie=random.random() < 0.3,
-                     )
+                     ))
 
     # 2. Quelques décès supplémentaires en cours d'hospitalisation, pour ne pas
     #    dépendre uniquement des urgences (patients déjà admis qui se dégradent).
-    candidats_hospit = list(
-        Hospitalisation.objects
-        .exclude(patient__statut_vital=Patient.StatutVital.DECEDE)
-        .select_related('patient', 'medecin_responsable')
-    )
+    candidats_hospit_par_patient = {}
+    for hosp in (
+            Hospitalisation.objects
+                    .exclude(patient__statut_vital=Patient.StatutVital.DECEDE)
+                    .select_related('patient', 'medecin_responsable')
+    ):
+        candidats_hospit_par_patient.setdefault(hosp.patient_id, hosp)  # une seule hospit par patient
+    candidats_hospit = list(candidats_hospit_par_patient.values())
     for hosp in random.sample(candidats_hospit, k=min(60, len(candidats_hospit))):
         d_deces = hosp.date_sortie or (hosp.date_admission + timedelta(days=random.randint(1, 10)))
-        deces = enregistrer_deces(
+        deces_crees_ce_run.append(enregistrer_deces(
             hosp.patient, d_deces, random.choice(CAUSES_DECES_HOSPIT), LieuDeces.HOPITAL,
             hosp.medecin_responsable, necessite_autopsie=random.random() < 0.15,
-        )
+        ))
         hosp.statut = StatutHospitalisation.TERMINEE
         hosp.date_sortie = d_deces
         hosp.diagnostic_sortie = "Décès en cours de séjour — cf. dossier morgue."
         hosp.save()
 
     # Autopsies pour les décès qui en nécessitaient une, + remise du corps pour
-    # les décès les plus anciens (couvre les 4 statuts du cycle de vie du dossier).
-    tous_les_deces = list(Deces.objects.select_related('patient').all())
+    # certains décès sans autopsie. Scopé aux décès créés PAR CE RUN — un décès
+    # d'une exécution précédente a déjà son statut final (AUTOPSIE_TERMINEE /
+    # CORPS_REMIS), le retraiter romprait Autopsie.deces (OneToOne) et
+    # réécrirait un dossier déjà clos.
     medecins_legistes = [e for e in medecins_list if 'légale' in (e.specialite or '').lower()] or medecins_list
 
-    for deces in tous_les_deces:
+    for deces in deces_crees_ce_run:
         if deces.necessite_autopsie and random.random() < 0.75:
             Autopsie.objects.create(
                 deces=deces,
@@ -2328,7 +2376,7 @@ def run_seed():
     print(f"   🔬 Demandes d'analyse : {total_analyses}")
     print(f"   🛏️  Hospitalisations   : {total_hosp}")
     print(f"   🏥 Salles de bloc      : {total_salles}")
-    print(f"   ⚕️  Opérations chirurgicales : {total_operations}")
+    print(f"   ⚕️  Opérations chirurg : {total_operations}")
     print(f"   🚑 Passages urgences  : {total_urgences}")
     print(f"   🧑‍⚕️  Assignations shifts : {total_assignations}")
     print(f"   ⚰️  Décès / autopsies  : {total_deces} / {total_autopsies}")

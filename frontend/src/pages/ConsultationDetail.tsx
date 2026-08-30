@@ -4,18 +4,19 @@ import { getPatient, getSignesVitaux, postSignesVitaux, updatePatient } from '..
 import { getAntecedents, createAntecedent, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
 import { getDemandesPatient, createDemande } from '../api/analyses'
-import { getModeles, genererDocument, getDocumentsPatient, supprimerDocument, modifierDocument } from '../api/documents'
+import { creerDocument, getDocumentsPatient, supprimerDocument } from '../api/documents'
 import type {
     Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent,
-    SignesVitaux, DemandeAnalyse, TypeAnalyse, UrgenceAnalyse, ModeleDocument, DocumentGenere,
+    SignesVitaux, DemandeAnalyse, TypeAnalyse, UrgenceAnalyse, DocumentGenere, TypeDocument,
 } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import PlanifierOperationModal from '../components/PlanifierOperationModal'
+import { TYPES_EDITEUR, TYPE_DOCUMENT_LABELS, TYPE_DOCUMENT_ICONS } from '../constants/schemas'
 import {
     Stethoscope, FlaskConical, Activity, FileText, Trash2, Pin, Check, CheckCircle,
     AlertTriangle, ChevronLeft, Play, Ban, Heart, Thermometer, Droplet, Scale,
     Plus, Clock, Building2, Circle, Printer, MoreVertical, Phone,
-    Pill, ClipboardList, Award, FileWarning, Folder, Download,
+    Pill, ClipboardList, Award, FileWarning, Folder,
     Bold, Italic, Underline, List, ListOrdered, ChevronDown,
     type LucideIcon,
 } from 'lucide-react'
@@ -327,14 +328,9 @@ export default function ConsultationDetail() {
     })
     const [demandeSaving, setDemandeSaving] = useState(false)
 
-    const [modeles, setModeles] = useState<ModeleDocument[]>([])
-    const [modelesLoading, setModelesLoading] = useState(false)
     const [documentsGeneres, setDocumentsGeneres] = useState<DocumentGenere[]>([])
     const [documentsLoading, setDocumentsLoading] = useState(false)
-    const [modeleEnGeneration, setModeleEnGeneration] = useState<number | null>(null)
-    const [documentApercu, setDocumentApercu] = useState<DocumentGenere | null>(null)
-    const [contenuEdite, setContenuEdite] = useState('')
-    const [documentSaving, setDocumentSaving] = useState(false)
+    const [documentEnCreation, setDocumentEnCreation] = useState<string | null>(null)
 
     const now = new Date()
     now.setSeconds(0, 0)
@@ -362,9 +358,6 @@ export default function ConsultationDetail() {
 
         setDemandesLoading(true)
         getDemandesPatient(patientId).then(setDemandes).catch(() => {}).finally(() => setDemandesLoading(false))
-
-        setModelesLoading(true)
-        getModeles().then(setModeles).catch(() => {}).finally(() => setModelesLoading(false))
 
         setDocumentsLoading(true)
         getDocumentsPatient(patientId).then(setDocumentsGeneres).catch(() => {}).finally(() => setDocumentsLoading(false))
@@ -460,9 +453,6 @@ export default function ConsultationDetail() {
     const ongletIndex = WIZARD_ORDER.findIndex(o => o === onglet)
     const estDernierOnglet = ongletIndex === WIZARD_ORDER.length - 1
 
-    // Modifier la fonction handleSuivant pour ne pas forcer la sauvegarde
-// lorsque l'utilisateur navigue simplement entre les onglets
-
     const handleSuivant = async () => {
         const ongletIndex = WIZARD_ORDER.findIndex(o => o === onglet)
         const estDernierOnglet = ongletIndex === WIZARD_ORDER.length - 1
@@ -474,7 +464,6 @@ export default function ConsultationDetail() {
             return
         }
 
-        // Pour les autres onglets, on sauvegarde le brouillon
         const savedId = await persist()
         if (savedId === null) return
 
@@ -556,44 +545,19 @@ export default function ConsultationDetail() {
         }
     }
 
-    const handleGenererDocument = async (modeleId: number) => {
-        setModeleEnGeneration(modeleId)
+    const handleCreerDocument = async (type: TypeDocument) => {
+        setDocumentEnCreation(type)
+        setError('')
         try {
-            const created = await genererDocument(modeleId, {
+            const created = await creerDocument({
                 patient: patientId,
+                type_document: type,
                 ...(savedConsultId ? { consultation: savedConsultId } : {}),
             })
-            setDocumentsGeneres(prev => [created, ...prev])
-            setDocumentApercu(created)
-            setContenuEdite(created.contenu)
+            navigate(`/patients/${patientId}/documents/${created.id}`)
         } catch {
-            setError('Erreur lors de la génération du document.')
-        } finally {
-            setModeleEnGeneration(null)
-        }
-    }
-
-    const ouvrirApercu = (doc: DocumentGenere) => {
-        setDocumentApercu(doc)
-        setContenuEdite(doc.contenu)
-    }
-
-    const fermerApercu = () => {
-        setDocumentApercu(null)
-        setContenuEdite('')
-    }
-
-    const handleEnregistrerDocument = async () => {
-        if (!documentApercu) return
-        setDocumentSaving(true)
-        try {
-            const updated = await modifierDocument(documentApercu.id, { contenu: contenuEdite })
-            setDocumentsGeneres(prev => prev.map(d => d.id === updated.id ? updated : d))
-            setDocumentApercu(updated)
-        } catch {
-            setError("Erreur lors de l'enregistrement des modifications (tu n'en es peut-être pas l'auteur).")
-        } finally {
-            setDocumentSaving(false)
+            setError('Erreur lors de la création du document.')
+            setDocumentEnCreation(null)
         }
     }
 
@@ -601,20 +565,9 @@ export default function ConsultationDetail() {
         try {
             await supprimerDocument(id)
             setDocumentsGeneres(prev => prev.filter(d => d.id !== id))
-            if (documentApercu?.id === id) fermerApercu()
         } catch {
             setError("Erreur lors de la suppression du document (tu n'en es peut-être pas l'auteur).")
         }
-    }
-
-    const handleTelechargerDocument = (doc: DocumentGenere) => {
-        const blob = new Blob([doc.contenu], { type: 'text/plain;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${doc.titre.replace(/[^\w\s-]/g, '')}.txt`
-        a.click()
-        URL.revokeObjectURL(url)
     }
 
     const handleQuickAddAntecedent = async () => {
@@ -705,48 +658,6 @@ export default function ConsultationDetail() {
                     onClose={() => setShowPlanifOp(false)}
                     onCreated={() => navigate(`/patients/${patientId}`)}
                 />
-            )}
-
-            {documentApercu && (
-                <div className="ht-modal-overlay" onClick={fermerApercu}>
-                    <div className="ht-modal" style={{ maxWidth: 560 }} onClick={e => e.stopPropagation()}>
-                        <div className="flex items-start justify-between gap-3 mb-3">
-                            <div>
-                                <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>{documentApercu.titre}</h3>
-                                <p className="text-xs mt-0.5" style={{ color: 'var(--ht-text-muted)' }}>
-                                    {documentApercu.type_document_label} · {new Date(documentApercu.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                                    {documentApercu.genere_par_nom ? ` · ${documentApercu.genere_par_nom}` : ''}
-                                </p>
-                            </div>
-                            <button onClick={fermerApercu} className="text-sm flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>✕</button>
-                        </div>
-                        <textarea
-                            value={contenuEdite}
-                            onChange={e => setContenuEdite(e.target.value)}
-                            rows={14}
-                            className="text-sm rounded-xl border p-4 mb-1 w-full resize-y"
-                            style={{ backgroundColor: 'var(--ht-bg)', borderColor: 'var(--ht-border)', color: 'var(--ht-text)', maxHeight: 420, overflowY: 'auto', fontFamily: 'inherit' }}
-                        />
-                        <p className="text-xs mb-4" style={{ color: 'var(--ht-text-muted)' }}>
-                            Modifiable — complète par exemple une date d'arrêt de travail ou une posologie avant d'enregistrer.
-                        </p>
-                        <div className="flex gap-3">
-                            <button onClick={() => handleSupprimerDocument(documentApercu.id)} className="btn btn-danger btn-sm gap-1.5">
-                                <Trash2 size={13} /> Supprimer
-                            </button>
-                            <button onClick={() => handleTelechargerDocument(documentApercu)} className="btn btn-secondary btn-sm gap-1.5 ml-auto">
-                                <Download size={13} /> Télécharger
-                            </button>
-                            <button
-                                onClick={handleEnregistrerDocument}
-                                disabled={documentSaving || contenuEdite === documentApercu.contenu}
-                                className="btn btn-primary btn-sm gap-1.5"
-                            >
-                                <Check size={13} /> {documentSaving ? 'Enregistrement…' : 'Enregistrer'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
             )}
 
             {/* ===== BARRE UTILITAIRE ===== */}
@@ -1178,39 +1089,31 @@ export default function ConsultationDetail() {
                             <>
                                 <div className="ht-card ht-card-padded-sm">
                                     <CardTitle>Générer un document</CardTitle>
-                                    {modelesLoading ? (
-                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>Chargement des modèles…</p>
-                                    ) : modeles.length === 0 ? (
-                                        <p className="text-sm" style={{ color: 'var(--ht-text-muted)' }}>
-                                            Aucun modèle disponible — configurable dans Paramètres &gt; Modèles de documents.
-                                        </p>
-                                    ) : (
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                            {modeles.map(m => (
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {TYPES_EDITEUR.map(type => {
+                                            const Icon = TYPE_DOCUMENT_ICONS[type]
+                                            return (
                                                 <button
-                                                    key={m.id}
+                                                    key={type}
                                                     type="button"
-                                                    disabled={modeleEnGeneration !== null}
-                                                    onClick={() => handleGenererDocument(m.id)}
+                                                    disabled={documentEnCreation !== null}
+                                                    onClick={() => handleCreerDocument(type)}
                                                     className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors hover:bg-[var(--ht-bg)] disabled:opacity-50"
                                                     style={{ borderColor: 'var(--ht-border)' }}
                                                 >
-                                                    <FileText size={16} className="flex-shrink-0" style={{ color: 'var(--ht-primary)' }} />
+                                                    <Icon size={16} className="flex-shrink-0" style={{ color: 'var(--ht-primary)' }} />
                                                     <span className="flex-1 min-w-0">
                                                         <span className="block text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>
-                                                            {m.nom}
-                                                        </span>
-                                                        <span className="block text-xs" style={{ color: 'var(--ht-text-muted)' }}>
-                                                            {m.type_document_label}
+                                                            {TYPE_DOCUMENT_LABELS[type]}
                                                         </span>
                                                     </span>
-                                                    {modeleEnGeneration === m.id && (
+                                                    {documentEnCreation === type && (
                                                         <span className="text-xs flex-shrink-0" style={{ color: 'var(--ht-text-muted)' }}>…</span>
                                                     )}
                                                 </button>
-                                            ))}
-                                        </div>
-                                    )}
+                                            )
+                                        })}
+                                    </div>
                                 </div>
 
                                 <div className="ht-card ht-card-padded-sm">
@@ -1224,23 +1127,21 @@ export default function ConsultationDetail() {
                                             {documentsGeneres.map(d => (
                                                 <div key={d.id} className="flex items-center justify-between gap-3 text-sm py-2 border-b last:border-0"
                                                      style={{ borderColor: 'var(--ht-border)' }}>
-                                                    <button onClick={() => ouvrirApercu(d)} className="text-left min-w-0 flex-1">
+                                                    <button onClick={() => navigate(`/patients/${patientId}/documents/${d.id}`)} className="text-left min-w-0 flex-1">
                                                         <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
                                                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                                             {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
                                                             {d.genere_par_nom ? ` · ${d.genere_par_nom}` : ''}
+                                                            {' · '}
+                                                            <span style={{ color: d.statut === 'finalise' ? 'var(--ht-success)' : 'var(--ht-text-muted)' }}>
+                                                                {d.statut_label}
+                                                            </span>
                                                         </p>
                                                     </button>
-                                                    <div className="flex items-center gap-1 flex-shrink-0">
-                                                        <button onClick={() => handleTelechargerDocument(d)} title="Télécharger"
-                                                                className="w-7 h-7 rounded flex items-center justify-center transition-colors hover:bg-[var(--ht-bg)]">
-                                                            <Download size={14} style={{ color: 'var(--ht-text-muted)' }} />
-                                                        </button>
-                                                        <button onClick={() => handleSupprimerDocument(d.id)} title="Supprimer"
-                                                                className="w-7 h-7 rounded flex items-center justify-center transition-colors hover:bg-[var(--ht-bg)]">
-                                                            <Trash2 size={14} style={{ color: 'var(--ht-danger)' }} />
-                                                        </button>
-                                                    </div>
+                                                    <button onClick={() => handleSupprimerDocument(d.id)} title="Supprimer"
+                                                            className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0 transition-colors hover:bg-[var(--ht-bg)]">
+                                                        <Trash2 size={14} style={{ color: 'var(--ht-danger)' }} />
+                                                    </button>
                                                 </div>
                                             ))}
                                         </div>
@@ -1292,7 +1193,7 @@ export default function ConsultationDetail() {
                                 </div>
                                 {documentsGeneres.length === 0 ? (
                                     <div className="text-center py-6">
-                                        <Download size={20} className="mx-auto mb-2" style={{ color: 'var(--ht-text-muted)' }} />
+                                        <FileText size={20} className="mx-auto mb-2" style={{ color: 'var(--ht-text-muted)' }} />
                                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                             Aucun document généré pour l'instant.
                                         </p>
@@ -1300,17 +1201,13 @@ export default function ConsultationDetail() {
                                 ) : (
                                     <div className="space-y-2">
                                         {documentsGeneres.slice(0, 4).map(d => (
-                                            <div key={d.id} className="flex items-center justify-between gap-2 text-xs py-1.5">
-                                                <button onClick={() => { setOnglet('documents'); ouvrirApercu(d) }} className="text-left min-w-0 flex-1">
-                                                    <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
-                                                    <p style={{ color: 'var(--ht-text-muted)' }}>
-                                                        {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
-                                                    </p>
-                                                </button>
-                                                <button onClick={() => handleTelechargerDocument(d)} className="flex-shrink-0">
-                                                    <Download size={13} style={{ color: 'var(--ht-text-muted)' }} />
-                                                </button>
-                                            </div>
+                                            <button key={d.id} onClick={() => navigate(`/patients/${patientId}/documents/${d.id}`)}
+                                                    className="block w-full text-left text-xs py-1.5">
+                                                <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
+                                                <p style={{ color: 'var(--ht-text-muted)' }}>
+                                                    {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                                                </p>
+                                            </button>
                                         ))}
                                     </div>
                                 )}
@@ -1319,23 +1216,23 @@ export default function ConsultationDetail() {
                             <div className="ht-card ht-card-padded-sm">
                                 <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--ht-text)' }}>Raccourcis</h3>
                                 <div className="grid grid-cols-2 gap-2">
-                                    <button onClick={() => setOnglet('prescription')}
-                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors"
+                                    <button onClick={() => handleCreerDocument('ordonnance')} disabled={documentEnCreation !== null}
+                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50"
                                             style={{ borderColor: 'var(--ht-success)', backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }}>
                                         <Pill size={13} /> Ordonnance
                                     </button>
-                                    <button onClick={() => setOnglet('examens')}
-                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors"
+                                    <button onClick={() => handleCreerDocument('demande_analyse')} disabled={documentEnCreation !== null}
+                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50"
                                             style={{ borderColor: 'var(--ht-primary)', backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary)' }}>
                                         <FlaskConical size={13} /> Demande d'examen
                                     </button>
-                                    <button onClick={() => setOnglet('documents')}
-                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors"
+                                    <button onClick={() => handleCreerDocument('certificat_medical')} disabled={documentEnCreation !== null}
+                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50"
                                             style={{ borderColor: '#a78bfa', backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
                                         <Award size={13} /> Certificat médical
                                     </button>
-                                    <button onClick={() => setOnglet('documents')}
-                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors"
+                                    <button onClick={() => handleCreerDocument('arret_travail')} disabled={documentEnCreation !== null}
+                                            className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50"
                                             style={{ borderColor: 'var(--ht-danger)', backgroundColor: 'var(--ht-danger-bg)', color: 'var(--ht-danger)' }}>
                                         <FileWarning size={13} /> Arrêt de travail
                                     </button>

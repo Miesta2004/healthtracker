@@ -1,8 +1,8 @@
 import api from './client.ts'
 import type {
-    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe,
+    Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe, BordereauAssurance,
     NouvelleFacturePayload, NouvelleLigneFacturePayload, NouveauPaiementPayload,
-    NouvelEcheancierPayload, NouveauTarifActePayload,
+    NouvelEcheancierPayload, NouveauTarifActePayload, ReponseAssurancePayload,
 } from '../types'
 
 // ─── Factures ────────────────────────────────────────────────────────────────
@@ -119,6 +119,44 @@ export const createTarifActe = async (data: NouveauTarifActePayload): Promise<Ta
 
 export const updateTarifActe = async (id: number, data: Partial<NouveauTarifActePayload>): Promise<TarifActe> => {
     const response = await api.patch(`/tarifs-actes/${id}/`, data)
+    return response.data
+}
+
+// ─── Circuit de soumission à l'assurance ─────────────────────────────────────
+
+export const getBordereauxAssurance = async (params?: { statut?: string; mutuelle_nom?: string }): Promise<BordereauAssurance[]> => {
+    const query = new URLSearchParams()
+    if (params?.statut) query.set('statut', params.statut)
+    if (params?.mutuelle_nom) query.set('mutuelle_nom', params.mutuelle_nom)
+    const qs = query.toString()
+    const response = await api.get(`/bordereaux-assurance/${qs ? `?${qs}` : ''}`)
+    return response.data
+}
+
+export const getBordereauAssurance = async (id: number): Promise<BordereauAssurance> => {
+    const response = await api.get(`/bordereaux-assurance/${id}/`)
+    return response.data
+}
+
+export const genererBordereau = async (mutuelleNom: string): Promise<BordereauAssurance> => {
+    const response = await api.post('/bordereaux-assurance/generer/', { mutuelle_nom: mutuelleNom })
+    return response.data
+}
+
+export const soumettreBordereau = async (id: number): Promise<BordereauAssurance> => {
+    const response = await api.post(`/bordereaux-assurance/${id}/soumettre/`)
+    return response.data
+}
+
+export const getLignesBordereau = async (bordereauId: number): Promise<LigneFacture[]> => {
+    const response = await api.get(`/lignes-facture/?bordereau=${bordereauId}`)
+    return response.data
+}
+
+export const enregistrerReponseAssurance = async (
+    ligneId: number, data: ReponseAssurancePayload
+): Promise<LigneFacture> => {
+    const response = await api.post(`/lignes-facture/${ligneId}/reponse-assurance/`, data)
     return response.data
 }
 

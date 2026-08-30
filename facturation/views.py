@@ -1,5 +1,6 @@
 from decimal import Decimal
 
+from django.core.exceptions import ValidationError as DjangoValidationError
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework import viewsets, status
@@ -11,12 +12,13 @@ from rest_framework.response import Response
 from comptes.permissions import (
     get_employe, IsAdminRole, PeutGererFacturation, PeutEncaisserPaiement, PeutLireFacturation,
 )
-from .models import Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe, StatutFacture, StatutEcheance
+from .models import Facture, LigneFacture, Paiement, EcheancierPaiement, Echeance, TarifActe, BordereauAssurance, StatutFacture, StatutEcheance, StatutBordereauAssurance, StatutValidationAssurance
 from .nuitees import generer_nuitees_manquantes
 from .pdf_utils import generer_pdf_facture, generer_pdf_recu
 from .serializers import (
     FactureSerializer, LigneFactureSerializer, NouvelleLigneFactureSerializer,
     PaiementSerializer, EcheancierPaiementSerializer, EcheanceSerializer, TarifActeSerializer,
+    BordereauAssuranceSerializer, ReponseAssuranceSerializer, GenererBordereauSerializer,
 )
 
 # Statuts pendant lesquels une facture reste modifiable (lignes ajoutables/
@@ -215,7 +217,8 @@ class FactureViewSet(viewsets.ModelViewSet):
 
 class LigneFactureViewSet(viewsets.ModelViewSet):
     """
-    Lignes d'actes — toujours consultées/filtrées via ?facture=<id>. La
+    Lignes d'actes — toujours consultées/filtrées via ?facture=<id> (ou
+    ?bordereau=<id> / ?statut_assurance=... pour le circuit assurance). La
     création d'une ligne passe normalement par FactureViewSet.ajouter_ligne()
     (plus lisible dans l'API), mais ce ViewSet reste accessible pour
     l'édition/suppression d'une ligne précise.
@@ -223,10 +226,19 @@ class LigneFactureViewSet(viewsets.ModelViewSet):
     serializer_class = LigneFactureSerializer
 
     def get_queryset(self):
-        qs = LigneFacture.objects.select_related('facture')
+        qs = LigneFacture.objects.select_related('facture', 'bordereau_assurance')
         facture_id = self.request.query_params.get('facture')
         if facture_id:
             qs = qs.filter(facture_id=facture_id)
+        bordereau_id = self.request.query_params.get('bordereau')
+        if bordereau_id:
+            qs = qs.filter(bordereau_assurance_id=bordereau_id)
+        statut_assurance = self.request.query_params.get('statut_assurance')
+        if statut_assurance:
+            qs = qs.filter(statut_assurance=statut_assurance)
+        mutuelle = self.request.query_params.get('mutuelle')
+        if mutuelle:
+            qs = qs.filter(facture__mutuelle_nom=mutuelle)
         return qs
 
     def get_permissions(self):
@@ -250,6 +262,26 @@ class LigneFactureViewSet(viewsets.ModelViewSet):
                 f"'{instance.facture.get_statut_display()}'."
             )
         instance.delete()  # LigneFacture.delete() recalcule les montants de la facture
+
+    @action(detail=True, methods=['post'], url_path='reponse-assurance')
+    def reponse_assurance(self, request, pk=None):
+        """
+        Enregistre la réponse de l'assureur sur cette ligne précise — la
+        part non couverte bascule automatiquement sur le patient (voir
+        LigneFacture.appliquer_reponse_assurance()). Peut ramener une
+        facture déjà 'payee' à 'payee_partiellement'/'en_attente' si le
+        rejet arrive après un paiement complet — c'est le comportement
+        voulu (cf. discussion produit : un "payé" côté hôpital n'est
+        jamais garanti tant que l'assureur n'a pas validé).
+        """
+        ligne = self.get_object()
+        serializer = ReponseAssuranceSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        try:
+            ligne.appliquer_reponse_assurance(**serializer.validated_data)
+        except DjangoValidationError as e:
+            raise ValidationError(e.messages[0] if getattr(e, 'messages', None) else str(e))
+        return Response(LigneFactureSerializer(ligne).data)
 
 
 class PaiementViewSet(viewsets.ModelViewSet):
@@ -388,3 +420,72 @@ class TarifActeViewSet(viewsets.ModelViewSet):
         if self.request.method in SAFE_METHODS:
             return [IsAuthenticated()]
         return [IsAdminRole()]
+
+
+class BordereauAssuranceViewSet(viewsets.ModelViewSet):
+    """
+    Circuit de soumission à l'assurance. Centralisé (pas de scoping par
+    service, comme la Caisse) — réservé à PeutGererFacturation en écriture.
+    La création directe (POST standard) reste possible pour ajuster
+    mutuelle_nom/notes, mais le rattachement des lignes passe par l'action
+    generer() plutôt qu'un champ M2M en écriture libre.
+    """
+    serializer_class = BordereauAssuranceSerializer
+
+    def get_queryset(self):
+        qs = BordereauAssurance.objects.select_related('cree_par').prefetch_related('lignes')
+        statut = self.request.query_params.get('statut')
+        if statut:
+            qs = qs.filter(statut=statut)
+        mutuelle = self.request.query_params.get('mutuelle_nom')
+        if mutuelle:
+            qs = qs.filter(mutuelle_nom__icontains=mutuelle)
+        return qs
+
+    def get_permissions(self):
+        if self.request.method in SAFE_METHODS:
+            return [PeutLireFacturation()]
+        return [PeutGererFacturation()]
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=get_employe(self.request.user))
+
+    @action(detail=False, methods=['post'], url_path='generer')
+    def generer(self, request):
+        """
+        Crée un bordereau en BROUILLON et y rattache toutes les lignes
+        actuellement NON_SOUMIS pour la mutuelle donnée, sur des factures
+        déjà finalisées (pas brouillon/ouverte — on ne soumet jamais un
+        acte encore en cours de saisie à l'assureur).
+        """
+        payload = GenererBordereauSerializer(data=request.data)
+        payload.is_valid(raise_exception=True)
+        mutuelle_nom = payload.validated_data['mutuelle_nom']
+
+        lignes_eligibles = LigneFacture.objects.filter(
+            statut_assurance=StatutValidationAssurance.NON_SOUMIS,
+            facture__mutuelle_nom=mutuelle_nom,
+            montant_part_assurance_ligne__gt=0,
+        ).exclude(facture__statut__in=[StatutFacture.BROUILLON, StatutFacture.OUVERTE])
+
+        if not lignes_eligibles.exists():
+            raise ValidationError(
+                f"Aucune ligne non soumise à facturer pour « {mutuelle_nom} » sur une facture finalisée."
+            )
+
+        bordereau = BordereauAssurance.objects.create(
+            mutuelle_nom=mutuelle_nom, cree_par=get_employe(request.user),
+        )
+        lignes_eligibles.update(bordereau_assurance=bordereau)
+
+        return Response(BordereauAssuranceSerializer(bordereau).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='soumettre')
+    def soumettre(self, request, pk=None):
+        """Fige l'envoi — voir BordereauAssurance.soumettre() pour le détail."""
+        bordereau = self.get_object()
+        try:
+            bordereau.soumettre()
+        except DjangoValidationError as e:
+            raise ValidationError(e.messages[0] if getattr(e, 'messages', None) else str(e))
+        return Response(BordereauAssuranceSerializer(bordereau).data)
