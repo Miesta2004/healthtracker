@@ -1,4 +1,4 @@
-{% extends "documents/pdf/base.html" %}
+{% extends "base.html" %}
 {% block corps %}
 <div class="section"><div class="section-titre">Urgence : {% if champs.urgence == 'urgente' %}<span style="color:#c0392b;">URGENTE</span>{% else %}Normale{% endif %}</div></div>
 {% if champs.indication_clinique %}<div class="section"><div class="section-titre">Indication clinique</div><div class="section-contenu">{{ champs.indication_clinique }}</div></div>{% endif %}

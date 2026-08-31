@@ -1,33 +1,45 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Save, CheckCircle2, Printer, Download, Trash2 } from 'lucide-react'
-import { getDocument, sauvegarderDocument, supprimerDocument, telechargerDocumentPdf } from '../api/documents'
+import {useEffect, useRef, useState} from 'react'
+import {useNavigate, useParams} from 'react-router-dom'
+import {CheckCircle2, ChevronLeft, Download, Printer, Save, Trash2} from 'lucide-react'
+import {getDocument, sauvegarderDocument, supprimerDocument, telechargerDocumentPdf} from '../api/documents'
 import type {
-    DocumentGenere, DonneesDocument, ChampsOrdonnance, ChampsCertificatMedical, ChampsDemandeExamen,
-    ChampsCompteRendu, ChampsLettreOrientation, ChampsArretTravail,
+    ChampsArretTravail,
+    ChampsCertificatMedical,
+    ChampsCompteRendu,
+    ChampsDemandeExamen,
+    ChampsLettreOrientation,
+    ChampsOrdonnance,
+    DocumentGenere,
+    DonneesDocument,
 } from '../types'
 import {
-    FormulaireOrdonnance, FormulaireCertificatMedical, FormulaireDemandeExamen,
-    FormulaireCompteRendu, FormulaireLettreOrientation, FormulaireArretTravail,
+    FormulaireArretTravail,
+    FormulaireCertificatMedical,
+    FormulaireCompteRendu,
+    FormulaireDemandeExamen,
+    FormulaireLettreOrientation,
+    FormulaireOrdonnance,
 } from '../components/documents/Formulaires.tsx'
 import ApercuA4 from '../components/documents/ApercuA4'
-import { SkeletonDetailPage } from '../components/Skeleton'
+import {SkeletonDetailPage} from '../components/Skeleton'
 
 export default function DocumentEditeur() {
     const { id, documentId } = useParams<{ id: string; documentId: string }>()
     const navigate = useNavigate()
     const patientId = Number(id)
 
-    const [document, setDocument] = useState<DocumentGenere | null>(null)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [pdfLoading, setPdfLoading] = useState(false)
     const [showDelete, setShowDelete] = useState(false)
     const [error, setError] = useState('')
     const [enregistreLe, setEnregistreLe] = useState<Date | null>(null)
+    const [document, setDocument] = useState<DocumentGenere | null>(null)
+    const dejaModifie = useRef(false)   // ← nouveau : ignore le premier rendu après chargement
 
     useEffect(() => {
         if (!documentId) return
+        dejaModifie.current = false
         getDocument(Number(documentId))
             .then(setDocument)
             .catch(() => setError("Impossible de charger ce document."))
@@ -36,6 +48,10 @@ export default function DocumentEditeur() {
 
     useEffect(() => {
         if (!document || document.statut === 'finalise') return
+        if (!dejaModifie.current) {          // ← on ignore le déclenchement initial
+            dejaModifie.current = true
+            return
+        }
         const timeout = setTimeout(() => {
             sauvegarderDocument(document.id, { titre: document.titre, donnees: document.donnees })
                 .then(() => setEnregistreLe(new Date()))
@@ -52,6 +68,11 @@ export default function DocumentEditeur() {
 
     const handleFinaliser = async () => {
         if (!document) return
+        const probleme = documentEstIncomplet(document)
+        if (probleme) {
+            setError(probleme);
+            return
+        }
         setSaving(true)
         setError('')
         try {
@@ -99,8 +120,17 @@ export default function DocumentEditeur() {
             const url = URL.createObjectURL(blob)
             window.open(url, '_blank')
             setTimeout(() => URL.revokeObjectURL(url), 30000)
-        } catch {
-            setError("PDF indisponible pour l'instant — utilise Imprimer en attendant (voir message d'installation côté serveur).")
+        } catch (err: any) {
+            let message = "PDF indisponible pour l'instant — utilise Imprimer en attendant."
+            const blob = err?.response?.data
+            if (blob instanceof Blob && blob.type === 'application/json') {
+                try {
+                    const body = JSON.parse(await blob.text())
+                    if (body?.detail) message = body.detail
+                } catch { /* garde le message par défaut */
+                }
+            }
+            setError(message)
         } finally {
             setPdfLoading(false)
         }
@@ -188,9 +218,32 @@ export default function DocumentEditeur() {
                 @media print {
                     .no-print { display: none !important; }
                     #zone-impression { padding: 0 !important; overflow: visible !important; }
+                    .grid { display: block !important; }   /* ← neutralise la grille 2 colonnes */
                     body { background: white !important; }
                 }
+                @page { size: A4; margin: 0; }              /* ← évite le cumul avec les 18mm/16mm du composant */
             `}</style>
         </div>
     )
+}
+
+function documentEstIncomplet(document: DocumentGenere): string | null {
+    switch (document.type_document) {
+        case 'ordonnance': {
+            const c = document.donnees.champs as ChampsOrdonnance
+            if (c.medicaments.length === 0) return "Ajoute au moins un médicament avant de finaliser."
+            break
+        }
+        case 'arret_travail': {
+            const c = document.donnees.champs as ChampsArretTravail
+            if (!c.date_debut || !c.date_fin) return "Renseigne les dates de début et de fin de l'arrêt."
+            break
+        }
+        case 'certificat_medical': {
+            const c = document.donnees.champs as ChampsCertificatMedical
+            if (!c.motif && !c.constat) return "Renseigne au moins un motif ou un constat."
+            break
+        }
+    }
+    return null
 }

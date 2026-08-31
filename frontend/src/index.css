@@ -47,6 +47,16 @@
     --role-facturier:       #0369a1;
     --role-caissier:        #15803d;
 
+    /* Accent "info" (certificats, examens divers) — même logique que --ht-success/--ht-warning/--ht-danger */
+    --ht-info:    #7c3aed;
+    --ht-info-bg: #f5f3ff;
+
+    /* Types d'antécédents médicaux (chirurgie / familial) */
+    --ht-chirurgie:    #c2410c;
+    --ht-chirurgie-bg: #fff7ed;
+    --ht-familial:     #7e22ce;
+    --ht-familial-bg:  #faf5ff;
+
     --tri-1-bg: #dc2626; --tri-1-text: #ffffff;
     --tri-2-bg: #ea580c; --tri-2-text: #ffffff;
     --tri-3-bg: #fde68a; --tri-3-text: #7c2d12;
@@ -104,13 +114,13 @@ body {
 .btn-primary { background-color: var(--ht-primary); color: var(--ht-primary-contrast); }
 .btn-primary:hover:not(:disabled) { background-color: var(--ht-primary-hover); }
 .btn-secondary { background-color: var(--ht-muted-bg); color: var(--ht-text); }
-.btn-secondary:hover:not(:disabled) { background-color: #e9eaeb; }
+.btn-secondary:hover:not(:disabled) { background-color: color-mix(in srgb, var(--ht-muted) 25%, var(--ht-muted-bg)); }
 .btn-danger { background-color: var(--ht-danger-bg); color: var(--ht-danger); }
-.btn-danger:hover:not(:disabled) { background-color: #fecaca; }
+.btn-danger:hover:not(:disabled) { background-color: color-mix(in srgb, var(--ht-danger) 30%, var(--ht-danger-bg)); }
 .btn-ghost { background-color: transparent; color: var(--ht-text-secondary); border: 1px solid var(--ht-border-input); }
 .btn-ghost:hover:not(:disabled) { background-color: var(--ht-bg); color: var(--ht-text); }
 .btn-success { background-color: var(--ht-success-bg); color: var(--ht-success); }
-.btn-success:hover:not(:disabled) { background-color: #bbf7d0; }
+.btn-success:hover:not(:disabled) { background-color: color-mix(in srgb, var(--ht-success) 30%, var(--ht-success-bg)); }
 
 .btn-sm { padding: 0.375rem 0.75rem; font-size: 0.75rem; }
 .btn-lg { padding: 0.75rem 1.5rem; font-size: 1rem; border-radius: var(--ht-radius); }
@@ -206,9 +216,9 @@ body {
 .ht-table-row:last-child { border-bottom: none; }
 
 .ht-alert { padding: 0.75rem 1rem; border-radius: var(--ht-radius-sm); font-size: 0.875rem; border: 1px solid transparent; }
-.ht-alert-danger { background-color: var(--ht-danger-bg-light); border-color: #fecaca; color: var(--ht-danger); }
-.ht-alert-warning { background-color: var(--ht-warning-bg); border-color: #fde68a; color: var(--ht-warning); }
-.ht-alert-success { background-color: var(--ht-success-bg); border-color: #86efac; color: var(--ht-success); }
+.ht-alert-danger { background-color: var(--ht-danger-bg-light); border-color: color-mix(in srgb, var(--ht-danger) 35%, transparent); color: var(--ht-danger); }
+.ht-alert-warning { background-color: var(--ht-warning-bg); border-color: color-mix(in srgb, var(--ht-warning) 35%, transparent); color: var(--ht-warning); }
+.ht-alert-success { background-color: var(--ht-success-bg); border-color: color-mix(in srgb, var(--ht-success) 35%, transparent); color: var(--ht-success); }
 
 .ht-sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; width: var(--sidebar-width);
@@ -385,6 +395,26 @@ body {
     --ht-danger-bg-light:  rgba(255,107,91,0.08);
     --ht-muted:            #86a8a1;
     --ht-muted-bg:         #17302c;
+
+    --ht-info:             #c4b5fd;
+    --ht-info-bg:          rgba(196,181,253,0.14);
+
+    --ht-chirurgie:        #fb923c;
+    --ht-chirurgie-bg:     rgba(251,146,60,0.14);
+    --ht-familial:         #c084fc;
+    --ht-familial-bg:      rgba(192,132,252,0.14);
+
+    /* Couleurs de rôle éclaircies pour rester lisibles en texte sur fond sombre
+       (les teintes de --root n'étaient pensées que pour un fond clair) */
+    --role-admin:           #7fb3d9;
+    --role-medecin:         #22d3ee;
+    --role-infirmier:       #4ade80;
+    --role-secretaire:      #c084fc;
+    --role-laborantin:      #fb923c;
+    --role-agent_admission: #fbbf24;
+    --role-chef_chirurgie:  #fb7185;
+    --role-facturier:       #38bdf8;
+    --role-caissier:        #34d399;
 
     --ht-border:           rgba(140,200,190,0.14);
     --ht-border-input:     rgba(140,200,190,0.24);

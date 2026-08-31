@@ -1,9 +1,0 @@
-{% extends "documents/pdf/base.html" %}
-{% block corps %}
-{% if champs.destinataire %}<div class="section"><div class="section-contenu">À l'attention de : <strong>{{ champs.destinataire }}</strong></div></div>{% endif %}
-<div class="section"><div class="section-contenu">Cher confrère, chère consœur,</div></div>
-<div class="section"><div class="section-contenu">Je vous adresse {{ contexte.patient.prenom }} {{ contexte.patient.nom }}, {{ contexte.patient.age }} ans, {% if champs.motif_orientation %}que je suis actuellement pour : {{ champs.motif_orientation }}.{% endif %}</div></div>
-{% if champs.elements_cliniques %}<div class="section"><div class="section-titre">Éléments cliniques</div><div class="section-contenu">{{ champs.elements_cliniques }}</div></div>{% endif %}
-{% if champs.conclusion %}<div class="section"><div class="section-titre">Conclusion</div><div class="section-contenu">{{ champs.conclusion }}</div></div>{% endif %}
-<div class="section"><div class="section-contenu">Je vous remercie de l'attention que vous porterez à ce patient.</div><div class="section-contenu" style="margin-top:6pt;">Confraternellement,</div></div>
-{% endblock %}

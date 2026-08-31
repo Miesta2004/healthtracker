@@ -1,4 +1,4 @@
-{% extends "documents/pdf/base.html" %}
+{% extends "base.html" %}
 {% block corps %}
 <div class="section"><div class="section-contenu">Je soussigné(e) Dr {{ contexte.medecin.prenom }} {{ contexte.medecin.nom }}, certifie que l'état de santé de {{ contexte.patient.prenom }} {{ contexte.patient.nom }} nécessite un arrêt de travail.</div></div>
 {% if champs.motif_medical %}<div class="section"><div class="section-titre">Motif médical</div><div class="section-contenu">{{ champs.motif_medical }}</div></div>{% endif %}

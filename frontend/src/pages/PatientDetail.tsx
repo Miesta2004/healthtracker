@@ -118,9 +118,9 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
 
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
     maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
-    chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
+    chirurgie:         'border-[var(--ht-chirurgie)] bg-[var(--ht-chirurgie-bg)] text-[var(--ht-chirurgie)]',
     allergie:          'border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] text-[var(--ht-danger)]',
-    familial:          'border-purple-100 bg-purple-50 text-purple-700',
+    familial:          'border-[var(--ht-familial)] bg-[var(--ht-familial-bg)] text-[var(--ht-familial)]',
     autre:             'border-[var(--ht-border-input)] bg-[var(--ht-bg)] text-[var(--ht-text-secondary)]',
 }
 
@@ -1237,7 +1237,7 @@ export default function PatientDetail() {
                                     <img
                                         src={patient.photo_path}
                                         alt={`${patient.prenom} ${patient.nom}`}
-                                        className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 border border-neutral-800"
+                                        className="w-20 h-20 rounded-2xl object-cover flex-shrink-0 border border-[var(--ht-border-input)]"
                                         onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
                                     />
                                 ) : (
@@ -1270,7 +1270,7 @@ export default function PatientDetail() {
                                                       ? { backgroundColor: 'rgba(255,107,91,0.14)', color: 'var(--ht-coral)', border: '1px solid rgba(255,107,91,0.4)' }
                                                       : (patient as any).actif ?? true
                                                           ? { backgroundColor: 'rgba(111,215,196,0.14)', color: 'var(--ht-brand-tint)', border: '1px solid rgba(111,215,196,0.4)' }
-                                                          : { backgroundColor: 'rgba(255,255,255,0.06)', color: '#8fada3' }
+                                                          : { backgroundColor: 'var(--ht-muted-bg)', color: 'var(--ht-muted)', border: '1px solid var(--ht-border-input)' }
                                                   }>
                                                 {patient.statut_vital === 'decede'
                                                     ? '✝ Décédé'

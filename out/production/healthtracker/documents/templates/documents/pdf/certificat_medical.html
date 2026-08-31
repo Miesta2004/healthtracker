@@ -1,9 +1,0 @@
-{% extends "documents/pdf/base.html" %}
-{% block corps %}
-<div class="section"><div class="section-contenu">Je soussigné(e) Dr {{ contexte.medecin.prenom }} {{ contexte.medecin.nom }}, certifie avoir examiné ce jour {{ contexte.patient.prenom }} {{ contexte.patient.nom }}.</div></div>
-{% if champs.motif %}<div class="section"><div class="section-titre">Motif</div><div class="section-contenu">{{ champs.motif }}</div></div>{% endif %}
-{% if champs.constat %}<div class="section"><div class="section-titre">Constat</div><div class="section-contenu">{{ champs.constat }}</div></div>{% endif %}
-{% if champs.duree_repos_jours %}<div class="section"><div class="section-titre">Repos prescrit</div><div class="section-contenu">{{ champs.duree_repos_jours }} jour(s){% if champs.date_debut %}, du {{ champs.date_debut }}{% endif %}{% if champs.date_fin %} au {{ champs.date_fin }}{% endif %}</div></div>{% endif %}
-{% if champs.observations %}<div class="section"><div class="section-titre">Observations</div><div class="section-contenu">{{ champs.observations }}</div></div>{% endif %}
-<div class="section"><div class="section-contenu" style="font-size:9pt;color:#666666;">Certificat établi à la demande de l'intéressé(e) et remis en main propre, pour faire valoir ce que de droit.</div></div>
-{% endblock %}

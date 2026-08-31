@@ -444,7 +444,7 @@ function FormulaireModele({ initial, onCancel, onSaved }: {
                             key={j}
                             type="button"
                             onClick={() => inserer(j)}
-                            className="text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors hover:bg-white"
+                            className="text-[11px] font-mono px-1.5 py-0.5 rounded border transition-colors hover:bg-[var(--ht-bg)]"
                             style={{ borderColor: 'var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}
                             title={`Insérer dans : ${champCible === 'entete' ? "l'en-tête" : 'le pied de page'}`}
                         >

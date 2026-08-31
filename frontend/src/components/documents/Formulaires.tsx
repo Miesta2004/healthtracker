@@ -16,6 +16,46 @@ function FieldLabel({ children }: { children: React.ReactNode }) {
     return <label className="ht-label mb-1 block">{children}</label>
 }
 
+/**
+ * Dropdown de suggestions générique, factorisé pour être partagé entre
+ * RechercheMedicament et FormulaireDemandeExamen (les deux avaient un bloc
+ * quasi identique dupliqué auparavant).
+ */
+function SuggestionsDropdown<T>({
+                                    items,
+                                    ouvert,
+                                    getKey,
+                                    onPick,
+                                    renderItem,
+                                    maxHeightClass = 'max-h-40',
+                                }: {
+    items: T[]
+    ouvert: boolean
+    getKey: (item: T) => string | number
+    onPick: (item: T) => void
+    renderItem: (item: T) => React.ReactNode
+    maxHeightClass?: string
+}) {
+    if (!ouvert || items.length === 0) return null
+    return (
+        <div
+            className={`absolute z-10 top-full left-0 right-0 mt-1 rounded-lg border shadow-lg ${maxHeightClass} overflow-y-auto`}
+            style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}
+        >
+            {items.map(item => (
+                <button
+                    key={getKey(item)}
+                    type="button"
+                    onMouseDown={() => onPick(item)}
+                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-[var(--ht-bg)] flex items-center justify-between"
+                >
+                    {renderItem(item)}
+                </button>
+            ))}
+        </div>
+    )
+}
+
 function RechercheMedicament({ valeur, onSelect }: { valeur: string; onSelect: (m: Medicament) => void }) {
     const [texte, setTexte] = useState(valeur)
     const [suggestions, setSuggestions] = useState<Medicament[]>([])
@@ -48,18 +88,18 @@ function RechercheMedicament({ valeur, onSelect }: { valeur: string; onSelect: (
                     className="ht-input pl-6 text-sm py-1.5"
                 />
             </div>
-            {ouvert && suggestions.length > 0 && (
-                <div className="absolute z-10 top-full left-0 right-0 mt-1 rounded-lg border shadow-lg max-h-40 overflow-y-auto"
-                     style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
-                    {suggestions.map(m => (
-                        <button key={m.id} type="button" onMouseDown={() => { onSelect(m); setTexte(m.nom); setOuvert(false) }}
-                                className="w-full text-left px-3 py-1.5 text-sm hover:bg-[var(--ht-bg)]">
-                            <span className="font-medium">{m.nom}</span>
-                            {m.dosages_courants && <span className="text-xs ml-1.5" style={{ color: 'var(--ht-text-muted)' }}>{m.dosages_courants}</span>}
-                        </button>
-                    ))}
-                </div>
-            )}
+            <SuggestionsDropdown
+                items={suggestions}
+                ouvert={ouvert}
+                getKey={m => m.id}
+                onPick={m => { onSelect(m); setTexte(m.nom); setOuvert(false) }}
+                renderItem={m => (
+                    <span>
+                        <span className="font-medium">{m.nom}</span>
+                        {m.dosages_courants && <span className="text-xs ml-1.5" style={{ color: 'var(--ht-text-muted)' }}>{m.dosages_courants}</span>}
+                    </span>
+                )}
+            />
         </div>
     )
 }
@@ -172,17 +212,18 @@ export function FormulaireDemandeExamen({ champs, onChange }: FormProps<ChampsDe
                 <div className="relative">
                     <input value={recherche} onChange={ev => setRecherche(ev.target.value)} onKeyDown={ev => ev.key === 'Enter' && ajouterExamenLibre()}
                            placeholder="Rechercher ou saisir un examen, puis Entrée…" className="ht-input text-sm py-1.5" />
-                    {recherche && suggestions.length > 0 && (
-                        <div className="absolute z-10 top-full left-0 right-0 mt-1 rounded-lg border shadow-lg max-h-36 overflow-y-auto"
-                             style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
-                            {suggestions.map(s => (
-                                <button key={s.nom} type="button" onMouseDown={() => ajouterExamen(s)}
-                                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-[var(--ht-bg)] flex items-center justify-between">
-                                    {s.nom}<span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{s.categorie}</span>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <SuggestionsDropdown
+                        items={suggestions}
+                        ouvert={!!recherche && suggestions.length > 0}
+                        getKey={s => s.nom}
+                        onPick={ajouterExamen}
+                        maxHeightClass="max-h-36"
+                        renderItem={s => (
+                            <>
+                                {s.nom}<span className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{s.categorie}</span>
+                            </>
+                        )}
+                    />
                 </div>
             </div>
             <div className="ht-field">
@@ -241,6 +282,8 @@ export function FormulaireArretTravail({ champs, onChange }: FormProps<ChampsArr
         if (suivant.date_debut && suivant.date_fin) {
             const jours = Math.round((new Date(suivant.date_fin).getTime() - new Date(suivant.date_debut).getTime()) / (1000 * 60 * 60 * 24)) + 1
             suivant.duree_jours = jours > 0 ? jours : null
+        } else {
+            suivant.duree_jours = null
         }
         onChange(suivant)
     }

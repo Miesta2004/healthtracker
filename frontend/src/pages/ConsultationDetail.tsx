@@ -32,9 +32,9 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
 
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
     maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
-    chirurgie:         'border-orange-100 bg-orange-50 text-orange-700',
+    chirurgie:         'border-[var(--ht-chirurgie)] bg-[var(--ht-chirurgie-bg)] text-[var(--ht-chirurgie)]',
     allergie:          'border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] text-[var(--ht-danger)]',
-    familial:          'border-purple-100 bg-purple-50 text-purple-700',
+    familial:          'border-[var(--ht-familial)] bg-[var(--ht-familial-bg)] text-[var(--ht-familial)]',
     autre:             'border-[var(--ht-border-input)] bg-[var(--ht-bg)] text-[var(--ht-text-secondary)]',
 }
 
@@ -1228,7 +1228,7 @@ export default function ConsultationDetail() {
                                     </button>
                                     <button onClick={() => handleCreerDocument('certificat_medical')} disabled={documentEnCreation !== null}
                                             className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50"
-                                            style={{ borderColor: '#a78bfa', backgroundColor: '#f5f3ff', color: '#7c3aed' }}>
+                                            style={{ borderColor: 'var(--ht-info)', backgroundColor: 'var(--ht-info-bg)', color: 'var(--ht-info)' }}>
                                         <Award size={13} /> Certificat médical
                                     </button>
                                     <button onClick={() => handleCreerDocument('arret_travail')} disabled={documentEnCreation !== null}

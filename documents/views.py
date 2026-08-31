@@ -1,28 +1,27 @@
+from comptes.permissions import get_employe, PeutGenererDocument, PeutGererModeles
+from consultations.models import Consultation
 from django.http import HttpResponse
+from django.template import TemplateDoesNotExist
 from django.template.loader import render_to_string
+from patients.models import Patient
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
-
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
 from .models import ModeleDocument, DocumentGenere, Medicament, TypeDocument, construire_contexte
 from .rendu import champs_vides_pour, resumer_donnees
 from .serializers import ModeleDocumentSerializer, DocumentGenereSerializer, MedicamentSerializer
-from comptes.permissions import get_employe, PeutGenererDocument, PeutGererModeles
-from patients.models import Patient
-from consultations.models import Consultation
 
 GABARITS_PDF = {
-    TypeDocument.ORDONNANCE: 'documents/pdf/ordonnance.html',
-    TypeDocument.CERTIFICAT_MEDICAL: 'documents/pdf/certificat_medical.html',
-    TypeDocument.DEMANDE_ANALYSE: 'documents/pdf/demande_analyse.html',
-    TypeDocument.DEMANDE_IMAGERIE: 'documents/pdf/demande_analyse.html',
-    TypeDocument.COMPTE_RENDU_CONSULTATION: 'documents/pdf/compte_rendu_consultation.html',
-    TypeDocument.LETTRE_ORIENTATION: 'documents/pdf/lettre_orientation.html',
-    TypeDocument.ARRET_TRAVAIL: 'documents/pdf/arret_travail.html',
+    TypeDocument.ORDONNANCE: 'ordonnance.html',
+    TypeDocument.CERTIFICAT_MEDICAL: 'certificat_medical.html',
+    TypeDocument.DEMANDE_ANALYSE: 'demande_analyse.html',
+    TypeDocument.DEMANDE_IMAGERIE: 'demande_analyse.html',
+    TypeDocument.COMPTE_RENDU_CONSULTATION: 'compte_rendu_consultation.html',
+    TypeDocument.LETTRE_ORIENTATION: 'lettre_orientation.html',
+    TypeDocument.ARRET_TRAVAIL: 'arret_travail.html',
 }
-
 
 class ModeleDocumentViewSet(viewsets.ModelViewSet):
     """Habillage (en-tête/pied de page) — Paramètres > Modèles de documents."""
@@ -171,4 +170,47 @@ class DocumentGenereViewSet(viewsets.ModelViewSet):
         resultat = pisa.CreatePDF(html, dest=response)
         if resultat.err:
             return Response({'detail': "Erreur lors de la génération du PDF."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return response
+
+
+    @action(detail=True, methods=['get'], url_path='pdf')
+    def pdf(self, request, pk=None):
+        document = self.get_object()
+        gabarit = GABARITS_PDF.get(document.type_document)
+        if not gabarit:
+            return Response({'detail': "Export PDF non disponible pour ce type de document."},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        contexte = (document.donnees or {}).get('contexte', {})
+        champs = (document.donnees or {}).get('champs', {})
+        entete = document.modele.rendre_entete(contexte) if document.modele else ''
+        pied_de_page = document.modele.rendre_pied_de_page(contexte) if document.modele else ''
+
+        try:
+            html = render_to_string(gabarit, {
+                'document': document, 'contexte': contexte, 'champs': champs,
+                'entete': entete, 'pied_de_page': pied_de_page,
+            })
+        except TemplateDoesNotExist:
+            return Response(
+                {'detail': "Modèle PDF introuvable côté serveur pour ce type de document (contacter un admin)."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        try:
+            from xhtml2pdf import pisa
+        except ImportError:
+            return Response(
+                {'detail': "Génération PDF indisponible côté serveur : le paquet 'xhtml2pdf' n'est pas installé "
+                           "(pip install xhtml2pdf). L'impression navigateur reste utilisable en attendant."},
+                status=status.HTTP_501_NOT_IMPLEMENTED,
+            )
+
+        response = HttpResponse(content_type='application/pdf')
+        nom_fichier = document.titre.replace('/', '-')
+        response['Content-Disposition'] = f'inline; filename="{nom_fichier}.pdf"'
+        resultat = pisa.CreatePDF(html, dest=response)
+        if resultat.err:
+            return Response({'detail': "Erreur lors de la génération du PDF."},
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return response

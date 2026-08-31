@@ -197,12 +197,14 @@ export default function Dashboard() {
     const formatHeure = (iso: string) => new Date(iso).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
     // ── « Continuer mon travail » : agrégation depuis les données déjà chargées ──
-    const consultationEnCours = canSeeConsult
-        ? (consultations ?? []).find((c) => c.statut === "en_cours")
-        : undefined;
-    const patientConsultation = consultationEnCours
-        ? (patients ?? []).find((p) => p.id === consultationEnCours.patient)
-        : undefined;
+    // .filter() (et non .find()) : s'il y a plusieurs consultations en_cours
+    // en même temps dans le service (patient laissé en cours de route pour
+    // en prendre un autre, etc.), aucune ne doit rester invisible sur le
+    // Dashboard — sinon elle "disparaît" tant qu'une autre plus récente
+    // existe, alors qu'elle reste bien en base côté serveur.
+    const consultationsEnCours = canSeeConsult
+        ? (consultations ?? []).filter((c) => c.statut === "en_cours")
+        : [];
 
     const operationsACompteRendu = canSeeBloc
         ? (blocJour?.operations ?? []).filter(
@@ -233,14 +235,17 @@ export default function Dashboard() {
         rappels === null;
 
     const travailItems: WorkItem[] | null = chargementTravail ? null : [
-        ...(consultationEnCours ? [{
-            id: "consultation",
-            icon: Stethoscope,
-            title: patientConsultation ? `${patientConsultation.prenom} ${patientConsultation.nom}` : `Patient #${consultationEnCours.patient}`,
-            subtitle: "Consultation en cours · prescription à terminer",
-            ctaLabel: "Reprendre",
-            onClick: () => navigate(`/patients/${consultationEnCours.patient}/consultations/${consultationEnCours.id}`),
-        }] : []),
+        ...consultationsEnCours.map((c) => {
+            const patientConsultation = (patients ?? []).find((p) => p.id === c.patient)
+            return {
+                id: `consultation-${c.id}`,
+                icon: Stethoscope,
+                title: patientConsultation ? `${patientConsultation.prenom} ${patientConsultation.nom}` : `Patient #${c.patient}`,
+                subtitle: "Consultation en cours · prescription à terminer",
+                ctaLabel: "Reprendre",
+                onClick: () => navigate(`/patients/${c.patient}/consultations/${c.id}`),
+            }
+        }),
         ...(operationsACompteRendu.length > 0 ? [{
             id: "compte-rendu",
             icon: FileText,

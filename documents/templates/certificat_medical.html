@@ -1,4 +1,4 @@
-{% extends "documents/pdf/base.html" %}
+{% extends "base.html" %}
 {% block corps %}
 <div class="section"><div class="section-contenu">Je soussigné(e) Dr {{ contexte.medecin.prenom }} {{ contexte.medecin.nom }}, certifie avoir examiné ce jour {{ contexte.patient.prenom }} {{ contexte.patient.nom }}.</div></div>
 {% if champs.motif %}<div class="section"><div class="section-titre">Motif</div><div class="section-contenu">{{ champs.motif }}</div></div>{% endif %}
