@@ -1,230 +1,275 @@
 import { PDFDocument as Document, PDFPage as Page, PDFText as Text, PDFView as View, StyleSheet } from './pdf-primitives'
 import type { DocumentGenere, ContexteDocument, ChampsOrdonnance } from '../../types'
 
-const COULEURS = {
-    primaire: '#2D8C7F',
-    texte: '#111827',
-    texteMuted: '#6B7280',
-    bordure: '#E5E7EB',
-    fondClair: '#F8FAFC',
-    fondLegere: '#F9FAFB',
-}
-
 const styles = StyleSheet.create({
     page: {
-        padding: 36,
+        padding: 32,
         fontSize: 11,
         fontFamily: 'Helvetica',
-        color: COULEURS.texte,
+        color: '#111827',
         lineHeight: 1.4,
     },
+
+    // EN-TÊTE
     headerContainer: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-start',
-        borderBottomWidth: 2,
-        borderBottomColor: COULEURS.primaire,
-        paddingBottom: 12,
-        marginBottom: 20,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E2E8F0',
+        paddingBottom: 24,
+        marginBottom: 24,
     },
+
     headerLeft: {
         flex: 1,
     },
+
     headerRight: {
         flex: 1,
         textAlign: 'right',
-        fontSize: 10,
     },
-    logoContainer: {
+
+    logo: {
         flexDirection: 'row',
         alignItems: 'center',
         marginBottom: 4,
     },
+
     logoText: {
-        fontSize: 14,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: COULEURS.primaire,
+        color: '#2D8C7F',
+        letterSpacing: 0.5,
     },
-    headerSubtitle: {
+
+    subtitle: {
         fontSize: 9,
-        color: COULEURS.texteMuted,
+        color: '#6B7280',
         fontWeight: 500,
+        marginTop: 4,
         marginBottom: 8,
     },
+
     medecinNom: {
-        fontSize: 11,
-        fontWeight: 'bold',
-        color: COULEURS.texte,
-        marginTop: 8,
-    },
-    medecinSpecialite: {
-        fontSize: 10,
-        color: COULEURS.texteMuted,
-    },
-    headerDate: {
         fontSize: 9,
         fontWeight: 'bold',
-        color: COULEURS.texte,
+        color: '#374151',
+        marginTop: 8,
+        marginBottom: 2,
+    },
+
+    medecinSpecialite: {
+        fontSize: 9,
+        color: '#6B7280',
+    },
+
+    date: {
+        fontSize: 9,
+        fontWeight: 'bold',
+        color: '#111827',
         marginBottom: 4,
     },
-    headerOrdonnanceNum: {
+
+    ordonnanceNum: {
         fontSize: 9,
-        color: COULEURS.texteMuted,
+        color: '#6B7280',
         marginTop: 4,
-        fontStyle: 'italic',
     },
-    patientSection: {
-        backgroundColor: COULEURS.fondClair,
+
+    // BLOC PATIENT
+    patientBlock: {
+        backgroundColor: '#F8FAFC',
         borderWidth: 1,
-        borderColor: COULEURS.bordure,
-        padding: 12,
-        marginBottom: 12,
+        borderColor: '#E2E8F0',
+        borderRadius: 8,
+        padding: 16,
+        marginBottom: 24,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        fontSize: 10,
+        alignItems: 'center',
     },
+
     patientField: {
         flex: 1,
-        marginRight: 16,
     },
+
     patientLabel: {
-        color: COULEURS.texteMuted,
-        fontSize: 9,
-        fontWeight: 500,
+        color: '#6B7280',
+        fontSize: 10,
     },
+
     patientValue: {
         fontWeight: 'bold',
-        color: COULEURS.texte,
+        color: '#111827',
         fontSize: 10,
         marginTop: 2,
     },
+
     patientValueTeal: {
         fontWeight: 'bold',
-        color: COULEURS.primaire,
+        color: '#2D8C7F',
         fontSize: 10,
         marginTop: 2,
         fontFamily: 'Courier',
     },
-    sectionTitle: {
+
+    // TITRE PRESCRIPTION
+    prescriptionTitle: {
         fontSize: 10,
         fontWeight: 'bold',
-        color: COULEURS.texte,
         textTransform: 'uppercase',
+        letterSpacing: 2,
+        color: '#111827',
         borderBottomWidth: 1,
-        borderBottomColor: COULEURS.bordure,
-        paddingBottom: 4,
-        marginBottom: 12,
-        marginTop: 4,
+        borderBottomColor: '#E2E8F0',
+        paddingBottom: 8,
+        marginBottom: 16,
     },
+
+    // LISTE MÉDICAMENTS
     medicamentsList: {
-        marginBottom: 12,
+        marginBottom: 24,
     },
+
     medicamentItem: {
-        marginBottom: 12,
-        padding: 8,
-        backgroundColor: COULEURS.fondLegere,
+        backgroundColor: '#F9FAFB',
         borderWidth: 1,
-        borderColor: COULEURS.bordure,
+        borderColor: '#F3F4F6',
+        borderRadius: 6,
+        padding: 12,
+        marginBottom: 12,
     },
+
+    medicamentNumber: {
+        fontWeight: 'bold',
+        fontSize: 10,
+        color: '#111827',
+        marginRight: 4,
+    },
+
     medicamentName: {
-        fontSize: 11,
         fontWeight: 'bold',
-        color: COULEURS.texte,
-        marginBottom: 2,
+        fontSize: 10,
+        color: '#0F172A',
     },
+
     medicamentDosage: {
-        fontSize: 10,
         fontWeight: 'bold',
-        color: COULEURS.primaire,
-    },
-    medicamentDetail: {
         fontSize: 10,
-        color: COULEURS.texte,
-        marginLeft: 12,
-        marginTop: 2,
+        color: '#2D8C7F',
     },
+
+    medicamentDetails: {
+        marginTop: 8,
+        marginLeft: 12,
+        fontSize: 10,
+        color: '#374151',
+    },
+
     medicamentDetailLabel: {
         fontWeight: 'bold',
-        color: COULEURS.texte,
+        color: '#111827',
     },
+
     medicamentInstructions: {
-        fontSize: 9,
-        color: COULEURS.texteMuted,
+        fontSize: 10,
+        color: '#6B7280',
         fontStyle: 'italic',
-        marginLeft: 12,
-        marginTop: 2,
     },
+
     noMedicaments: {
-        fontSize: 10,
-        color: COULEURS.texteMuted,
-        fontStyle: 'italic',
         textAlign: 'center',
-        marginVertical: 16,
+        paddingVertical: 32,
+        fontSize: 10,
+        color: '#9CA3AF',
+        fontStyle: 'italic',
     },
+
+    // RECOMMANDATIONS
     recommendationsSection: {
-        marginTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: COULEURS.bordure,
-        paddingTop: 8,
-    },
-    recommendationsLabel: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: COULEURS.texte,
-        marginBottom: 4,
-    },
-    recommendationsBox: {
-        backgroundColor: COULEURS.fondClair,
-        borderWidth: 1,
-        borderColor: COULEURS.bordure,
-        padding: 8,
-        fontSize: 10,
-        color: COULEURS.texte,
-    },
-    signatureSection: {
-        marginTop: 32,
-        borderTopWidth: 1,
-        borderTopColor: COULEURS.bordure,
+        marginTop: 24,
         paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
+    },
+
+    recommendationsLabel: {
+        fontWeight: 'bold',
+        color: '#111827',
+        fontSize: 10,
+        marginBottom: 8,
+    },
+
+    recommendationsBox: {
+        backgroundColor: '#F8FAFC',
+        borderWidth: 1,
+        borderColor: '#E2E8F0',
+        borderRadius: 6,
+        padding: 12,
+        fontSize: 10,
+        color: '#4B5563',
+    },
+
+    // SIGNATURE
+    signatureSection: {
+        marginTop: 48,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: '#E2E8F0',
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'flex-end',
     },
-    footerText: {
+
+    signatureLeft: {
         fontSize: 8,
-        color: COULEURS.texteMuted,
+        color: '#9CA3AF',
         flex: 1,
-        lineHeight: 1.3,
+        lineHeight: 1.5,
     },
-    signatureBox: {
+
+    signatureRight: {
         textAlign: 'center',
         flex: 1,
     },
+
     signatureMedecinNom: {
         fontSize: 9,
         fontWeight: 'bold',
-        color: COULEURS.texte,
+        color: '#111827',
         marginBottom: 4,
     },
+
     signatureLabel: {
         fontSize: 8,
-        color: COULEURS.texteMuted,
+        color: '#6B7280',
         fontStyle: 'italic',
-        marginBottom: 24,
+        marginBottom: 32,
     },
+
     signatureStamp: {
-        width: 80,
-        height: 40,
+        width: 144,
+        height: 48,
         borderWidth: 2,
         borderStyle: 'dashed',
-        borderColor: COULEURS.bordure,
+        borderColor: '#CBD5E1',
+        borderRadius: 4,
         textAlign: 'center',
         fontSize: 8,
-        color: COULEURS.texteMuted,
-        padding: 4,
+        color: '#94A3B8',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
     },
+
     flexRow: {
         flexDirection: 'row',
+    },
+
+    flexBetween: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
     },
 })
 
@@ -240,38 +285,39 @@ export default function OrdonnancePDF({ document: _, contexte, champs }: Ordonna
         month: 'long',
         year: 'numeric',
     })
+
     const ordonnanceNum = `ORD-${Date.now().toString().slice(-6)}`
 
     return (
         <Document>
             <Page size="A4" style={styles.page}>
-                {/* En-tête */}
+                {/* EN-TÊTE */}
                 <View style={styles.headerContainer}>
                     <View style={styles.headerLeft}>
-                        <View style={styles.logoContainer}>
+                        <View style={styles.logo}>
                             <Text style={styles.logoText}>HealthTracker SIH</Text>
                         </View>
-                        <Text style={styles.headerSubtitle}>
+                        <Text style={styles.subtitle}>
                             Centre Hospitalier Universitaire & Médical
                         </Text>
                         <Text style={styles.medecinNom}>
-                            Dr {contexte.medecin?.prenom} {contexte.medecin?.nom}
+                            {contexte.medecin?.prenom} {contexte.medecin?.nom}
                         </Text>
-                        {contexte.service && (
-                            <Text style={styles.medecinSpecialite}>{contexte.service.nom}</Text>
-                        )}
+                        <Text style={styles.medecinSpecialite}>
+                            {contexte.service?.nom || 'Médecine Générale'}
+                        </Text>
                     </View>
 
                     <View style={styles.headerRight}>
-                        <Text style={styles.headerDate}>Dakar, le {dateFormatee}</Text>
-                        <Text style={styles.headerOrdonnanceNum}>
+                        <Text style={styles.date}>Dakar, le {dateFormatee}</Text>
+                        <Text style={styles.ordonnanceNum}>
                             N° Ordonnance : {ordonnanceNum}
                         </Text>
                     </View>
                 </View>
 
-                {/* Section Patient */}
-                <View style={styles.patientSection}>
+                {/* BLOC PATIENT */}
+                <View style={styles.patientBlock}>
                     <View style={styles.patientField}>
                         <Text style={styles.patientLabel}>Patient(e) :</Text>
                         <Text style={styles.patientValue}>
@@ -281,21 +327,21 @@ export default function OrdonnancePDF({ document: _, contexte, champs }: Ordonna
                     <View style={styles.patientField}>
                         <Text style={styles.patientLabel}>Âge / Sexe :</Text>
                         <Text style={styles.patientValue}>
-                            {contexte.patient.age ?? '—'} ans — {contexte.patient.sexe}
+                            {contexte.patient.age || 'N/A'} ans ({contexte.patient.sexe})
                         </Text>
                     </View>
                     <View style={styles.patientField}>
                         <Text style={styles.patientLabel}>N° Dossier :</Text>
                         <Text style={styles.patientValueTeal}>
-                            {contexte.patient.numero_dossier || '—'}
+                            {contexte.patient.numero_dossier || `P${contexte.patient.numero_dossier}`}
                         </Text>
                     </View>
                 </View>
 
-                {/* Titre */}
-                <Text style={styles.sectionTitle}>Prescription Médicale :</Text>
+                {/* TITRE PRESCRIPTION */}
+                <Text style={styles.prescriptionTitle}>Prescription Médicale :</Text>
 
-                {/* Médicaments */}
+                {/* MÉDICAMENTS */}
                 <View style={styles.medicamentsList}>
                     {champs.medicaments.length === 0 ? (
                         <Text style={styles.noMedicaments}>
@@ -304,11 +350,10 @@ export default function OrdonnancePDF({ document: _, contexte, champs }: Ordonna
                     ) : (
                         champs.medicaments.map((med, idx) => (
                             <View key={idx} style={styles.medicamentItem}>
+                                {/* Nom et dosage */}
                                 <View style={styles.flexRow}>
-                                    <Text style={{ marginRight: 4, fontWeight: 'bold' }}>
-                                        {idx + 1}.
-                                    </Text>
-                                    <View style={{ flex: 1 }}>
+                                    <Text style={styles.medicamentNumber}>{idx + 1}.</Text>
+                                    <View>
                                         <Text style={styles.medicamentName}>{med.nom}</Text>
                                         <Text style={styles.medicamentDosage}>
                                             ({med.dosage})
@@ -316,26 +361,27 @@ export default function OrdonnancePDF({ document: _, contexte, champs }: Ordonna
                                     </View>
                                 </View>
 
-                                <View style={styles.medicamentDetail}>
+                                {/* Posologie, Durée, Instructions */}
+                                <View style={styles.medicamentDetails}>
                                     <Text>
-                                        <Text style={styles.medicamentDetailLabel}>
-                                            Posologie :{' '}
-                                        </Text>
-                                        {med.posologie} {med.frequence || ''}
+                                        • <Text style={styles.medicamentDetailLabel}>
+                                        Posologie :
+                                    </Text>
+                                        {' '}{med.posologie} {med.frequence || ''}
                                     </Text>
                                 </View>
 
-                                <View style={styles.medicamentDetail}>
+                                <View style={styles.medicamentDetails}>
                                     <Text>
-                                        <Text style={styles.medicamentDetailLabel}>
-                                            Durée :{' '}
-                                        </Text>
-                                        {med.duree}
+                                        • <Text style={styles.medicamentDetailLabel}>
+                                        Durée :
+                                    </Text>
+                                        {' '}{med.duree}
                                     </Text>
                                 </View>
 
                                 {med.conseils && (
-                                    <Text style={styles.medicamentInstructions}>
+                                    <Text style={[styles.medicamentDetails, styles.medicamentInstructions]}>
                                         • Instructions : {med.conseils}
                                     </Text>
                                 )}
@@ -344,7 +390,7 @@ export default function OrdonnancePDF({ document: _, contexte, champs }: Ordonna
                     )}
                 </View>
 
-                {/* Recommandations */}
+                {/* RECOMMANDATIONS */}
                 {champs.conseils_generaux && (
                     <View style={styles.recommendationsSection}>
                         <Text style={styles.recommendationsLabel}>
@@ -356,18 +402,20 @@ export default function OrdonnancePDF({ document: _, contexte, champs }: Ordonna
                     </View>
                 )}
 
-                {/* Signature */}
+                {/* SIGNATURE */}
                 <View style={styles.signatureSection}>
-                    <Text style={styles.footerText}>
-                        Document généré de façon sécurisée par HealthTracker SIH.
-                        {'\n'}Authenticité vérifiable via signature praticien.
+                    <Text style={styles.signatureLeft}>
+                        Document généré de façon sécurisée par HealthTracker SIH.{'\n'}
+                        Authenticité vérifiable via signature praticien.
                     </Text>
 
-                    <View style={styles.signatureBox}>
+                    <View style={styles.signatureRight}>
                         <Text style={styles.signatureMedecinNom}>
-                            Dr {contexte.medecin?.prenom} {contexte.medecin?.nom}
+                            {contexte.medecin?.nom}
                         </Text>
-                        <Text style={styles.signatureLabel}>Signature & Cachet médical</Text>
+                        <Text style={styles.signatureLabel}>
+                            Signature & Cachet médical
+                        </Text>
                         <View style={styles.signatureStamp}>
                             <Text>[ Cachet Médecin ]</Text>
                         </View>
