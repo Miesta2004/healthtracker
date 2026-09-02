@@ -109,7 +109,7 @@ export default function Facturation() {
                                         {f.numero_facture}
                                     </div>
                                     <div className="col-span-3 min-w-0">
-                                        <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary)] transition-colors" style={{ color: 'var(--ht-text)' }}>
+                                        <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors" style={{ color: 'var(--ht-text)' }}>
                                             {f.patient_prenom} {f.patient_nom}
                                         </p>
                                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{f.patient_dossier}</p>

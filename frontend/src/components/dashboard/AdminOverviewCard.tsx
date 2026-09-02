@@ -30,7 +30,7 @@ export default function AdminOverviewCard({ effectif, totalPatients, totalUrgenc
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
                 {items.map(({ label, value, icon: Icon }) => (
                     <div key={label} className="rounded-xl p-3" style={{ backgroundColor: 'var(--ht-bg)' }}>
-                        <Icon size={15} style={{ color: 'var(--ht-primary)' }} />
+                        <Icon size={15} style={{ color: 'var(--ht-primary-tint-text)' }} />
                         <p className="text-lg font-bold mt-1.5" style={{ color: 'var(--ht-text)' }}>{value ?? '—'}</p>
                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>{label}</p>
                     </div>

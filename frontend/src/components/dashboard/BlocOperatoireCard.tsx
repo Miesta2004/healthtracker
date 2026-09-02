@@ -27,7 +27,7 @@ export default function BlocOperatoireCard({ operations, loading }: Props) {
                     Bloc opératoire
                     {!loading && <span className="badge badge-muted">{ops.length}</span>}
                 </h3>
-                <button onClick={() => navigate('/calendrier')} className="text-xs font-medium" style={{ color: 'var(--ht-primary)' }}>
+                <button onClick={() => navigate('/calendrier')} className="text-xs font-medium" style={{ color: 'var(--ht-primary-tint-text)' }}>
                     Voir le planning
                 </button>
             </div>

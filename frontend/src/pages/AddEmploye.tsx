@@ -233,7 +233,7 @@ export default function AddEmploye() {
                                     </div>
                                 </div>
                                 <p className="text-xs text-[var(--ht-text-muted)] mt-3 flex items-center gap-1.5">
-                                    <CheckCircle2 size={12} className="text-[var(--ht-primary)]" />
+                                    <CheckCircle2 size={12} className="text-[var(--ht-primary-tint-text)]" />
                                     Le matricule de l'employé est généré automatiquement à la création.
                                 </p>
                             </div>

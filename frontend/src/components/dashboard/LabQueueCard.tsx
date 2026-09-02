@@ -26,7 +26,7 @@ export default function LabQueueCard({ demandes, userId }: Props) {
         <div className="ht-card ht-card-padded-sm flex flex-col h-full">
             <div className="flex items-center justify-between pb-4 border-b border-[var(--ht-border)] mb-4">
                 <h3 className="text-sm font-semibold" style={{ color: 'var(--ht-text)' }}>Laboratoire</h3>
-                <button onClick={() => navigate('/laboratoire')} className="text-xs font-medium" style={{ color: 'var(--ht-primary)' }}>
+                <button onClick={() => navigate('/laboratoire')} className="text-xs font-medium" style={{ color: 'var(--ht-primary-tint-text)' }}>
                     Ouvrir le laboratoire
                 </button>
             </div>

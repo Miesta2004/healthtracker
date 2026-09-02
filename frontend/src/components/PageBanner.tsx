@@ -98,7 +98,7 @@ export default function PageBanner({
                             border: '1px solid var(--ht-border)',
                         }}
                     >
-                        <DecorIcon size={16 * scale} style={{ color: 'var(--ht-primary)' }} />
+                        <DecorIcon size={16 * scale} style={{ color: 'var(--ht-primary-tint-text)' }} />
                     </div>
                 ))}
             </div>

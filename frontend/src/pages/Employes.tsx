@@ -420,7 +420,7 @@ export default function Employes() {
                                                 {employe.prenom[0]}{employe.nom[0]}
                                             </div>
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
+                                                <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors">
                                                     {employe.prenom} {employe.nom}
                                                 </p>
                                                 <p className="text-xs text-[var(--ht-text-muted)]">{employe.matricule}</p>

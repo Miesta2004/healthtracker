@@ -475,7 +475,7 @@ function DetailSidebar({ signeKey, data, range, nomPatient, numeroDossier, onClo
                         <p className="font-bold flex items-center gap-1.5" style={{ color: 'var(--ht-text)' }}><Info size={14} /> Information clinique</p>
                         <p>{cfg.description}</p>
                         {cfg.normal && (
-                            <p className="pt-1 font-semibold" style={{ color: 'var(--ht-primary)' }}>
+                            <p className="pt-1 font-semibold" style={{ color: 'var(--ht-primary-tint-text)' }}>
                                 Valeurs normales : {cfg.normal.min} – {cfg.normal.max} {cfg.unit}
                             </p>
                         )}

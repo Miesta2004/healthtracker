@@ -51,7 +51,7 @@ export default function NurseWatchCard({ hospitalisations }: Props) {
                             <button
                                 onClick={() => navigate(`/patients/${h.patient}/signes_vitaux/newSignes`)}
                                 className="text-xs font-semibold flex items-center gap-1 flex-shrink-0"
-                                style={{ color: 'var(--ht-primary)' }}
+                                style={{ color: 'var(--ht-primary-tint-text)' }}
                             >
                                 <Activity size={13} /> Relever
                             </button>

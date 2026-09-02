@@ -48,7 +48,7 @@ export default function ModaleExport({ onClose, onExporter }: {
                                 onClick={() => setFormat(f.value)}
                                 className="flex flex-col items-center gap-1.5 py-3 rounded-xl text-xs font-semibold transition-all"
                                 style={format === f.value
-                                    ? { border: '2px solid var(--ht-primary)', color: 'var(--ht-primary)', backgroundColor: 'var(--ht-primary-tint-bg)' }
+                                    ? { border: '2px solid var(--ht-primary-tint-text)', color: 'var(--ht-primary-tint-text)', backgroundColor: 'var(--ht-primary-tint-bg)' }
                                     : { border: '1px solid var(--ht-border-input)', color: 'var(--ht-text-secondary)' }}
                             >
                                 <f.icon size={16} /> {f.label}

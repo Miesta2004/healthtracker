@@ -89,7 +89,7 @@ export default function Assurance() {
                             {bordereaux.map(b => (
                                 <div key={b.id} onClick={() => navigate(`/assurance/${b.id}`)} className="ht-table-row grid-cols-12 items-center cursor-pointer group">
                                     <div className="col-span-2 text-sm font-mono font-medium" style={{ color: 'var(--ht-text)' }}>{b.numero_bordereau}</div>
-                                    <div className="col-span-3 text-sm group-hover:text-[var(--ht-primary)] transition-colors" style={{ color: 'var(--ht-text)' }}>{b.mutuelle_nom}</div>
+                                    <div className="col-span-3 text-sm group-hover:text-[var(--ht-primary-tint-text)] transition-colors" style={{ color: 'var(--ht-text)' }}>{b.mutuelle_nom}</div>
                                     <div className="col-span-2 text-center text-sm" style={{ color: 'var(--ht-text-secondary)' }}>{b.nombre_lignes}</div>
                                     <div className="col-span-2 text-right text-sm font-medium" style={{ color: 'var(--ht-text)' }}>{formatMontant(b.montant_total_demande)}</div>
                                     <div className="col-span-2">

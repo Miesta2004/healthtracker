@@ -62,12 +62,12 @@ export default function ServiceActivityCard({ occupation, hospitalisations }: Pr
 
                     <div className="grid grid-cols-2 gap-3">
                         <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--ht-bg)' }}>
-                            <UserPlus size={16} style={{ color: 'var(--ht-primary)' }} />
+                            <UserPlus size={16} style={{ color: 'var(--ht-primary-tint-text)' }} />
                             <p className="text-lg font-bold mt-1.5" style={{ color: 'var(--ht-text)' }}>{admissionsAujourdhui}</p>
                             <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Admissions aujourd'hui</p>
                         </div>
                         <div className="rounded-xl p-3" style={{ backgroundColor: 'var(--ht-bg)' }}>
-                            <Activity size={16} style={{ color: 'var(--ht-primary)' }} />
+                            <Activity size={16} style={{ color: 'var(--ht-primary-tint-text)' }} />
                             <p className="text-lg font-bold mt-1.5" style={{ color: 'var(--ht-text)' }}>{(hospitalisations ?? []).length}</p>
                             <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Hospitalisations en cours</p>
                         </div>

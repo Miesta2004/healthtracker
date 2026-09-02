@@ -204,7 +204,7 @@ export function FormulaireDemandeExamen({ champs, onChange }: FormProps<ChampsDe
                 <div className="flex flex-wrap gap-1.5 mb-2">
                     {champs.examens.map((e, i) => (
                         <span key={i} className="px-2.5 py-1 rounded-full text-xs font-semibold border flex items-center gap-1.5"
-                              style={{ borderColor: 'var(--ht-primary)', backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary)' }}>
+                              style={{ borderColor: 'var(--ht-primary-tint-text)', backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }}>
                             {e.nom}<button onClick={() => supprimerExamen(i)}>✕</button>
                         </span>
                     ))}

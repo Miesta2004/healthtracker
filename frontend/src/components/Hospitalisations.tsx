@@ -194,7 +194,7 @@ function SortieModal({ hosp, onConfirm, onCancel }: {
         <div className="ht-modal-overlay">
             <div className="ht-modal ht-modal-md space-y-4">
                 <div className="flex items-center gap-2 pb-1 border-b" style={{ borderColor: 'var(--ht-border)' }}>
-                    <ClipboardList size={20} style={{ color: 'var(--ht-primary)' }} />
+                    <ClipboardList size={20} style={{ color: 'var(--ht-primary-tint-text)' }} />
                     <h3 className="text-base font-bold" style={{ color: 'var(--ht-text)' }}>Enregistrer la sortie</h3>
                 </div>
                 <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Patient : <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>{hosp.patient_nom}</span></p>

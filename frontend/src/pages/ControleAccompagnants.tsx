@@ -62,7 +62,7 @@ function AjouterAccompagnantModal({ onClose, onAdded }: { onClose: () => void; o
                     {patient ? (
                         <div className="flex items-center justify-between p-2.5 rounded-lg border" style={{ borderColor: 'var(--ht-border)' }}>
                             <span className="text-sm" style={{ color: 'var(--ht-text)' }}>{patient.prenom} {patient.nom} · N° {patient.numero_dossier}</span>
-                            <button onClick={() => setPatient(null)} className="text-xs" style={{ color: 'var(--ht-primary)' }}>Changer</button>
+                            <button onClick={() => setPatient(null)} className="text-xs" style={{ color: 'var(--ht-primary-tint-text)' }}>Changer</button>
                         </div>
                     ) : (
                         <>

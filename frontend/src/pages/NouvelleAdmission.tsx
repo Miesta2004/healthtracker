@@ -126,7 +126,7 @@ export default function NouvelleAdmission() {
                         type="button"
                         onClick={() => navigate('/admissions/recherche')}
                         className="text-xs mt-2 flex items-center gap-1.5 hover:underline"
-                        style={{ color: 'var(--ht-primary)' }}
+                        style={{ color: 'var(--ht-primary-tint-text)' }}
                     >
                         <Search size={12} /> Vérifier d'abord que ce patient n'existe pas déjà
                     </button>

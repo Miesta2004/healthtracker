@@ -122,7 +122,7 @@ function NouvelleDemandeModal({ patients, onClose, onCreated }: {
                         <div className="flex items-center justify-between px-3 py-2.5 border rounded-xl text-sm"
                              style={{ borderColor: 'var(--ht-border)', backgroundColor: 'var(--ht-muted-bg)' }}>
                             <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>{selectedPatient.prenom} {selectedPatient.nom}</span>
-                            <button onClick={() => setPatientId(null)} className="text-xs font-semibold hover:underline" style={{ color: 'var(--ht-primary)' }}>Changer</button>
+                            <button onClick={() => setPatientId(null)} className="text-xs font-semibold hover:underline" style={{ color: 'var(--ht-primary-tint-text)' }}>Changer</button>
                         </div>
                     ) : (
                         <div className="relative">

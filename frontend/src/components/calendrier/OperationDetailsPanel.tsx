@@ -151,7 +151,7 @@ export default function OperationDetailsPanel({
                                 <button
                                     onClick={() => setEditionEquipe(v => !v)}
                                     className="text-xs font-medium"
-                                    style={{ color: 'var(--ht-primary)' }}
+                                    style={{ color: 'var(--ht-primary-tint-text)' }}
                                 >
                                     {editionEquipe ? 'Terminer' : 'Modifier'}
                                 </button>

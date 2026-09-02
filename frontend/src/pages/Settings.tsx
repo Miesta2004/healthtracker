@@ -285,7 +285,7 @@ function OngletSignature({ employe }: { employe: Record<string, unknown> }) {
     return (
         <div className="space-y-5 max-w-lg">
             <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-primary-light)' }}>
-                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--ht-primary)' }}>À quoi ça sert ?</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--ht-primary-tint-text)' }}>À quoi ça sert ?</p>
                 <p className="text-xs" style={{ color: 'var(--ht-primary-hover)' }}>
                     Ce texte apparaîtra automatiquement en bas de chaque ordonnance et compte rendu médical que vous générez.
                 </p>
@@ -511,7 +511,7 @@ function OngletModelesDocuments() {
     return (
         <div className="space-y-5">
             <div className="p-4 rounded-xl" style={{ backgroundColor: 'var(--ht-primary-light)' }}>
-                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--ht-primary)' }}>À quoi ça sert ?</p>
+                <p className="text-xs font-semibold mb-1" style={{ color: 'var(--ht-primary-tint-text)' }}>À quoi ça sert ?</p>
                 <p className="text-xs" style={{ color: 'var(--ht-primary-hover)' }}>
                     Ces modèles sont proposés dans l'onglet "Documents" de chaque consultation — cliquer dessus génère automatiquement le document rempli avec les données du patient.
                 </p>

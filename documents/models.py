@@ -51,6 +51,7 @@ def construire_contexte(*, patient, consultation=None, medecin=None):
             'sexe': patient.get_sexe_display() if hasattr(patient, 'get_sexe_display') else (patient.sexe or ''),
             'numero_dossier': patient.numero_dossier or '',
             'date_naissance': patient.date_naissance.strftime('%d/%m/%Y') if patient.date_naissance else '',
+            'allergies': patient.allergies or '',
         },
         'consultation': None,
         'medecin': None,

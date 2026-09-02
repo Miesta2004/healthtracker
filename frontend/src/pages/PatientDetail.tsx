@@ -117,7 +117,7 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
 }
 
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
+    maladie_chronique: 'border-[var(--ht-primary-tint)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary-tint-text)]',
     chirurgie:         'border-[var(--ht-chirurgie)] bg-[var(--ht-chirurgie-bg)] text-[var(--ht-chirurgie)]',
     allergie:          'border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] text-[var(--ht-danger)]',
     familial:          'border-[var(--ht-familial)] bg-[var(--ht-familial-bg)] text-[var(--ht-familial)]',

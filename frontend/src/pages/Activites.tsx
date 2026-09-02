@@ -128,7 +128,7 @@ export default function Activites() {
                                 <div key={a.id} className="flex items-center justify-between py-3 first:pt-0 last:pb-0 gap-3">
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className="ht-kpi-icon" style={{ width: '2.25rem', height: '2.25rem', flexShrink: 0 }}>
-                                            <History size={16} style={{ color: 'var(--ht-primary)' }} />
+                                            <History size={16} style={{ color: 'var(--ht-primary-tint-text)' }} />
                                         </div>
                                         <div className="min-w-0">
                                             <p className="text-sm font-semibold text-[var(--ht-text)] truncate">{a.description}</p>

@@ -34,7 +34,7 @@ export default function DayTimeline({ evenements }: Props) {
                 <button
                     onClick={() => navigate('/calendrier')}
                     className="text-xs font-medium transition-colors"
-                    style={{ color: 'var(--ht-primary)' }}
+                    style={{ color: 'var(--ht-primary-tint-text)' }}
                 >
                     Ouvrir le calendrier
                 </button>

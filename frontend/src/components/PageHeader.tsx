@@ -23,7 +23,7 @@ export default function PageHeader({ title, subtitle, icon: Icon, ctaLabel, onCt
                     className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ backgroundColor: 'var(--ht-primary-tint-bg)' }}
                 >
-                    <Icon size={20} style={{ color: 'var(--ht-primary)' }} />
+                    <Icon size={20} style={{ color: 'var(--ht-primary-tint-text)' }} />
                 </div>
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold" style={{ color: 'var(--ht-text)' }}>

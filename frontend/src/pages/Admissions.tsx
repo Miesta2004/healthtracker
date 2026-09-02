@@ -116,7 +116,7 @@ export default function Admissions() {
                                             {patient.prenom[0]}{patient.nom[0]}
                                         </div>
                                         <div className="min-w-0">
-                                            <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary)] transition-colors flex items-center gap-1.5" style={{ color: 'var(--ht-text)' }}>
+                                            <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors flex items-center gap-1.5" style={{ color: 'var(--ht-text)' }}>
                                                 {patient.prenom} {patient.nom}
                                                 {patient.identite_provisoire && (
                                                     <AlertTriangle size={12} style={{ color: 'var(--ht-warning)' }} />

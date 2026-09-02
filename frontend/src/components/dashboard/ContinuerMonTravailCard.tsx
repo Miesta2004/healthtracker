@@ -40,7 +40,7 @@ export default function ContinuerMonTravailCard({ items, rappelsDetail }: Props)
                 <div className="pt-4"><SkeletonSimpleList rows={3} /></div>
             ) : items.length === 0 ? (
                 <div className="ht-empty flex flex-col items-center gap-2">
-                    <CheckCircle2 size={22} style={{ color: 'var(--ht-primary)' }} />
+                    <CheckCircle2 size={22} style={{ color: 'var(--ht-primary-tint-text)' }} />
                     Tout est à jour. Aucune tâche en attente.
                 </div>
             ) : (
@@ -56,7 +56,7 @@ export default function ContinuerMonTravailCard({ items, rappelsDetail }: Props)
                                     className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                                     style={{ backgroundColor: 'var(--ht-card-bg)' }}
                                 >
-                                    <item.icon size={16} style={{ color: 'var(--ht-primary)' }} />
+                                    <item.icon size={16} style={{ color: 'var(--ht-primary-tint-text)' }} />
                                 </div>
                                 <div className="min-w-0">
                                     <p className="text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>{item.title}</p>
@@ -69,7 +69,7 @@ export default function ContinuerMonTravailCard({ items, rappelsDetail }: Props)
                                     <button
                                         onClick={() => setDetailOuvert(o => !o)}
                                         className="text-xs font-semibold flex items-center gap-1 self-start"
-                                        style={{ color: 'var(--ht-primary)' }}
+                                        style={{ color: 'var(--ht-primary-tint-text)' }}
                                     >
                                         {item.ctaLabel} <ChevronDown size={13} className={detailOuvert ? 'rotate-180 transition-transform' : 'transition-transform'} />
                                     </button>
@@ -87,7 +87,7 @@ export default function ContinuerMonTravailCard({ items, rappelsDetail }: Props)
                                 <button
                                     onClick={item.onClick}
                                     className="text-xs font-semibold self-start"
-                                    style={{ color: 'var(--ht-primary)' }}
+                                    style={{ color: 'var(--ht-primary-tint-text)' }}
                                 >
                                     {item.ctaLabel} →
                                 </button>

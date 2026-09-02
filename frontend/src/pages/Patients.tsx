@@ -203,7 +203,7 @@ export default function Patients() {
                         <div className="ht-card p-5 flex flex-col sm:flex-row sm:items-center gap-4">
                             <div className="flex items-center gap-4 flex-1">
                                 <div className="w-10 h-10 rounded-full flex items-center justify-center text-lg flex-shrink-0"
-                                     style={{ backgroundColor: 'var(--ht-primary-light)' }}><Building2 size={18} style={{ color: 'var(--ht-primary)' }} /></div>
+                                     style={{ backgroundColor: 'var(--ht-primary-light)' }}><Building2 size={18} style={{ color: 'var(--ht-primary-tint-text)' }} /></div>
                                 <div>
                                     <p className="text-xs text-[var(--ht-text-muted)] mb-0.5">Votre service</p>
                                     <p className="text-sm font-semibold text-[var(--ht-text)]">
@@ -213,7 +213,7 @@ export default function Patients() {
                             </div>
                             {assignation && (
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: 'var(--ht-bg)' }}>
-                                    <Clock size={14} style={{ color: 'var(--ht-primary)' }} />
+                                    <Clock size={14} style={{ color: 'var(--ht-primary-tint-text)' }} />
                                     <span className="text-xs font-medium text-[var(--ht-text-secondary)]">
                                         Poste en cours : <strong className="text-[var(--ht-text)]">{assignation.shift_label}</strong>
                                     </span>
@@ -222,8 +222,8 @@ export default function Patients() {
                             {assignation?.auto_assigne && (
                                 <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: 'var(--ht-primary-light)' }}
                                      title="Aucune assignation n'avait encore été faite par la majeure/le chef de service : les patients hospitalisés de ton service ont été répartis automatiquement.">
-                                    <Sparkles size={14} style={{ color: 'var(--ht-primary)' }} />
-                                    <span className="text-xs font-medium" style={{ color: 'var(--ht-primary)' }}>
+                                    <Sparkles size={14} style={{ color: 'var(--ht-primary-tint-text)' }} />
+                                    <span className="text-xs font-medium" style={{ color: 'var(--ht-primary-tint-text)' }}>
                                         Assignation automatique
                                     </span>
                                 </div>
@@ -270,7 +270,7 @@ export default function Patients() {
                                                     {a.patient_prenom?.[0]}{a.patient_nom?.[0]}
                                                 </div>
                                                 <div className="min-w-0 flex-1">
-                                                    <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
+                                                    <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors">
                                                         {a.patient_prenom} {a.patient_nom}
                                                     </p>
                                                     <p className="text-xs text-[var(--ht-text-muted)]">
@@ -326,7 +326,7 @@ export default function Patients() {
                                                         {p.prenom[0]}{p.nom[0]}
                                                     </div>
                                                     <div className="min-w-0 flex-1">
-                                                        <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
+                                                        <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors">
                                                             {p.prenom} {p.nom}
                                                         </p>
                                                         <p className="text-xs text-[var(--ht-text-muted)]">
@@ -510,7 +510,7 @@ export default function Patients() {
                                                         {patient.prenom[0]}{patient.nom[0]}
                                                     </div>
                                                     <div className="min-w-0">
-                                                        <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary)] transition-colors">
+                                                        <p className="text-sm font-medium text-[var(--ht-text)] truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors">
                                                             {patient.prenom} {patient.nom}
                                                         </p>
                                                         <p className="text-xs text-[var(--ht-text-muted)]">

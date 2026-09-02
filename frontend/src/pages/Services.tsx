@@ -111,7 +111,7 @@ function ServiceCard({ service, onEdit, onDelete, onToggle, onViewDetail }: {
             <div onClick={onViewDetail} className="flex items-start justify-between mb-4">
                 <button onClick={onViewDetail} className="flex items-center gap-3 min-w-0 text-left group" title="Voir le tableau de bord du service">
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                         style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }}>
+                         style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary-tint-text)' }}>
                         <Building2 size={20} />
                     </div>
                     <div className="min-w-0">
@@ -138,7 +138,7 @@ function ServiceCard({ service, onEdit, onDelete, onToggle, onViewDetail }: {
                     className="rounded-xl p-2.5 text-center"
                     style={{ backgroundColor: 'var(--ht-muted-bg)' }}
                 >
-                    <p className="text-lg font-bold" style={{ color: 'var(--ht-primary)' }}>
+                    <p className="text-lg font-bold" style={{ color: 'var(--ht-primary-tint-text)' }}>
                         {service.nb_employes}
                     </p>
                     <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>Employés</p>

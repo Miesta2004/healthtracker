@@ -11,6 +11,7 @@ import type {
 } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import PlanifierOperationModal from '../components/PlanifierOperationModal'
+import DocumentEditeurModal from '../components/documents/DocumentEditeurModal'
 import { TYPES_EDITEUR, TYPE_DOCUMENT_LABELS, TYPE_DOCUMENT_ICONS } from '../constants/schemas'
 import {
     Stethoscope, FlaskConical, Activity, FileText, Trash2, Pin, Check, CheckCircle,
@@ -31,7 +32,7 @@ const TYPE_ANTECEDENT_LABELS: Record<TypeAntecedent, string> = {
 }
 
 const TYPE_ANTECEDENT_COLORS: Record<TypeAntecedent, string> = {
-    maladie_chronique: 'border-[var(--ht-primary)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary)]',
+    maladie_chronique: 'border-[var(--ht-primary-tint)] bg-[var(--ht-primary-tint-bg)] text-[var(--ht-primary-tint-text)]',
     chirurgie:         'border-[var(--ht-chirurgie)] bg-[var(--ht-chirurgie-bg)] text-[var(--ht-chirurgie)]',
     allergie:          'border-[var(--ht-danger)] bg-[var(--ht-danger-bg)] text-[var(--ht-danger)]',
     familial:          'border-[var(--ht-familial)] bg-[var(--ht-familial-bg)] text-[var(--ht-familial)]',
@@ -188,7 +189,7 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
             <div className="ht-modal ht-modal-sm">
                 <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 border"
                      style={{ backgroundColor: 'var(--ht-primary-tint-bg)', borderColor: 'var(--ht-primary-tint-text)' }}>
-                    <Pin size={20} style={{ color: 'var(--ht-primary)' }} />
+                    <Pin size={20} style={{ color: 'var(--ht-primary-tint-text)' }} />
                 </div>
                 <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Ajouter aux antécédents ?</h3>
                 <p className="text-sm mb-2" style={{ color: 'var(--ht-text-secondary)' }}>
@@ -329,6 +330,7 @@ export default function ConsultationDetail() {
     const [demandeSaving, setDemandeSaving] = useState(false)
 
     const [documentsGeneres, setDocumentsGeneres] = useState<DocumentGenere[]>([])
+    const [documentModalId, setDocumentModalId] = useState<number | null>(null)
     const [documentsLoading, setDocumentsLoading] = useState(false)
     const [documentEnCreation, setDocumentEnCreation] = useState<string | null>(null)
 
@@ -554,7 +556,9 @@ export default function ConsultationDetail() {
                 type_document: type,
                 ...(savedConsultId ? { consultation: savedConsultId } : {}),
             })
-            navigate(`/patients/${patientId}/documents/${created.id}`)
+            setDocumentsGeneres(prev => [created, ...prev])
+            setDocumentModalId(created.id)
+            setDocumentEnCreation(null)
         } catch {
             setError('Erreur lors de la création du document.')
             setDocumentEnCreation(null)
@@ -660,6 +664,14 @@ export default function ConsultationDetail() {
                 />
             )}
 
+            {documentModalId !== null && (
+                <DocumentEditeurModal
+                    documentId={documentModalId}
+                    onClose={() => setDocumentModalId(null)}
+                    onChanged={() => getDocumentsPatient(patientId).then(setDocumentsGeneres).catch(() => {})}
+                />
+            )}
+
             {/* ===== BARRE UTILITAIRE ===== */}
             <div className="border-b" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
                 <div className="px-6 py-3 flex items-center gap-3">
@@ -704,7 +716,7 @@ export default function ConsultationDetail() {
                             <img src={patient.photo_path} alt="" className="w-16 h-16 rounded-full object-cover flex-shrink-0" />
                         ) : (
                             <div className="w-16 h-16 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-lg"
-                                 style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary)' }}>
+                                 style={{ backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }}>
                                 {patient.prenom[0]}{patient.nom[0]}
                             </div>
                         )}
@@ -1101,7 +1113,7 @@ export default function ConsultationDetail() {
                                                     className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-colors hover:bg-[var(--ht-bg)] disabled:opacity-50"
                                                     style={{ borderColor: 'var(--ht-border)' }}
                                                 >
-                                                    <Icon size={16} className="flex-shrink-0" style={{ color: 'var(--ht-primary)' }} />
+                                                    <Icon size={16} className="flex-shrink-0" style={{ color: 'var(--ht-primary-tint-text)' }} />
                                                     <span className="flex-1 min-w-0">
                                                         <span className="block text-sm font-semibold truncate" style={{ color: 'var(--ht-text)' }}>
                                                             {TYPE_DOCUMENT_LABELS[type]}
@@ -1127,7 +1139,7 @@ export default function ConsultationDetail() {
                                             {documentsGeneres.map(d => (
                                                 <div key={d.id} className="flex items-center justify-between gap-3 text-sm py-2 border-b last:border-0"
                                                      style={{ borderColor: 'var(--ht-border)' }}>
-                                                    <button onClick={() => navigate(`/patients/${patientId}/documents/${d.id}`)} className="text-left min-w-0 flex-1">
+                                                    <button onClick={() => setDocumentModalId(d.id)} className="text-left min-w-0 flex-1">
                                                         <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
                                                         <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
                                                             {new Date(d.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
@@ -1163,7 +1175,7 @@ export default function ConsultationDetail() {
                         <div className="space-y-6">
                             <div className="ht-card ht-card-padded-sm">
                                 <h3 className="text-sm font-bold mb-3 flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
-                                    <ClipboardList size={15} style={{ color: 'var(--ht-primary)' }} /> Résumé du patient
+                                    <ClipboardList size={15} style={{ color: 'var(--ht-primary-tint-text)' }} /> Résumé du patient
                                 </h3>
                                 <div className="space-y-2.5 text-sm">
                                     {[
@@ -1183,10 +1195,10 @@ export default function ConsultationDetail() {
                             <div className="ht-card ht-card-padded-sm">
                                 <div className="flex items-center justify-between mb-3">
                                     <h3 className="text-sm font-bold flex items-center gap-2" style={{ color: 'var(--ht-text)' }}>
-                                        <Folder size={15} style={{ color: 'var(--ht-primary)' }} /> Documents récents
+                                        <Folder size={15} style={{ color: 'var(--ht-primary-tint-text)' }} /> Documents récents
                                     </h3>
                                     {documentsGeneres.length > 0 && (
-                                        <button onClick={() => setOnglet('documents')} className="text-xs font-semibold" style={{ color: 'var(--ht-primary)' }}>
+                                        <button onClick={() => setOnglet('documents')} className="text-xs font-semibold" style={{ color: 'var(--ht-primary-tint-text)' }}>
                                             Voir tout
                                         </button>
                                     )}
@@ -1201,7 +1213,7 @@ export default function ConsultationDetail() {
                                 ) : (
                                     <div className="space-y-2">
                                         {documentsGeneres.slice(0, 4).map(d => (
-                                            <button key={d.id} onClick={() => navigate(`/patients/${patientId}/documents/${d.id}`)}
+                                            <button key={d.id} onClick={() => setDocumentModalId(d.id)}
                                                     className="block w-full text-left text-xs py-1.5">
                                                 <p className="font-medium truncate" style={{ color: 'var(--ht-text)' }}>{d.titre}</p>
                                                 <p style={{ color: 'var(--ht-text-muted)' }}>
@@ -1223,7 +1235,7 @@ export default function ConsultationDetail() {
                                     </button>
                                     <button onClick={() => handleCreerDocument('demande_analyse')} disabled={documentEnCreation !== null}
                                             className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-semibold border transition-colors disabled:opacity-50"
-                                            style={{ borderColor: 'var(--ht-primary)', backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary)' }}>
+                                            style={{ borderColor: 'var(--ht-primary-tint-text)', backgroundColor: 'var(--ht-primary-tint-bg)', color: 'var(--ht-primary-tint-text)' }}>
                                         <FlaskConical size={13} /> Demande d'examen
                                     </button>
                                     <button onClick={() => handleCreerDocument('certificat_medical')} disabled={documentEnCreation !== null}

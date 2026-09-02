@@ -294,7 +294,7 @@ export default function EmployeDetail() {
                             <SectionCard title="Contrat de travail" icon={FileText}>
                                 <div className="mb-3 flex items-center gap-2">
                                     {employe.type_contrat && (
-                                        <span className="badge" style={{ backgroundColor: 'var(--ht-primary-light)', color: 'var(--ht-primary)' }}>
+                                        <span className="badge" style={{ backgroundColor: 'var(--ht-primary-light)', color: 'var(--ht-primary-tint-text)' }}>
                                         {CONTRAT_LABELS[employe.type_contrat] ?? employe.type_contrat}
                                     </span>
                                     )}

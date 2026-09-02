@@ -79,7 +79,7 @@ function MedecinRow({ medecin }: { medecin: MedecinPerf }) {
              style={{ borderColor: 'var(--ht-border)' }}>
             <div className="col-span-5 flex items-center gap-2 min-w-0">
                 <div className="ht-avatar ht-avatar-sm flex-shrink-0"
-                     style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary)' }}>
+                     style={{ backgroundColor: 'var(--ht-primary-tint)', color: 'var(--ht-primary-tint-text)' }}>
                     {medecin.nom.split(' ').map(p => p[0]).slice(0, 2).join('')}
                 </div>
                 <div className="min-w-0">
@@ -117,7 +117,7 @@ function PatientRow({ patient, onClick }: { patient: Patient; onClick: () => voi
                 {patient.prenom[0]}{patient.nom[0]}
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary)] transition-colors" style={{ color: 'var(--ht-text)' }}>
+                <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors" style={{ color: 'var(--ht-text)' }}>
                     {patient.prenom} {patient.nom}
                 </p>
                 <p className="text-xs" style={{ color: 'var(--ht-text-muted)' }}>
@@ -146,7 +146,7 @@ function EmployeRow({ employe, onClick }: { employe: Employe; onClick: () => voi
                 {employe.prenom[0]}{employe.nom[0]}
             </div>
             <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary)] transition-colors" style={{ color: 'var(--ht-text)' }}>
+                <p className="text-sm font-medium truncate group-hover:text-[var(--ht-primary-tint-text)] transition-colors" style={{ color: 'var(--ht-text)' }}>
                     {employe.prenom} {employe.nom}
                 </p>
                 <p className="text-xs truncate" style={{ color: 'var(--ht-text-muted)' }}>
