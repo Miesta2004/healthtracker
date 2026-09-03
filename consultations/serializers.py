@@ -11,10 +11,19 @@ class ConsultSerializer(serializers.ModelSerializer):
     decision_orientation_label = serializers.CharField(
         source='get_decision_orientation_display', read_only=True, default=''
     )
+    type_consultation_label = serializers.CharField(
+        source='get_type_consultation_display', read_only=True, default=''
+    )
+    # Calculée à partir de started_at/ended_at (cf. Consultation.duree_secondes)
+    # plutôt que stockée — voir modèle.
+    duree_secondes = serializers.SerializerMethodField()
 
     class Meta:
         model  = Consultation
         fields = '__all__'
+
+    def get_duree_secondes(self, obj):
+        return obj.duree_secondes
 
     def validate(self, data):
         statut = data.get('statut', getattr(self.instance, 'statut', None))

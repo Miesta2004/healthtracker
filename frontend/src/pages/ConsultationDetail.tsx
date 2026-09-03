@@ -8,18 +8,21 @@ import { getConsultation, createConsultation, updateConsultation, deleteConsulta
 import { getDemandesPatient, createDemande } from '../api/analyses'
 import { creerDocument, getDocumentsPatient, supprimerDocument } from '../api/documents'
 import type {
-    Patient, ConsultationStatut, TypeEvenement, Antecedent, TypeAntecedent,
+    Patient, ConsultationStatut, TypeEvenement, TypeConsultation, DecisionOrientation, Antecedent, TypeAntecedent,
     SignesVitaux, DemandeAnalyse, TypeAnalyse, UrgenceAnalyse, DocumentGenere, TypeDocument,
 } from '../types'
 import { SkeletonDetailPage } from '../components/Skeleton'
 import PlanifierOperationModal from '../components/PlanifierOperationModal'
 import DocumentEditeurModal from '../components/documents/DocumentEditeurModal'
-import { TYPES_EDITEUR, TYPE_DOCUMENT_LABELS, TYPE_DOCUMENT_ICONS } from '../constants/schemas'
+import {
+    TYPES_EDITEUR, TYPE_DOCUMENT_LABELS, TYPE_DOCUMENT_ICONS,
+    TYPES_CONSULTATION, TYPE_CONSULTATION_LABELS, DECISIONS_ORIENTATION, DECISION_ORIENTATION_LABELS,
+} from '../constants/schemas'
 import {
     Stethoscope, FlaskConical, Activity, FileText, Trash2, Pin, Check, CheckCircle,
     AlertTriangle, ChevronLeft, Play, Ban, Heart, Thermometer, Droplet, Scale,
     Plus, Clock, Building2, Circle, Printer, MoreVertical, Phone,
-    Pill, ClipboardList, Award, FileWarning, Folder,
+    Pill, ClipboardList, Award, FileWarning, Folder, Lock, Square,
     Bold, Italic, Underline, List, ListOrdered, ChevronDown,
     type LucideIcon,
 } from 'lucide-react'
@@ -218,6 +221,188 @@ function AjoutAntecedentModal({ texte, type, onTypeChange, onConfirm, onCancel, 
     )
 }
 
+// ─── Chronomètre / durée ──────────────────────────────────────────────────────
+// Source de vérité = started_at (backend) ; l'interval ne fait que rafraîchir
+// l'affichage, jamais la valeur de référence (cf. spec §6 : doit rester
+// correct après un refresh ou une navigation aller-retour).
+function pad2(n: number) { return String(n).padStart(2, '0') }
+
+function formatChrono(secondes: number) {
+    const s = Math.max(0, Math.floor(secondes))
+    const h = Math.floor(s / 3600)
+    const m = Math.floor((s % 3600) / 60)
+    const sec = s % 60
+    return `${pad2(h)}:${pad2(m)}:${pad2(sec)}`
+}
+
+function formatDureeLisible(secondes: number) {
+    const s = Math.max(0, Math.floor(secondes))
+    const m = Math.floor(s / 60)
+    const sec = s % 60
+    return `${m} min ${pad2(sec)} s`
+}
+
+function ChronoBadge({ startedAt }: { startedAt: string }) {
+    const [maintenant, setMaintenant] = useState(() => Date.now())
+    useEffect(() => {
+        const id = setInterval(() => setMaintenant(Date.now()), 1000)
+        return () => clearInterval(id)
+    }, [])
+    const ecouleSec = (maintenant - new Date(startedAt).getTime()) / 1000
+    return (
+        <span className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold"
+              style={{ backgroundColor: 'var(--ht-success-bg)', color: 'var(--ht-success)' }}>
+            <span className="w-2 h-2 rounded-full animate-pulse" style={{ backgroundColor: 'var(--ht-success)' }} />
+            Consultation en cours · ⏱ {formatChrono(ecouleSec)}
+        </span>
+    )
+}
+
+// ─── Section médicale verrouillée avant démarrage ────────────────────────────
+function LockedSection({ label }: { label: string }) {
+    return (
+        <div className="ht-card ht-card-padded-sm text-center py-10">
+            <Lock size={22} className="mx-auto mb-2" style={{ color: 'var(--ht-text-muted)' }} />
+            <p className="text-sm font-semibold" style={{ color: 'var(--ht-text-secondary)' }}>🔒 {label}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--ht-text-muted)' }}>
+                Démarrez la consultation pour accéder à cette section.
+            </p>
+        </div>
+    )
+}
+
+// ─── Modale « Nouvelle consultation » : type + motif, rien d'autre ───────────
+// Volontairement minimaliste (cf. spec parcours consultation §3) : pas de
+// constats/diagnostic/prescription ici, seulement ce qu'il faut pour démarrer.
+function NouvelleConsultationModal({
+                                       type, motif, onTypeChange, onMotifChange, onDemarrer, onAnnuler, saving, error,
+                                   }: {
+    type: TypeConsultation | ''
+    motif: string
+    onTypeChange: (t: TypeConsultation) => void
+    onMotifChange: (m: string) => void
+    onDemarrer: () => void
+    onAnnuler: () => void
+    saving: boolean
+    error: string
+}) {
+    const peutDemarrer = !!type && motif.trim() !== ''
+    return (
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm">
+                <h3 className="text-base font-bold mb-4" style={{ color: 'var(--ht-text)' }}>Nouvelle consultation</h3>
+
+                {error && <div className="ht-alert ht-alert-danger mb-3">{error}</div>}
+
+                <div className="ht-field mb-4">
+                    <FieldLabel>Type de consultation *</FieldLabel>
+                    <select
+                        value={type}
+                        onChange={e => onTypeChange(e.target.value as TypeConsultation)}
+                        className="ht-input w-full"
+                    >
+                        <option value="" disabled>Sélectionner un type…</option>
+                        {TYPES_CONSULTATION.map(t => (
+                            <option key={t} value={t}>{TYPE_CONSULTATION_LABELS[t]}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="ht-field mb-6">
+                    <FieldLabel>Motif de consultation *</FieldLabel>
+                    <textarea
+                        autoFocus
+                        value={motif}
+                        onChange={e => onMotifChange(e.target.value)}
+                        rows={3}
+                        placeholder="Ex : Douleurs abdominales depuis 3 jours…"
+                        className="ht-input ht-textarea"
+                    />
+                </div>
+
+                <div className="flex gap-3">
+                    <button type="button" onClick={onAnnuler} disabled={saving} className="btn btn-secondary flex-1">
+                        Annuler
+                    </button>
+                    <button type="button" onClick={onDemarrer} disabled={!peutDemarrer || saving} className="btn btn-primary flex-1 gap-1.5">
+                        <Play size={14} /> {saving ? 'Démarrage…' : 'Démarrer la consultation'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Modale « Terminer la consultation » : décision d'orientation requise ────
+function TerminerConsultationModal({
+                                       decision, onDecisionChange, onConfirmer, onAnnuler, saving, error,
+                                   }: {
+    decision: DecisionOrientation
+    onDecisionChange: (d: DecisionOrientation) => void
+    onConfirmer: () => void
+    onAnnuler: () => void
+    saving: boolean
+    error: string
+}) {
+    return (
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm">
+                <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Terminer la consultation</h3>
+                <p className="text-sm mb-4" style={{ color: 'var(--ht-text-secondary)' }}>
+                    Où va le patient à l'issue de cette consultation ?
+                </p>
+
+                {error && <div className="ht-alert ht-alert-danger mb-3">{error}</div>}
+
+                <div className="ht-field mb-6">
+                    <FieldLabel>Décision *</FieldLabel>
+                    <select
+                        value={decision}
+                        onChange={e => onDecisionChange(e.target.value as DecisionOrientation)}
+                        className="ht-input w-full"
+                    >
+                        <option value="" disabled>Sélectionner…</option>
+                        {DECISIONS_ORIENTATION.map(d => (
+                            <option key={d} value={d}>{DECISION_ORIENTATION_LABELS[d]}</option>
+                        ))}
+                    </select>
+                </div>
+
+                <div className="flex gap-3">
+                    <button type="button" onClick={onAnnuler} disabled={saving} className="btn btn-secondary flex-1">
+                        Annuler
+                    </button>
+                    <button type="button" onClick={onConfirmer} disabled={!decision || saving} className="btn btn-primary flex-1 gap-1.5">
+                        <Square size={13} /> {saving ? 'Enregistrement…' : 'Terminer la consultation'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
+// ─── Modale de confirmation de sortie pendant une consultation en cours ──────
+function QuitterConsultationModal({ onContinuer, onQuitter }: { onContinuer: () => void; onQuitter: () => void }) {
+    return (
+        <div className="ht-modal-overlay">
+            <div className="ht-modal ht-modal-sm text-center">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mb-4 mx-auto border"
+                     style={{ color: 'var(--ht-warning, var(--ht-danger))', backgroundColor: 'var(--ht-danger-bg-light)', borderColor: 'var(--ht-danger)' }}>
+                    <AlertTriangle size={20} />
+                </div>
+                <h3 className="text-base font-bold mb-1" style={{ color: 'var(--ht-text)' }}>Consultation en cours</h3>
+                <p className="text-sm mb-6" style={{ color: 'var(--ht-text-secondary)' }}>
+                    Vous êtes actuellement en train de réaliser cette consultation. Voulez-vous vraiment quitter ?
+                </p>
+                <div className="flex gap-3">
+                    <button onClick={onContinuer} className="btn btn-primary flex-1">Continuer la consultation</button>
+                    <button onClick={onQuitter} className="btn btn-secondary flex-1">Quitter</button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 // ─── Barre de progression : pastilles + connecteurs ──────────────────────────
 // Les clés 'accueil' et 'validation' ne correspondent à aucun onglet réel
 // (ce sont des repères d'état, pas des sections de contenu) — seules les 5
@@ -349,6 +534,7 @@ export default function ConsultationDetail() {
 
     const [form, setForm] = useState({
         type_evenement: 'consultation' as TypeEvenement,
+        type_consultation: '' as TypeConsultation | '',
         date: defaultDate,
         motif: navState.motif ?? '',
         symptomes: '',
@@ -357,7 +543,37 @@ export default function ConsultationDetail() {
         ordonnance: '',
         notes: '',
         statut: 'planifiee' as ConsultationStatut,
+        decision_orientation: '' as DecisionOrientation,
     })
+
+    // Horodatage réel démarrage/fin — source de vérité du chronomètre et de
+    // la durée finale (cf. spec §6/§9), distinct du reste du formulaire pour
+    // ne pas déclencher la validation "motif obligatoire" de persist().
+    const [startedAt, setStartedAt] = useState<string | null>(null)
+    const [dureeSecondes, setDureeSecondes] = useState<number | null>(null)
+
+    // Modale « Nouvelle consultation » — s'ouvre automatiquement pour une
+    // consultation encore jamais créée ; réutilisée aussi pour démarrer une
+    // consultation existante restée au statut 'planifiee' (cf. bouton
+    // header "Démarrer la consultation").
+    const [showStartModal, setShowStartModal] = useState(isNew)
+    const [startType, setStartType] = useState<TypeConsultation | ''>('')
+    const [startMotif, setStartMotif] = useState(navState.motif ?? '')
+    const [startSaving, setStartSaving] = useState(false)
+    const [startError, setStartError] = useState('')
+
+    // Modale « Terminer la consultation » — décision d'orientation requise
+    // par le backend (ConsultSerializer.validate) avant de passer à 'terminee'.
+    const [showTerminerModal, setShowTerminerModal] = useState(false)
+    const [decisionChoisie, setDecisionChoisie] = useState<DecisionOrientation>('')
+    const [terminerSaving, setTerminerSaving] = useState(false)
+    const [terminerError, setTerminerError] = useState('')
+
+    // Confirmation de sortie pendant une consultation en cours (spec §12)
+    const [showQuitConfirm, setShowQuitConfirm] = useState(false)
+
+    const rdvOrigineParam = searchParams.get('rdv_origine')
+    const rdvOrigine = rdvOrigineParam ? Number(rdvOrigineParam) : (navState.rdvOrigine ?? undefined)
 
     useEffect(() => {
         if (!patientId) return
@@ -378,6 +594,7 @@ export default function ConsultationDetail() {
                 .then(c => {
                     setForm({
                         type_evenement: c.type_evenement,
+                        type_consultation: c.type_consultation ?? '',
                         date: c.date.slice(0, 16),
                         motif: c.motif,
                         symptomes: c.symptomes,
@@ -386,7 +603,10 @@ export default function ConsultationDetail() {
                         ordonnance: c.ordonnance,
                         notes: c.notes,
                         statut: c.statut,
+                        decision_orientation: c.decision_orientation ?? '',
                     })
+                    setStartedAt(c.started_at ?? null)
+                    setDureeSecondes(c.duree_secondes ?? null)
                 })
                 .catch(() => setError("Impossible de charger cet événement."))
                 .finally(() => setLoading(false))
@@ -438,7 +658,7 @@ export default function ConsultationDetail() {
     )
     const [showPlanifOp, setShowPlanifOp] = useState(false)
 
-    const persist = async (statutOverride?: ConsultationStatut) => {
+    const persist = async (statutOverride?: ConsultationStatut, decisionOverride?: DecisionOrientation) => {
         const statutFinal = statutOverride ?? form.statut
         if (!form.motif.trim()) { setError('Le motif est obligatoire.'); return null }
         setSaving(true)
@@ -447,20 +667,25 @@ export default function ConsultationDetail() {
             const payload = {
                 ...form,
                 statut: statutFinal,
+                decision_orientation: decisionOverride ?? form.decision_orientation,
                 date: form.date + ':00',
                 patient: patientId,
-                ...(isNew && navState.rdvOrigine ? { rdv_origine: navState.rdvOrigine } : {}),
+                ...(isNew && rdvOrigine ? { rdv_origine: rdvOrigine } : {}),
             }
             let savedId: number
             if (!savedConsultId) {
                 const created = await createConsultation(payload)
                 savedId = created.id
+                setStartedAt(created.started_at ?? null)
+                setDureeSecondes(created.duree_secondes ?? null)
             } else {
                 const updated = await updateConsultation(savedConsultId, payload)
                 savedId = updated.id
+                setStartedAt(updated.started_at ?? null)
+                setDureeSecondes(updated.duree_secondes ?? null)
             }
             setSavedConsultId(savedId)
-            setForm(prev => ({ ...prev, statut: statutFinal }))
+            setForm(prev => ({ ...prev, statut: statutFinal, decision_orientation: decisionOverride ?? prev.decision_orientation }))
 
             const aProposer = statutFinal === 'terminee'
                 && candidatAntecedent
@@ -500,7 +725,9 @@ export default function ConsultationDetail() {
         if (savedId === null) return
 
         if (estDernierOnglet) {
-            await persist('terminee')
+            setDecisionChoisie(form.decision_orientation || '')
+            setTerminerError('')
+            setShowTerminerModal(true)
         } else {
             setOnglet(WIZARD_ORDER[ongletIndex + 1])
         }
@@ -510,6 +737,88 @@ export default function ConsultationDetail() {
     const handleTerminerPlusTard = async () => {
         const savedId = await persist()
         if (savedId !== null) navigate(`/patients/${patientId}`)
+    }
+
+    // ─── Démarrage (modale « Nouvelle consultation ») ────────────────────────
+    const openStartModal = () => {
+        setStartType((form.type_consultation as TypeConsultation) || '')
+        setStartMotif(form.motif || navState.motif || '')
+        setStartError('')
+        setShowStartModal(true)
+    }
+
+    const handleDemarrer = async () => {
+        if (!startType || !startMotif.trim()) return
+        setStartSaving(true)
+        setStartError('')
+        try {
+            const payload = {
+                type_evenement: form.type_evenement,
+                type_consultation: startType,
+                date: form.date + ':00',
+                motif: startMotif.trim(),
+                symptomes: '', examens_realises: '', diagnostic: '', ordonnance: '', notes: '',
+                statut: 'en_cours' as ConsultationStatut,
+                decision_orientation: '' as DecisionOrientation,
+                patient: patientId,
+                ...(isNew && rdvOrigine ? { rdv_origine: rdvOrigine } : {}),
+            }
+            const saved = savedConsultId
+                ? await updateConsultation(savedConsultId, payload)
+                : await createConsultation(payload)
+
+            setSavedConsultId(saved.id)
+            setForm(prev => ({
+                ...prev,
+                type_consultation: saved.type_consultation ?? startType,
+                motif: saved.motif,
+                statut: saved.statut,
+            }))
+            setStartedAt(saved.started_at ?? null)
+            setShowStartModal(false)
+
+            if (isNew) {
+                navigate(`/patients/${patientId}/consultations/${saved.id}`, { replace: true })
+            }
+        } catch {
+            setStartError('Erreur lors du démarrage de la consultation.')
+        } finally {
+            setStartSaving(false)
+        }
+    }
+
+    const handleAnnulerModaleDemarrage = () => {
+        setShowStartModal(false)
+        if (isNew) navigate(`/patients/${patientId}`)
+    }
+
+    // ─── Fin de consultation (modale décision d'orientation) ─────────────────
+    const handleTerminer = async () => {
+        if (!decisionChoisie) return
+        setTerminerSaving(true)
+        setTerminerError('')
+        try {
+            const savedId = await persist('terminee', decisionChoisie)
+            if (savedId === null) {
+                setTerminerError("Erreur lors de l'enregistrement.")
+                return
+            }
+            setShowTerminerModal(false)
+        } finally {
+            setTerminerSaving(false)
+        }
+    }
+
+    // ─── Protection contre les sorties accidentelles (spec §12) ──────────────
+    useEffect(() => {
+        if (form.statut !== 'en_cours') return
+        const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = '' }
+        window.addEventListener('beforeunload', handler)
+        return () => window.removeEventListener('beforeunload', handler)
+    }, [form.statut])
+
+    const handleRetour = () => {
+        if (form.statut === 'en_cours') { setShowQuitConfirm(true) } else { navigate(`/patients/${patientId}`) }
     }
 
     const handleConfirmAntecedent = async () => {
@@ -655,9 +964,43 @@ export default function ConsultationDetail() {
     if (loading) return <SkeletonDetailPage />
 
     const statutCouleur = STATUT_COLORS[form.statut]
+    // Verrouillée = pas encore démarrée. Une fois en_cours/terminee/annulee,
+    // les sections médicales se déverrouillent (cf. spec §7/§8).
+    const verrouillee = form.statut === 'planifiee'
 
     return (
         <div style={{ minHeight: '100vh', backgroundColor: 'var(--ht-bg)' }} onClick={() => showMenu && setShowMenu(false)}>
+            {showStartModal && (
+                <NouvelleConsultationModal
+                    type={startType}
+                    motif={startMotif}
+                    onTypeChange={setStartType}
+                    onMotifChange={setStartMotif}
+                    onDemarrer={handleDemarrer}
+                    onAnnuler={handleAnnulerModaleDemarrage}
+                    saving={startSaving}
+                    error={startError}
+                />
+            )}
+
+            {showTerminerModal && (
+                <TerminerConsultationModal
+                    decision={decisionChoisie}
+                    onDecisionChange={setDecisionChoisie}
+                    onConfirmer={handleTerminer}
+                    onAnnuler={() => setShowTerminerModal(false)}
+                    saving={terminerSaving}
+                    error={terminerError}
+                />
+            )}
+
+            {showQuitConfirm && (
+                <QuitterConsultationModal
+                    onContinuer={() => setShowQuitConfirm(false)}
+                    onQuitter={() => navigate(`/patients/${patientId}`)}
+                />
+            )}
+
             {showDelete && (
                 <DeleteModal onConfirm={handleDelete} onCancel={() => setShowDelete(false)} loading={deleteLoading} />
             )}
@@ -705,7 +1048,7 @@ export default function ConsultationDetail() {
             {/* ===== BARRE UTILITAIRE ===== */}
             <div className="border-b" style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
                 <div className="px-6 py-3 flex items-center gap-3">
-                    <button onClick={() => navigate(`/patients/${patientId}`)}
+                    <button onClick={handleRetour}
                             className="text-sm flex items-center gap-1 transition-colors" style={{ color: 'var(--ht-text-muted)' }}>
                         <ChevronLeft size={16} />
                         {form.statut === 'en_cours' ? 'Consultation en cours' : 'Retour au dossier'}
@@ -769,6 +1112,14 @@ export default function ConsultationDetail() {
                                     <Phone size={13} /> {patient.telephone}
                                 </p>
                             )}
+                            {!verrouillee && form.type_consultation && (
+                                <p className="text-sm mt-1" style={{ color: 'var(--ht-text-secondary)' }}>
+                                    <span className="font-semibold" style={{ color: 'var(--ht-text)' }}>
+                                        Type : {TYPE_CONSULTATION_LABELS[form.type_consultation as TypeConsultation]}
+                                    </span>
+                                    {form.motif && <> · Motif : {form.motif}</>}
+                                </p>
+                            )}
                         </div>
 
                         <div className="flex items-center gap-5 text-sm flex-shrink-0" style={{ color: 'var(--ht-text-secondary)' }}>
@@ -794,9 +1145,26 @@ export default function ConsultationDetail() {
 
                         <div className="flex items-center gap-2 flex-shrink-0">
                             {form.statut === 'planifiee' && (
-                                <button type="button" disabled={saving} onClick={() => persist('en_cours')} className="btn btn-primary gap-1.5">
-                                    <Play size={14} /> Commencer la consultation
+                                <button type="button" disabled={saving} onClick={openStartModal} className="btn btn-primary gap-1.5">
+                                    <Play size={14} /> Démarrer la consultation
                                 </button>
+                            )}
+                            {form.statut === 'en_cours' && startedAt && (
+                                <>
+                                    <ChronoBadge startedAt={startedAt} />
+                                    <button type="button" disabled={saving} onClick={() => {
+                                        setDecisionChoisie(form.decision_orientation || '')
+                                        setTerminerError('')
+                                        setShowTerminerModal(true)
+                                    }} className="btn btn-primary gap-1.5">
+                                        <Square size={13} /> Terminer la consultation
+                                    </button>
+                                </>
+                            )}
+                            {form.statut === 'terminee' && dureeSecondes != null && (
+                                <span className="text-sm font-semibold" style={{ color: 'var(--ht-text-secondary)' }}>
+                                    Consultation terminée · Durée : {formatDureeLisible(dureeSecondes)}
+                                </span>
                             )}
                             {(form.statut === 'planifiee' || form.statut === 'en_cours') && (
                                 <button type="button" disabled={saving} onClick={() => persist('annulee')} className="btn btn-secondary gap-1.5">
@@ -819,7 +1187,7 @@ export default function ConsultationDetail() {
                 {/* ===== CORPS : contenu (gauche) + colonne latérale (droite) ===== */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
                     <div className="lg:col-span-2 space-y-6">
-                        {onglet === 'consultation' && (
+                        {onglet === 'consultation' && (verrouillee ? <LockedSection label="Consultation (motif, diagnostic, prescription…)" /> : (
                             <>
                                 <div className="ht-card ht-card-padded-sm">
                                     <div className="flex items-center justify-between mb-3">
@@ -985,9 +1353,9 @@ export default function ConsultationDetail() {
                                     </div>
                                 </div>
                             </>
-                        )}
+                        ))}
 
-                        {onglet === 'constantes' && (
+                        {onglet === 'constantes' && (verrouillee ? <LockedSection label="Constats" /> : (
                             <>
                                 <div className="ht-card ht-card-padded-sm">
                                     <CardTitle>Nouvelle mesure</CardTitle>
@@ -1047,9 +1415,9 @@ export default function ConsultationDetail() {
                                     )}
                                 </div>
                             </>
-                        )}
+                        ))}
 
-                        {onglet === 'examens' && (
+                        {onglet === 'examens' && (verrouillee ? <LockedSection label="Examens" /> : (
                             <>
                                 <div className="ht-card ht-card-padded-sm">
                                     <CardTitle>Nouvelle demande d'analyse</CardTitle>
@@ -1117,17 +1485,17 @@ export default function ConsultationDetail() {
                                     )}
                                 </div>
                             </>
-                        )}
+                        ))}
 
-                        {onglet === 'prescription' && (
+                        {onglet === 'prescription' && (verrouillee ? <LockedSection label="Prescription" /> : (
                             <div className="ht-card ht-card-padded-sm">
                                 <CardTitle>Ordonnance</CardTitle>
                                 <textarea name="ordonnance" value={form.ordonnance} onChange={handleChange} rows={10}
                                           placeholder="Médicaments, posologie, durée du traitement…" className="ht-input ht-textarea" />
                             </div>
-                        )}
+                        ))}
 
-                        {onglet === 'documents' && (
+                        {onglet === 'documents' && (verrouillee ? <LockedSection label="Documents" /> : (
                             <>
                                 <div className="ht-card ht-card-padded-sm">
                                     <CardTitle>Générer un document</CardTitle>
@@ -1197,7 +1565,7 @@ export default function ConsultationDetail() {
                                               placeholder="Observations complémentaires, remarques internes…" className="ht-input ht-textarea" />
                                 </div>
                             </>
-                        )}
+                        ))}
                     </div>
 
                     {/* ===== COLONNE LATÉRALE ===== */}
@@ -1286,21 +1654,23 @@ export default function ConsultationDetail() {
             </div>
 
             {/* ===== FOOTER STICKY ===== */}
-            <div className="sticky bottom-0 border-t px-6 py-3 flex items-center justify-between gap-3"
-                 style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
-                <button type="button" onClick={handleEnregistrerBrouillon} disabled={saving} className="btn btn-secondary gap-1.5">
-                    <FileText size={14} /> Enregistrer le brouillon
-                </button>
-                <div className="flex items-center gap-3">
-                    <button type="button" onClick={handleTerminerPlusTard} disabled={saving} className="btn btn-secondary">
-                        Terminer plus tard
+            {!verrouillee && (
+                <div className="sticky bottom-0 border-t px-6 py-3 flex items-center justify-between gap-3"
+                     style={{ backgroundColor: 'var(--ht-card-bg)', borderColor: 'var(--ht-border)' }}>
+                    <button type="button" onClick={handleEnregistrerBrouillon} disabled={saving} className="btn btn-secondary gap-1.5">
+                        <FileText size={14} /> Enregistrer le brouillon
                     </button>
-                    <button type="button" onClick={handleSuivant} disabled={saving} className="btn btn-primary gap-1.5">
-                        {saving ? 'Enregistrement…' : estDernierOnglet ? 'Terminer la consultation' : 'Suivant'}
-                        {!estDernierOnglet && <span aria-hidden>→</span>}
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button type="button" onClick={handleTerminerPlusTard} disabled={saving} className="btn btn-secondary">
+                            Terminer plus tard
+                        </button>
+                        <button type="button" onClick={handleSuivant} disabled={saving} className="btn btn-primary gap-1.5">
+                            {saving ? 'Enregistrement…' : estDernierOnglet ? 'Terminer la consultation' : 'Suivant'}
+                            {!estDernierOnglet && <span aria-hidden>→</span>}
+                        </button>
+                    </div>
                 </div>
-            </div>
+            )}
         </div>
     )
 }

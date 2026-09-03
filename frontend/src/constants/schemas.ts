@@ -2,7 +2,36 @@ import { Pill, Award, FlaskConical, FileText, Send, FileWarning, type LucideIcon
 import type {
     TypeDocument, ChampsOrdonnance, ChampsCertificatMedical, ChampsDemandeExamen,
     ChampsCompteRendu, ChampsLettreOrientation, ChampsArretTravail,
+    TypeConsultation, DecisionOrientation,
 } from '../types'
+
+// ─── Type de consultation (modale de démarrage) ──────────────────────────────
+export const TYPES_CONSULTATION: TypeConsultation[] = [
+    'initiale', 'suivi', 'controle', 'urgence',
+    'preoperatoire', 'postoperatoire', 'teleconsultation', 'autre',
+]
+
+export const TYPE_CONSULTATION_LABELS: Record<TypeConsultation, string> = {
+    initiale:         'Consultation initiale',
+    suivi:            'Consultation de suivi',
+    controle:         'Consultation de contrôle',
+    urgence:          "Consultation d'urgence",
+    preoperatoire:    'Consultation préopératoire',
+    postoperatoire:   'Consultation postopératoire',
+    teleconsultation: 'Téléconsultation',
+    autre:            'Autre',
+}
+
+// ─── Décision d'orientation à la fin de la consultation ──────────────────────
+export const DECISIONS_ORIENTATION: Exclude<DecisionOrientation, ''>[] = [
+    'sortie', 'hospitalisation', 'rendez_vous',
+]
+
+export const DECISION_ORIENTATION_LABELS: Record<Exclude<DecisionOrientation, ''>, string> = {
+    sortie:           'Retour à domicile',
+    hospitalisation:  'Hospitalisation',
+    rendez_vous:      'Rendez-vous de suivi à prendre',
+}
 
 export const TYPES_EDITEUR: TypeDocument[] = [
     'ordonnance', 'certificat_medical', 'demande_analyse',

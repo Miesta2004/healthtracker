@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone as dj_timezone
 from patients.models import Patient
 
 # Create your models here.
@@ -17,6 +18,23 @@ class Consultation(models.Model):
         ('terminee','Terminée'),
         ('annulee','Annulée')
     ]
+
+    class TypeConsultation(models.TextChoices):
+        """
+        Type "métier" de la consultation, renseigné par le médecin dans la
+        modale « Nouvelle consultation » avant de démarrer. Distinct de
+        `type_evenement` (catégorie d'agenda : consultation / examen /
+        opération / autre) et de la spécialité du médecin — cf. discussion
+        parcours consultation : ne pas mélanger type d'acte et spécialité.
+        """
+        INITIALE        = 'initiale',        'Consultation initiale'
+        SUIVI            = 'suivi',            'Consultation de suivi'
+        CONTROLE         = 'controle',         'Consultation de contrôle'
+        URGENCE          = 'urgence',          'Consultation d\'urgence'
+        PREOPERATOIRE    = 'preoperatoire',    'Consultation préopératoire'
+        POSTOPERATOIRE   = 'postoperatoire',   'Consultation postopératoire'
+        TELECONSULTATION = 'teleconsultation', 'Téléconsultation'
+        AUTRE            = 'autre',            'Autre'
 
     class DecisionOrientation(models.TextChoices):
         """
@@ -52,6 +70,15 @@ class Consultation(models.Model):
         choices=TYPE_CHOICES,
         default='consultation'
     )
+    type_consultation = models.CharField(
+        max_length=20,
+        choices=TypeConsultation.choices,
+        blank=True,
+        default='',
+        help_text="Type de consultation choisi dans la modale de démarrage "
+                  "(consultation initiale, suivi, contrôle...). Vide pour les "
+                  "consultations créées avant l'ajout de ce champ.",
+    )
     date = models.DateTimeField()
     motif = models.CharField(max_length=255)
     symptomes = models.TextField(blank=True)
@@ -63,6 +90,21 @@ class Consultation(models.Model):
         max_length = 20,
         choices = STATUT_CHOICES,
         default = 'planifiee'
+    )
+
+    # Horodatage réel du déroulement de la consultation (bouton "Démarrer" /
+    # "Terminer" côté frontend) — source de vérité pour le chronomètre et,
+    # plus tard, les statistiques d'activité (durée moyenne/médiane...).
+    # Rempli automatiquement dans save() dès que le statut passe à
+    # 'en_cours' / 'terminee', pas seulement depuis ce frontend précis :
+    # ainsi tout appel API (admin, script, autre client) reste cohérent.
+    started_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Horodatage réel du démarrage (passage à 'en_cours'). Rempli automatiquement.",
+    )
+    ended_at = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Horodatage réel de la fin (passage à 'terminee'). Rempli automatiquement.",
     )
 
     decision_orientation = models.CharField(
@@ -106,6 +148,15 @@ class Consultation(models.Model):
         # .update() plutôt que patient.save() : évite de redéclencher toute la
         # logique de Patient.save() (numéro de dossier…) pour un simple champ.
         est_nouvelle = self._state.adding
+
+        # Horodatage réel début/fin — idempotent (ne touche jamais une valeur
+        # déjà enregistrée), donc sans effet sur un simple enregistrement de
+        # brouillon une fois la consultation déjà démarrée/terminée.
+        if self.statut in ('en_cours', 'terminee') and self.started_at is None:
+            self.started_at = dj_timezone.now()
+        if self.statut == 'terminee' and self.ended_at is None:
+            self.ended_at = dj_timezone.now()
+
         super().save(*args, **kwargs)
 
         from patients.models import Patient
@@ -130,6 +181,19 @@ class Consultation(models.Model):
             Patient.objects.filter(pk=self.patient_id).update(
                 statut_orientation=Patient.StatutOrientation.EN_CONSULTATION
             )
+
+    @property
+    def duree_secondes(self):
+        """
+        Durée réelle de la consultation en secondes, calculée à partir de
+        started_at/ended_at (pas de champ dupliqué en base — cf. discussion
+        parcours consultation : ne pas créer duration_seconds si la durée se
+        déduit proprement des deux horodatages).
+        Retourne None tant que la consultation n'est pas terminée.
+        """
+        if self.started_at and self.ended_at:
+            return max(0, int((self.ended_at - self.started_at).total_seconds()))
+        return None
 
     def __str__(self):
         return f"{self.get_type_evenement_display()} {self.patient} - {self.date.strftime('%d/%m/%Y')}"

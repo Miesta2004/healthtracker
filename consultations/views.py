@@ -1,7 +1,10 @@
 from datetime import date as date_cls
 from datetime import datetime, timedelta
 
-from django.db.models import Exists, OuterRef, Q
+from django.db.models import (
+    Exists, OuterRef, Q, Count, Avg, Sum, F, DurationField, ExpressionWrapper,
+)
+from django.db.models.functions import TruncWeek
 from rest_framework import viewsets
 from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 from rest_framework.decorators import action
@@ -139,6 +142,92 @@ class ConsultViewSet(viewsets.ModelViewSet):
             date_diagnostic=request.data.get('date_diagnostic') or consultation.date.date(),
         )
         return Response(AntecedentSerializer(antecedent).data, status=201)
+
+    @action(detail=False, methods=['get'], url_path='stats')
+    def stats(self, request):
+        """
+        Indicateurs d'activité/charge sur les consultations visibles par
+        l'utilisateur connecté (réutilise get_queryset, donc déjà scopé par
+        service) — cf. spec parcours consultation §14. Pensés comme des
+        indicateurs de CHARGE, pas un classement qualité des médecins (une
+        consultation courte n'est pas "meilleure" qu'une longue).
+
+        Limite connue : Consultation n'a pas de FK vers le médecin qui l'a
+        réalisée (contrairement à Intervention.chirurgien_principal), donc
+        contrairement aux stats du bloc opératoire, il n'y a pas ici de
+        ventilation par médecin — seulement par service/type/période. Ajouter
+        cette ventilation supposerait de faire porter un `medecin` sur
+        Consultation, ce qui est un changement de modèle plus large, hors
+        périmètre de ce correctif.
+        """
+        qs = self.get_queryset()
+        terminees = qs.filter(
+            statut='terminee', started_at__isnull=False, ended_at__isnull=False
+        ).annotate(
+            duree=ExpressionWrapper(F('ended_at') - F('started_at'), output_field=DurationField())
+        )
+
+        agg = terminees.aggregate(moyenne=Avg('duree'), total=Sum('duree'))
+        duree_moyenne_secondes = agg['moyenne'].total_seconds() if agg['moyenne'] else None
+        temps_total_secondes = agg['total'].total_seconds() if agg['total'] else None
+
+        # Pas de médiane native en SQL portable ici (peu de lignes en pratique
+        # pour ce contexte hospitalier) — calculée en Python, comme le fait
+        # déjà le reste du projet pour ce type d'agrégat ponctuel.
+        durees_triees = sorted(terminees.values_list('duree', flat=True))
+        if durees_triees:
+            milieu = len(durees_triees) // 2
+            if len(durees_triees) % 2:
+                duree_mediane_secondes = durees_triees[milieu].total_seconds()
+            else:
+                duree_mediane_secondes = (
+                    durees_triees[milieu - 1].total_seconds() + durees_triees[milieu].total_seconds()
+                ) / 2
+        else:
+            duree_mediane_secondes = None
+
+        repartition_par_type = [
+            {
+                'type_consultation': ligne['type_consultation'] or None,
+                'nb': ligne['nb'],
+                'duree_moyenne_secondes': ligne['duree_moyenne'].total_seconds() if ligne['duree_moyenne'] else None,
+            }
+            for ligne in (
+                terminees.values('type_consultation')
+                .annotate(nb=Count('id'), duree_moyenne=Avg('duree'))
+                .order_by('-nb')
+            )
+        ]
+
+        depuis = dj_timezone.now() - timedelta(weeks=12)
+        evolution_hebdo = list(
+            qs.filter(started_at__gte=depuis, started_at__isnull=False)
+            .annotate(semaine=TruncWeek('started_at'))
+            .values('semaine').annotate(nb=Count('id')).order_by('semaine')
+        )
+
+        dernieres = terminees.order_by('-ended_at')[:5]
+        dernieres_consultations = [
+            {
+                'date': c.ended_at.strftime('%d/%m/%Y') if c.ended_at else None,
+                'patient': f"{c.patient.prenom} {c.patient.nom}",
+                'type_consultation': c.type_consultation or None,
+                'motif': c.motif,
+                'duree_secondes': c.duree.total_seconds() if c.duree else None,
+            }
+            for c in dernieres.select_related('patient')
+        ]
+
+        return Response({
+            'nb_consultations': qs.count(),
+            'nb_terminees': terminees.count(),
+            'duree_moyenne_secondes': duree_moyenne_secondes,
+            'duree_mediane_secondes': duree_mediane_secondes,
+            'temps_total_secondes': temps_total_secondes,
+            'repartition_par_type': repartition_par_type,
+            'evolution_hebdo': evolution_hebdo,
+            'dernieres_consultations': dernieres_consultations,
+        })
 
 
 def _exception_bloquante(medecin, jour):

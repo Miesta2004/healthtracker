@@ -198,6 +198,12 @@ export interface SignesVitaux {
 
 export type ConsultationStatut = 'planifiee' | 'en_cours' | 'terminee' | 'annulee'
 export type TypeEvenement = 'consultation' | 'examen' | 'operation' | 'autre'
+// Type "métier" choisi dans la modale de démarrage — distinct de TypeEvenement
+// (catégorie d'agenda) et de la spécialité du médecin.
+export type TypeConsultation =
+    | 'initiale' | 'suivi' | 'controle' | 'urgence'
+    | 'preoperatoire' | 'postoperatoire' | 'teleconsultation' | 'autre'
+export type DecisionOrientation = 'sortie' | 'hospitalisation' | 'rendez_vous' | ''
 
 // ─── Comptes / Employés ─────────────────────────────────────────────────────
 export type RoleEmploye = 'admin' | 'medecin' | 'infirmier' | 'secretaire' | 'laborantin' | 'chef_chirurgie' | 'agent_admission' | 'facturier' | 'caissier'
@@ -362,6 +368,8 @@ export interface Consultation {
     id: number
     patient: number
     type_evenement: TypeEvenement
+    type_consultation?: TypeConsultation | ''
+    type_consultation_label?: string
     date: string
     motif: string
     symptomes: string
@@ -370,6 +378,15 @@ export interface Consultation {
     ordonnance: string
     notes: string
     statut: ConsultationStatut
+    decision_orientation?: DecisionOrientation
+    decision_orientation_label?: string
+    // Horodatages réels démarrage/fin — source de vérité du chronomètre,
+    // renseignés automatiquement côté backend (voir Consultation.save()).
+    started_at?: string | null
+    ended_at?: string | null
+    // Calculée côté backend à partir de started_at/ended_at ; null tant que
+    // la consultation n'est pas terminée.
+    duree_secondes?: number | null
     date_creation: string
     date_modification: string
 }
