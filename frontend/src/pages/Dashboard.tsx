@@ -15,6 +15,9 @@ import PageBanner from "../components/PageBanner.tsx";
 import DayTimeline from "../components/dashboard/DayTimeLine.tsx";
 import RoleWorkspace from "../components/dashboard/RoleWorkspace.tsx";
 import ContinuerMonTravailCard, { type WorkItem } from "../components/dashboard/ContinuerMonTravailCard.tsx";
+import DerniereActiviteCard from "../components/dashboard/DerniereActiviteCard.tsx";
+import { getDerniereActivite } from "../api/derniereActivite";
+import type { DerniereActivite } from "../types";
 import { useAuth } from "../contexts/AuthContext";
 import { useRealtimeCalendrier } from "../hooks/useRealtimeCalendrier";
 import { usePlanning } from "../hooks/useCalendrier";
@@ -151,6 +154,9 @@ export default function Dashboard() {
     const [demandesAnalyses, setDemandesAnalyses] = useState<DemandeAnalyse[] | null>(null);
     const [rappels, setRappels] = useState<Rappel[] | null>(null);
     const [admissionsEnAttente, setAdmissionsEnAttente] = useState<Patient[] | null>(null);
+    const [derniereActivite, setDerniereActivite] = useState<DerniereActivite | null>(null);
+    const [derniereActiviteLoading, setDerniereActiviteLoading] = useState(true);
+
 
     useEffect(() => {
         if (canSeePatients) getPatients().then(setPatients).catch(() => setPatients([]));
@@ -161,7 +167,10 @@ export default function Dashboard() {
         if (isSecretaire || isAdmin) getFileAttenteAccueil().then(setAdmissionsEnAttente).catch(() => setAdmissionsEnAttente([]));
         getRappels().then(setRappels).catch(() => setRappels([]));
         getAlertes().then(setAlertes).catch(() => setAlertes([]));
-        if (isAdmin) {
+        getDerniereActivite()
+            .then(setDerniereActivite)
+            .catch(() => setDerniereActivite(null))
+            .finally(() => setDerniereActiviteLoading(false));        if (isAdmin) {
             Promise.all([getEmployes(), getServices()])
                 .then(([emps, servs]) => setEffectif({
                     employes: emps.filter((e) => e.actif).length,
@@ -331,11 +340,19 @@ export default function Dashboard() {
                     }
                 />
 
-                {/* ── Continuer mon travail ── */}
+                {/* ── Reprendre : tâches en attente + dernière position de travail ── */}
                 <section className="space-y-4">
                     <h2 className="text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5" style={{ color: "var(--ht-text-muted)" }}>
                         <Sparkles size={13} /> Reprendre
                     </h2>
+                    {/* DerniereActiviteCard rend `null` s'il n'y a aucune dernière
+                        activité valide (cf. composant) : ne casse jamais la mise
+                        en page quand elle est absente. */}
+                    <DerniereActiviteCard
+                        activite={derniereActivite}
+                        loading={derniereActiviteLoading}
+                        onReprendre={(route) => navigate(route)}
+                    />
                     <ContinuerMonTravailCard
                         items={travailItems}
                         rappelsDetail={rappelsEnAttente.map((r) => r.texte)}

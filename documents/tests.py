@@ -130,9 +130,11 @@ class DocumentGenereAPITest(TestCase):
         self.assertEqual(response.data[0]['titre'], "Doc 1")
 
     def test_pdf_sans_xhtml2pdf_installe_renvoie_message_clair(self):
+        # L'ordonnance n'utilise plus ce circuit HTML → PDF (générée côté client
+        # avec @react-pdf/renderer) ; on teste ici un type qui y reste encore.
         doc = DocumentGenere.objects.create(
-            patient=self.patient, type_document='ordonnance', titre="Doc",
-            donnees={'contexte': construire_contexte(patient=self.patient), 'champs': champs_vides_pour('ordonnance')},
+            patient=self.patient, type_document='certificat_medical', titre="Doc",
+            donnees={'contexte': construire_contexte(patient=self.patient), 'champs': champs_vides_pour('certificat_medical')},
             genere_par=self.medecin,
         )
         self.client.force_authenticate(user=self.medecin_user)

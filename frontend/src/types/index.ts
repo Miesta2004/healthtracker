@@ -272,6 +272,23 @@ export interface Rappel {
     date_creation: string
 }
 
+// ─── Dernière activité (reprise après reconnexion) ─────────────────────────
+// Distinct du journal "Activités" du service (audit) : ceci ne représente
+// que la position de navigation courante de l'utilisateur connecté.
+export type SectionDerniereActivite =
+    | 'dossier' | 'consultation' | 'prescription'
+    | 'document' | 'hospitalisation' | 'signes_vitaux'
+
+export interface DerniereActivite {
+    route: string
+    patient_id: number | null
+    patient_nom: string | null
+    consultation_id: number | null
+    section: SectionDerniereActivite | ''
+    section_label: string
+    date_activite: string
+}
+
 export interface MedecinPerf {
     id: number
     nom: string

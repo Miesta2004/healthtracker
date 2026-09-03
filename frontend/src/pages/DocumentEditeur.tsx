@@ -1,7 +1,7 @@
 import {useEffect, useRef, useState} from 'react'
 import {useNavigate, useParams} from 'react-router-dom'
 import {CheckCircle2, ChevronLeft, Download, Printer, Save, Trash2} from 'lucide-react'
-import {getDocument, sauvegarderDocument, supprimerDocument, telechargerDocumentPdf} from '../api/documents'
+import {getDocument, sauvegarderDocument, supprimerDocument} from '../api/documents'
 import {usePdfDownload} from '../hooks/usePdfDownload'
 import type {
     ChampsArretTravail,
@@ -37,7 +37,7 @@ export default function DocumentEditeur() {
     const [enregistreLe, setEnregistreLe] = useState<Date | null>(null)
     const [document, setDocument] = useState<DocumentGenere | null>(null)
     const dejaModifie = useRef(false)   // ← nouveau : ignore le premier rendu après chargement
-    const { genererEtTelechargerOrdonnance } = usePdfDownload()
+    const { genererEtTelechargerDocument } = usePdfDownload()
 
     useEffect(() => {
         if (!documentId) return
@@ -118,38 +118,10 @@ export default function DocumentEditeur() {
         setPdfLoading(true)
         setError('')
         try {
-            // Utiliser React PDF pour les ordonnances
-            if (document.type_document === 'ordonnance') {
-                const contexte = document.donnees?.contexte
-                const champs = document.donnees?.champs as ChampsOrdonnance
-
-                if (!contexte || !champs) {
-                    setError('Données du document insuffisantes.')
-                    return
-                }
-
-                const success = await genererEtTelechargerOrdonnance(document, contexte, champs)
-                if (!success) {
-                    setError('Erreur lors de la génération du PDF.')
-                }
-            } else {
-                // Fallback au backend pour les autres documents
-                const blob = await telechargerDocumentPdf(document.id)
-                const url = URL.createObjectURL(blob)
-                window.open(url, '_blank')
-                setTimeout(() => URL.revokeObjectURL(url), 30000)
-            }
-        } catch (err: any) {
-            let message = "PDF indisponible pour l'instant — utilise Imprimer en attendant."
-            const blob = err?.response?.data
-            if (blob instanceof Blob && blob.type === 'application/json') {
-                try {
-                    const body = JSON.parse(await blob.text())
-                    if (body?.detail) message = body.detail
-                } catch { /* garde le message par défaut */
-                }
-            }
-            setError(message)
+            const ok = await genererEtTelechargerDocument(document, document.donnees.contexte, document.donnees.champs)
+            if (!ok) setError('Erreur lors de la génération du PDF.')
+        } catch {
+            setError('Erreur lors de la génération du PDF.')
         } finally {
             setPdfLoading(false)
         }

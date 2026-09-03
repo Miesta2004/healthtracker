@@ -11,8 +11,6 @@ import { createDemande } from '../api/analyses'
 import type { DemandeAnalyse, TypeAnalyse, UrgenceAnalyse } from '../types'
 import { createAssignation, deleteAssignation } from '../api/disponibilites'
 import type { RendezVous, PassageUrgence, Hospitalisation, Operation, AssignationPatient, Shift } from '../types'
-import { useAuth } from '../contexts/AuthContext'
-import { Capacite } from '../constants/capacites'
 import { SkeletonDetailPage, SkeletonListRows } from '../components/Skeleton'
 import Sidebar from '../components/Sidebar.tsx'
 import RestrictedAccess from '../components/RestrictedAccess'
@@ -24,6 +22,10 @@ import {
     User, Stethoscope, AlertTriangle, Bell, Calendar, Check, LogOut, Scissors,
     Droplet, Thermometer, Heart, FileText, RefreshCw, type LucideIcon
 } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import { useDerniereActivite } from '../hooks/useDerniereActivite'
+import { Capacite } from '../constants/capacites'
+
 
 // ─── Config analyses ────────────────────────────────────────────────────────
 const TYPES_ANALYSE: { value: TypeAnalyse; label: string }[] = [
@@ -872,6 +874,16 @@ export default function PatientDetail() {
     const {
         assignations, setAssignations, infirmiersService,
     } = usePatientAssignations(patient, canAssignInfirmier)
+
+    // Position de navigation pour la reprise après reconnexion — cf.
+    // useDerniereActivite. N'enregistre que l'ouverture du dossier
+    // lui-même, pas chaque interaction à l'intérieur.
+    useDerniereActivite({
+        route: `/patients/${patientId}`,
+        section: 'dossier',
+        patientId,
+        enabled: !patientLoading && !!patient,
+    })
 
     const canMarquerSorti = hasCapacite(Capacite.PATIENTS_CONFIRMER_ARRIVEE) &&
         patient?.statut_orientation !== 'sorti' &&

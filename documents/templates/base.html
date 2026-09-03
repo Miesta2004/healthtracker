@@ -3,52 +3,57 @@
     <meta charset="utf-8">
     <style>
         @page { size: A4; margin: 1.8cm 1.7cm 2cm 1.7cm; }
-        body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; color: #1a1a1a; line-height: 1.5; }
+        body { font-family: Helvetica, Arial, sans-serif; font-size: 10.5pt; color: #111827; line-height: 1.5; }
 
         /* En-tête libre (texte configurable par établissement, via ModeleDocument) */
-        .entete { font-size: 8.5pt; color: #6b7280; padding-bottom: 8pt; margin-bottom: 12pt; border-bottom: 0.5pt solid #e5e7eb; }
+        .entete { font-size: 8.5pt; color: #6b7280; padding-bottom: 8pt; margin-bottom: 12pt; border-bottom: 0.5pt solid #e2e8f0; }
 
-        /* Bandeau titre du document + référence */
-        table.entete-doc { width: 100%; border-collapse: collapse; margin-bottom: 4pt; }
-        table.entete-doc td { vertical-align: bottom; padding: 0 0 8pt 0; border-bottom: 2pt solid #2F5D4E; }
-        .titre-document { font-size: 16pt; font-weight: bold; color: #2F5D4E; }
+        /* Bandeau identité HealthTracker + titre du document + référence */
+        table.entete-doc { width: 100%; border-collapse: collapse; margin-bottom: 4pt; padding-bottom: 14pt; border-bottom: 1pt solid #e2e8f0; }
+        table.entete-doc td { vertical-align: top; padding: 0; }
+        .marque { font-size: 15pt; font-weight: bold; color: #2D8C7F; letter-spacing: 0.2pt; }
+        .marque-soustitre { font-size: 8pt; color: #6b7280; font-weight: bold; margin-top: 2pt; }
+        .titre-document { font-size: 8.5pt; font-weight: bold; color: #111827; margin-top: 7pt; }
+        .medecin-specialite { font-size: 8pt; color: #6b7280; margin-top: 1pt; }
         .meta-doc { text-align: right; }
-        .meta-doc .numero { font-size: 9.5pt; font-weight: bold; color: #111827; }
-        .meta-doc .sous-titre { font-size: 8.5pt; color: #6b7280; margin-top: 2pt; }
+        .meta-doc .date-lieu { font-size: 9.5pt; font-weight: bold; color: #111827; }
+        .meta-doc .numero { font-size: 8.5pt; color: #6b7280; margin-top: 3pt; }
 
         /* Carte identité patient */
-        table.carte-patient { width: 100%; border-collapse: collapse; margin: 14pt 0 16pt 0; background-color: #f9fafb; border: 0.5pt solid #e5e7eb; }
-        table.carte-patient td { padding: 8pt 12pt; vertical-align: top; }
+        table.carte-patient { width: 100%; border-collapse: collapse; margin: 14pt 0 16pt 0; background-color: #F8FAFC; border: 0.5pt solid #e2e8f0; }
+        table.carte-patient td { padding: 9pt 12pt; vertical-align: top; }
         table.carte-patient .label { color: #6b7280; font-size: 7.5pt; text-transform: uppercase; letter-spacing: 0.3pt; }
         table.carte-patient .valeur { font-weight: bold; color: #111827; font-size: 9.5pt; margin-top: 1pt; }
+        table.carte-patient .valeur-accent { font-weight: bold; color: #2D8C7F; font-size: 9.5pt; margin-top: 1pt; }
 
         /* Alerte allergies (affichée seulement si le patient a des allergies connues) */
-        .alerte-allergies { background-color: #ffe3df; border: 0.5pt solid #f3a89d; padding: 8pt 12pt; margin-bottom: 14pt; font-size: 9pt; color: #7a2419; }
-        .alerte-allergies strong { color: #d9463a; }
+        .alerte-allergies { background-color: #FEF2F2; border: 0.5pt solid #FCA5A5; padding: 8pt 12pt; margin-bottom: 14pt; font-size: 9pt; color: #7a2419; }
+        .alerte-allergies strong { color: #DC2626; }
 
         .section { margin-bottom: 14pt; }
-        .section-titre { font-size: 10pt; font-weight: bold; color: #2F5D4E; text-transform: uppercase; letter-spacing: 0.3pt; border-bottom: 0.5pt solid #e5e7eb; padding-bottom: 3pt; margin-bottom: 6pt; }
+        .section-titre { font-size: 9.5pt; font-weight: bold; color: #111827; text-transform: uppercase; letter-spacing: 1pt; border-bottom: 0.5pt solid #e2e8f0; padding-bottom: 6pt; margin-bottom: 8pt; }
         .section-contenu { font-size: 10pt; white-space: pre-wrap; }
 
-        /* Tableaux (médicaments, examens...) */
+        /* Tableaux génériques (ex : examens demandés) */
         table.medicaments { width: 100%; border-collapse: collapse; margin-top: 4pt; }
-        table.medicaments th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #ffffff; background-color: #2F5D4E; padding: 6pt 8pt; }
-        table.medicaments td { font-size: 9.5pt; padding: 7pt 8pt; border-bottom: 0.5pt solid #e5e7eb; }
-        table.medicaments tr.ligne-b td { background-color: #f9fafb; }
+        table.medicaments th { text-align: left; font-size: 8pt; text-transform: uppercase; letter-spacing: 0.3pt; color: #6b7280; background-color: #F8FAFC; padding: 6pt 8pt; border-bottom: 0.5pt solid #e2e8f0; }
+        table.medicaments td { font-size: 9.5pt; padding: 7pt 8pt; border-bottom: 0.5pt solid #e2e8f0; }
+        table.medicaments tr.ligne-b td { background-color: #F9FAFB; }
         table.medicaments .note { font-size: 8pt; color: #6b7280; font-style: italic; }
-        table.medicaments .vide { color: #9ca3af; text-align: center; padding: 14pt; }
+        table.medicaments .vide { color: #9CA3AF; text-align: center; padding: 14pt; font-style: italic; }
 
         /* Encadré conseils / recommandations */
-        .encadre-conseils { background-color: #f9fafb; border: 0.5pt solid #e5e7eb; border-left: 3pt solid #2F5D4E; padding: 8pt 12pt; margin-top: 4pt; }
+        .encadre-conseils { background-color: #F8FAFC; border: 0.5pt solid #e2e8f0; padding: 8pt 12pt; margin-top: 4pt; }
 
-        .pied-de-page { margin-top: 26pt; padding-top: 8pt; border-top: 0.5pt solid #e5e7eb; font-size: 8.5pt; color: #6b7280; }
-        .mention-generation { margin-top: 6pt; font-size: 7.5pt; color: #9ca3af; text-align: center; }
+        .pied-de-page { margin-top: 26pt; padding-top: 8pt; border-top: 0.5pt solid #e2e8f0; font-size: 8.5pt; color: #6b7280; }
+        .mention-generation { margin-top: 6pt; font-size: 7.5pt; color: #9CA3AF; text-align: center; }
 
-        /* Zone signature / cachet */
-        .signature-zone { margin-top: 24pt; }
-        .signature-nom { font-size: 10pt; font-weight: bold; color: #111827; }
-        .signature-meta { font-size: 8.5pt; color: #6b7280; white-space: pre-wrap; margin-top: 1pt; }
-        .cachet-box { margin-top: 8pt; border: 1pt dashed #cbd5e1; height: 22mm; color: #94a3b8; font-size: 7.5pt; text-align: center; padding-top: 8pt; }
+        /* Zone signature / cachet — reprend le pied Antigravity */
+        .signature-zone { margin-top: 34pt; padding-top: 16pt; border-top: 0.5pt solid #e2e8f0; }
+        .signature-disclaimer { font-size: 7.5pt; color: #9CA3AF; line-height: 1.5; }
+        .signature-nom { font-size: 9.5pt; font-weight: bold; color: #111827; }
+        .signature-meta { font-size: 8pt; color: #6b7280; font-style: italic; white-space: pre-wrap; margin-top: 1pt; }
+        .cachet-box { margin-top: 8pt; border: 1pt dashed #CBD5E1; height: 20mm; width: 55mm; color: #94A3B8; font-size: 7.5pt; text-align: center; padding-top: 8pt; margin-left: auto; }
     </style>
 </head>
 <body>
@@ -56,33 +61,36 @@
 
 <table class="entete-doc">
     <tr>
-        <td style="text-align:left;">
-            <div class="titre-document">{{ document.get_type_document_display }}</div>
+        <td style="text-align:left; width:60%;">
+            <div class="marque">HealthTracker SIH</div>
+            <div class="marque-soustitre">Centre Hospitalier Universitaire &amp; Médical</div>
+            <div class="titre-document">Dr {{ contexte.medecin.prenom }} {{ contexte.medecin.nom }}</div>
+            <div class="medecin-specialite">{% if contexte.service %}{{ contexte.service.nom }}{% else %}Médecine Générale{% endif %}</div>
         </td>
-        <td class="meta-doc" style="text-align:right;">
-            <div class="numero">N° {{ document.type_document|upper }}-{{ document.id|stringformat:"05d" }}</div>
-            <div class="sous-titre">Fait le {{ contexte.date_jour }}{% if contexte.service %} — {{ contexte.service.nom }}{% endif %}</div>
+        <td class="meta-doc" style="width:40%;">
+            <div class="date-lieu">Dakar, le {{ contexte.date_jour }}</div>
+            <div class="numero">{{ document.get_type_document_display }} — N° {{ document.type_document|upper }}-{{ document.id|stringformat:"06d" }}</div>
         </td>
     </tr>
 </table>
 
 <table class="carte-patient">
     <tr>
-        <td style="width:38%;">
-            <div class="label">Patient</div>
+        <td style="width:32%;">
+            <div class="label">Patient(e)</div>
             <div class="valeur">{{ contexte.patient.prenom }} {{ contexte.patient.nom }}</div>
         </td>
         <td style="width:22%;">
             <div class="label">Né(e) le</div>
             <div class="valeur">{{ contexte.patient.date_naissance }}</div>
         </td>
-        <td style="width:22%;">
+        <td style="width:24%;">
             <div class="label">Âge / Sexe</div>
-            <div class="valeur">{{ contexte.patient.age }} ans — {{ contexte.patient.sexe }}</div>
+            <div class="valeur">{{ contexte.patient.age|default:"N/A" }} ans — {{ contexte.patient.sexe }}</div>
         </td>
-        <td style="width:18%;">
+        <td style="width:22%;">
             <div class="label">N° dossier</div>
-            <div class="valeur">{{ contexte.patient.numero_dossier }}</div>
+            <div class="valeur-accent">{{ contexte.patient.numero_dossier }}</div>
         </td>
     </tr>
 </table>
@@ -98,12 +106,16 @@
 <div class="signature-zone">
     <table style="width:100%; border-collapse:collapse;">
         <tr>
-            <td style="width:55%;">&nbsp;</td>
-            <td style="width:45%; text-align:center;">
+            <td style="width:55%; vertical-align:bottom;">
+                <div class="signature-disclaimer">
+                    Document généré de façon sécurisée par HealthTracker SIH.<br>
+                    Authenticité vérifiable via signature praticien.
+                </div>
+            </td>
+            <td style="width:45%; text-align:right;">
                 <div class="signature-nom">Dr {{ contexte.medecin.prenom }} {{ contexte.medecin.nom }}</div>
-                {% if contexte.service %}<div class="signature-meta">{{ contexte.service.nom }}</div>{% endif %}
-                {% if contexte.medecin.signature %}<div class="signature-meta">{{ contexte.medecin.signature|linebreaksbr }}</div>{% endif %}
-                <div class="cachet-box">Cachet &amp; signature</div>
+                <div class="signature-meta">Signature &amp; Cachet médical{% if contexte.medecin.signature %}{{ contexte.medecin.signature|linebreaksbr }}{% endif %}</div>
+                <div class="cachet-box">[ Cachet Médecin ]</div>
             </td>
         </tr>
     </table>

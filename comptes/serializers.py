@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from .models import Employe, HabilitationService, Role, Rappel
 from services.models import Service
+from .models import Employe, HabilitationService, Role, Rappel, DerniereActivite
 
 
 class EmployeSerializer(serializers.ModelSerializer):
@@ -165,3 +166,34 @@ class RappelSerializer(serializers.ModelSerializer):
         # `employe` n'est volontairement pas exposé : toujours déduit de
         # request.user côté vue (perform_create), jamais fourni par le
         # client — un rappel n'appartient qu'à son auteur.
+
+
+class DerniereActiviteSerializer(serializers.ModelSerializer):
+    """
+    Lecture uniquement (l'écriture passe par une validation dédiée dans la
+    vue, cf. EmployeViewSet.enregistrer_activite, pas par ce serializer).
+
+    N'expose que des identifiants + un libellé nominatif — jamais de contenu
+    médical (pas d'observations, pas de diagnostic, etc.), conformément à
+    l'esprit "aperçu de reprise", pas "aperçu du dossier".
+    """
+    patient_id = serializers.SerializerMethodField()
+    patient_nom = serializers.SerializerMethodField()
+    consultation_id = serializers.SerializerMethodField()
+    section_label = serializers.CharField(source='get_section_display', read_only=True)
+
+    class Meta:
+        model = DerniereActivite
+        fields = [
+            'route', 'patient_id', 'patient_nom',
+            'consultation_id', 'section', 'section_label', 'date_activite',
+        ]
+
+    def get_patient_id(self, obj):
+        return obj.patient_id
+
+    def get_patient_nom(self, obj):
+        return f"{obj.patient.prenom} {obj.patient.nom}" if obj.patient else None
+
+    def get_consultation_id(self, obj):
+        return obj.consultation_id

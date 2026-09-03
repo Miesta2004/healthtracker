@@ -8,15 +8,37 @@ from rest_framework.authentication import SessionAuthentication
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.conf import settings
 from django.middleware.csrf import get_token
-from .models import Employe, HabilitationService, Rappel
-from .serializers import EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer, RappelSerializer
-from .permissions import IsAdminRole, PeutGererHabilitations, get_employe
+from .models import Employe, HabilitationService, Rappel, DerniereActivite
+from .serializers import (
+    EmployeSerializer, CreateEmployeSerializer, HabilitationServiceSerializer,
+    RappelSerializer, DerniereActiviteSerializer,
+)
+from .permissions import IsAdminRole, PeutGererHabilitations, get_employe, same_service
 from .analytics import stats_medecin
 from .capacites import Capacite
 from temps_reel.broadcast import diffuser_utilisateur
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer, TokenRefreshSerializer
 from .storage import upload_photo, get_signed_url, delete_photo, FichierInvalide
 from django.contrib.auth.hashers import check_password
+
+def _patient_accessible(user, emp, patient):
+    """
+    Vérification volontairement simple (pas une réplique complète de
+    PatientViewSet.get_queryset — cf. patients/views.py) : sert uniquement
+    à décider si on affiche le nom du patient dans le bloc "Dernière
+    activité" du Dashboard, pas à sécuriser l'accès au dossier lui-même
+    (celui-ci reste protégé indépendamment par PatientViewSet quand
+    l'utilisateur clique "Reprendre"). En cas de doute on préfère masquer
+    la carte plutôt que risquer d'afficher un nom auquel l'employé n'a
+    plus accès.
+    """
+    if user.is_superuser:
+        return True
+    if emp.service is None:
+        # Rôles sans service fixe (agent d'admission, laborantin...) ont
+        # une vue transverse par nature — cf. PatientViewSet.get_queryset.
+        return True
+    return same_service(emp, patient)
 
 
 class EmployeViewSet(viewsets.ModelViewSet):
@@ -215,6 +237,89 @@ class EmployeViewSet(viewsets.ModelViewSet):
         url = get_signed_url(emp.photo_path)
         return Response({'url': url})
 
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def ma_derniere_activite(self, request):
+        """
+        Renvoie la dernière position de navigation de l'employé connecté,
+        pour le bloc "Dernière activité" du Dashboard — cf.
+        comptes/models.py:DerniereActivite pour la distinction avec le
+        journal d'audit (activites/JournalActivite).
+
+        Ne renvoie rien (204) si :
+        - aucune dernière activité n'a jamais été enregistrée ;
+        - le patient associé a été supprimé depuis ;
+        - le patient n'est plus accessible à l'employé (changement de
+          service, etc.) — on ne signale pas d'erreur, on masque
+          simplement la carte, cf. exigence "gérer proprement le cas".
+        Dans ce dernier cas, l'enregistrement obsolète est aussi supprimé
+        pour ne pas re-tester la même vérification à chaque chargement du
+        Dashboard.
+        """
+        emp = get_employe(request.user)
+        if emp is None:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        try:
+            derniere = emp.derniere_activite
+        except DerniereActivite.DoesNotExist:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        if derniere.patient_id is not None:
+            if derniere.patient is None or not _patient_accessible(request.user, emp, derniere.patient):
+                derniere.delete()
+                return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(DerniereActiviteSerializer(derniere).data)
+
+    @action(detail=False, methods=['post'], permission_classes=[IsAuthenticated])
+    def enregistrer_activite(self, request):
+        """
+        Enregistre (crée ou met à jour) la dernière position de navigation
+        de l'employé connecté. Appelé par le frontend sur les navigations
+        importantes uniquement (ouverture d'un dossier patient, d'une
+        consultation, changement d'onglet significatif...) — jamais à
+        chaque interaction mineure, cf. hook useDerniereActivite côté
+        frontend.
+
+        Volontairement permissif sur les FK : si patient_id/consultation_id
+        ne correspondent à rien (ou plus à rien), on les ignore simplement
+        plutôt que de renvoyer une erreur — cette route ne doit jamais
+        casser la navigation de l'utilisateur.
+        """
+        emp = get_employe(request.user)
+        if emp is None:
+            return Response({'error': 'Employé introuvable'}, status=404)
+
+        route = str(request.data.get('route', '')).strip()
+        if not route:
+            return Response({'error': 'route requise'}, status=400)
+
+        section = request.data.get('section', '') or ''
+        if section and section not in dict(DerniereActivite.SECTION_CHOICES):
+            return Response({'error': 'section invalide'}, status=400)
+
+        patient = None
+        patient_id = request.data.get('patient_id')
+        if patient_id:
+            from patients.models import Patient
+            patient = Patient.objects.filter(pk=patient_id).first()
+
+        consultation = None
+        consultation_id = request.data.get('consultation_id')
+        if consultation_id:
+            from consultations.models import Consultation
+            consultation = Consultation.objects.filter(pk=consultation_id).first()
+
+        derniere, _ = DerniereActivite.objects.update_or_create(
+            employe=emp,
+            defaults={
+                'route': route,
+                'patient': patient,
+                'consultation': consultation,
+                'section': section,
+            },
+        )
+        return Response(DerniereActiviteSerializer(derniere).data)
 
 class CustomTokenSerializer(TokenObtainPairSerializer):
     @classmethod

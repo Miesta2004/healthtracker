@@ -235,3 +235,53 @@ class Rappel(models.Model):
 
     def __str__(self):
         return self.texte
+
+
+class DerniereActivite(models.Model):
+    """
+    Position de navigation d'un employé — "où en était-il ?" pour la reprise
+    après reconnexion (bouton "Reprendre" du Dashboard).
+
+    À NE PAS CONFONDRE avec JournalActivite (activites/models.py), qui est
+    le journal d'audit du service (qui a fait quoi, historique complet).
+    Ici, un seul enregistrement par employé (OneToOne, pas d'historique) :
+    on ne veut que le DERNIER endroit de travail, pas un log. Volontairement
+    minimal — uniquement des identifiants de navigation, aucune donnée
+    médicale (pas de contenu de dossier, pas d'observations, etc.), pour
+    qu'un aperçu de reprise reste affichable sans exposer d'information
+    clinique avant que l'utilisateur ait cliqué "Reprendre".
+    """
+    SECTION_CHOICES = [
+        ('dossier', 'Dossier médical'),
+        ('consultation', 'Consultation'),
+        ('prescription', 'Prescription'),
+        ('document', 'Document'),
+        ('hospitalisation', 'Hospitalisation'),
+        ('signes_vitaux', 'Signes vitaux'),
+    ]
+
+    employe = models.OneToOneField(
+        Employe, on_delete=models.CASCADE, related_name='derniere_activite'
+    )
+    # Chemin frontend brut (ex. "/patients/42/consultations/17") — c'est lui
+    # qui sert de cible de navigation au clic sur "Reprendre". Les FK
+    # ci-dessous ne servent qu'à revalider l'accès et afficher un libellé
+    # humain (nom du patient) sans avoir à re-parser la route.
+    route = models.CharField(max_length=255)
+    patient = models.ForeignKey(
+        'patients.Patient', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+'
+    )
+    consultation = models.ForeignKey(
+        'consultations.Consultation', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='+'
+    )
+    section = models.CharField(max_length=20, choices=SECTION_CHOICES, blank=True)
+    date_activite = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Dernière activité"
+        verbose_name_plural = "Dernières activités"
+
+    def __str__(self):
+        return f"{self.employe} — {self.route}"

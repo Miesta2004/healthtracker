@@ -14,17 +14,19 @@ interface ApercuProps<C> {
 // soit le thème choisi par la personne qui l'imprime. Ne jamais remplacer ces
 // valeurs par des `var(--ht-*)`.
 const A4_COULEURS = {
-    primaire: '#2F5D4E',
-    texte: '#1a1a1a',
-    texteMuted: '#6b7280',
-    bordure: '#e5e7eb',
-    danger: '#dc2626',
+    primaire: '#2D8C7F',
+    texte: '#111827',
+    texteMuted: '#6B7280',
+    bordure: '#E2E8F0',
+    fond: '#F8FAFC',
+    danger: '#DC2626',
 } as const
 
 export default function ApercuA4({ document }: { document: DocumentGenere }) {
     const { contexte, champs } = document.donnees
     const entete = document.entete_rendue ?? ''
     const piedDePage = document.pied_de_page_rendu ?? ''
+    const numero = `${document.type_document.toUpperCase()}-${String(document.id).padStart(6, '0')}`
 
     return (
         <div
@@ -35,27 +37,43 @@ export default function ApercuA4({ document }: { document: DocumentGenere }) {
                 minHeight: '297mm',
                 padding: '18mm 16mm',
                 color: A4_COULEURS.texte,
-                fontFamily: 'Georgia, serif'
+                fontFamily: "'Inter', ui-sans-serif, system-ui, -apple-system, Helvetica, Arial, sans-serif"
             }}
         >
             {entete && (
                 <div
-                    className="text-[11px] pb-2.5 mb-4 border-b-[1.5px]"
-                    style={{
-                        borderColor: A4_COULEURS.primaire,
-                        color: '#444'
-                    }}
+                    className="text-[11px] pb-2.5 mb-4 border-b"
+                    style={{ borderColor: A4_COULEURS.bordure, color: A4_COULEURS.texteMuted }}
                 >
                     {entete.split('\n').map((l, i) => <div key={i}>{l}</div>)}
                 </div>
             )}
 
-            <h1 className="text-xl font-bold mb-0.5" style={{ color: A4_COULEURS.primaire }}>
-                {document.type_document_label}
-            </h1>
-            <p className="text-[11px] mb-4" style={{ color: A4_COULEURS.texteMuted }}>
-                Fait le {contexte.date_jour}{contexte.service ? ` — ${contexte.service.nom}` : ''}
-            </p>
+            {/* EN-TÊTE — identité HealthTracker + médecin à gauche, date/référence à droite */}
+            <div className="flex justify-between items-start border-b pb-4 mb-4" style={{ borderColor: A4_COULEURS.bordure }}>
+                <div>
+                    <div className="font-black text-lg tracking-tight" style={{ color: A4_COULEURS.primaire }}>
+                        HealthTracker SIH
+                    </div>
+                    <div className="text-[10px] font-semibold mt-0.5" style={{ color: A4_COULEURS.texteMuted }}>
+                        Centre Hospitalier Universitaire &amp; Médical
+                    </div>
+                    <div className="text-[11px] font-semibold mt-1.5" style={{ color: A4_COULEURS.texte }}>
+                        Dr {contexte.medecin?.prenom} {contexte.medecin?.nom}
+                    </div>
+                    <div className="text-[10px]" style={{ color: A4_COULEURS.texteMuted }}>
+                        {contexte.service?.nom || 'Médecine Générale'}
+                    </div>
+                </div>
+                <div className="text-right">
+                    <div className="text-[11px] font-bold" style={{ color: A4_COULEURS.texte }}>
+                        Dakar, le {contexte.date_jour}
+                    </div>
+                    <div className="text-[10px] mt-1" style={{ color: A4_COULEURS.texteMuted }}>
+                        {document.type_document_label} — N° {numero}
+                    </div>
+                </div>
+            </div>
 
             <BlocPatient contexte={contexte} />
 
@@ -68,9 +86,31 @@ export default function ApercuA4({ document }: { document: DocumentGenere }) {
             {document.type_document === 'lettre_orientation' && <ApercuLettreOrientation document={document} contexte={contexte} champs={champs as ChampsLettreOrientation} />}
             {document.type_document === 'arret_travail' && <ApercuArretTravail document={document} contexte={contexte} champs={champs as ChampsArretTravail} />}
 
-            <div className="text-right text-[13px] mt-10 whitespace-pre-wrap">
-                Dr {contexte.medecin?.prenom} {contexte.medecin?.nom}
-                {contexte.medecin?.signature && <div className="mt-1">{contexte.medecin.signature}</div>}
+            {/* SIGNATURE — disclaimer à gauche, nom + cachet pointillé à droite */}
+            <div className="pt-6 mt-10 border-t flex justify-between items-end" style={{ borderColor: A4_COULEURS.bordure }}>
+                <div className="text-[9px] max-w-[55%]" style={{ color: '#9CA3AF' }}>
+                    Document généré de façon sécurisée par HealthTracker SIH.<br />
+                    Authenticité vérifiable via signature praticien.
+                </div>
+                <div className="text-right">
+                    <div className="text-[11px] font-bold" style={{ color: A4_COULEURS.texte }}>
+                        Dr {contexte.medecin?.prenom} {contexte.medecin?.nom}
+                    </div>
+                    <div className="text-[9px] italic mb-2" style={{ color: A4_COULEURS.texteMuted }}>
+                        Signature &amp; Cachet médical
+                    </div>
+                    {contexte.medecin?.signature && (
+                        <div className="text-[9px] italic mb-2 whitespace-pre-wrap" style={{ color: A4_COULEURS.texteMuted }}>
+                            {contexte.medecin.signature}
+                        </div>
+                    )}
+                    <div
+                        className="w-36 h-12 border-2 border-dashed rounded-lg flex items-center justify-center text-[9px] ml-auto"
+                        style={{ borderColor: '#CBD5E1', color: '#94A3B8' }}
+                    >
+                        [ Cachet Médecin ]
+                    </div>
+                </div>
             </div>
 
             {piedDePage && (
@@ -90,22 +130,23 @@ export default function ApercuA4({ document }: { document: DocumentGenere }) {
 
 function BlocPatient({ contexte }: { contexte: ContexteDocument }) {
     return (
-        <table className="w-full text-xs mb-4">
-            <tbody>
-            <tr>
-                <td className="py-0.5 pr-2 w-1/4" style={{ color: A4_COULEURS.texteMuted }}>Patient</td>
-                <td className="py-0.5 font-semibold" style={{ color: A4_COULEURS.texte }}>{contexte.patient.prenom} {contexte.patient.nom}</td>
-                <td className="py-0.5 pr-2 pl-4 w-1/4" style={{ color: A4_COULEURS.texteMuted }}>Dossier n°</td>
-                <td className="py-0.5 font-semibold" style={{ color: A4_COULEURS.texte }}>{contexte.patient.numero_dossier}</td>
-            </tr>
-            <tr>
-                <td className="py-0.5 pr-2" style={{ color: A4_COULEURS.texteMuted }}>Né(e) le</td>
-                <td className="py-0.5 font-semibold" style={{ color: A4_COULEURS.texte }}>{contexte.patient.date_naissance}</td>
-                <td className="py-0.5 pr-2 pl-4" style={{ color: A4_COULEURS.texteMuted }}>Âge / Sexe</td>
-                <td className="py-0.5 font-semibold" style={{ color: A4_COULEURS.texte }}>{contexte.patient.age ?? '—'} ans — {contexte.patient.sexe}</td>
-            </tr>
-            </tbody>
-        </table>
+        <div
+            className="flex justify-between items-center text-xs rounded-xl px-4 py-3 mb-5 border"
+            style={{ backgroundColor: A4_COULEURS.fond, borderColor: A4_COULEURS.bordure }}
+        >
+            <div>
+                <span style={{ color: A4_COULEURS.texteMuted }}>Patient(e) :</span>{' '}
+                <span className="font-bold text-[13px]" style={{ color: A4_COULEURS.texte }}>{contexte.patient.prenom} {contexte.patient.nom}</span>
+            </div>
+            <div>
+                <span style={{ color: A4_COULEURS.texteMuted }}>Âge / Sexe :</span>{' '}
+                <span className="font-semibold" style={{ color: A4_COULEURS.texte }}>{contexte.patient.age ?? 'N/A'} ans ({contexte.patient.sexe})</span>
+            </div>
+            <div>
+                <span style={{ color: A4_COULEURS.texteMuted }}>N° Dossier :</span>{' '}
+                <span className="font-mono font-bold" style={{ color: A4_COULEURS.primaire }}>{contexte.patient.numero_dossier}</span>
+            </div>
+        </div>
     )
 }
 
@@ -113,7 +154,7 @@ function SectionTexte({ titre, texte }: { titre: string; texte: string }) {
     if (!texte) return null
     return (
         <div className="mb-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: A4_COULEURS.primaire }}>{titre}</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest pb-1.5 mb-1.5 border-b" style={{ color: A4_COULEURS.texte, borderColor: A4_COULEURS.bordure }}>{titre}</p>
             <p className="text-[13px] whitespace-pre-wrap leading-snug" style={{ color: A4_COULEURS.texte }}>{texte}</p>
         </div>
     )
@@ -122,35 +163,34 @@ function SectionTexte({ titre, texte }: { titre: string; texte: string }) {
 function ApercuOrdonnance({ champs }: ApercuProps<ChampsOrdonnance>) {
     return (
         <div>
-            <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: A4_COULEURS.primaire }}>Prescription</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-widest pb-2 mb-3 border-b" style={{ color: A4_COULEURS.texte, borderColor: A4_COULEURS.bordure }}>
+                Prescription Médicale :
+            </p>
             {champs.medicaments.length === 0 ? (
-                <p className="text-[13px] italic" style={{ color: A4_COULEURS.texteMuted }}>Aucun médicament ajouté.</p>
+                <p className="text-[13px] italic text-center py-8" style={{ color: A4_COULEURS.texteMuted }}>Aucun médicament ajouté à l'ordonnance.</p>
             ) : (
-                <table className="w-full text-[12px] border-collapse mb-3">
-                    <thead>
-                    <tr className="border-b" style={{ borderColor: A4_COULEURS.bordure }}>
-                        <th className="text-left py-1 font-medium" style={{ color: A4_COULEURS.texteMuted }}>Médicament</th>
-                        <th className="text-left py-1 font-medium" style={{ color: A4_COULEURS.texteMuted }}>Dosage</th>
-                        <th className="text-left py-1 font-medium" style={{ color: A4_COULEURS.texteMuted }}>Posologie</th>
-                        <th className="text-left py-1 font-medium" style={{ color: A4_COULEURS.texteMuted }}>Durée</th>
-                    </tr>
-                    </thead>
-                    <tbody>
+                <ol className="space-y-3 list-decimal list-inside text-xs">
                     {champs.medicaments.map((m, i) => (
-                        <tr key={i} className="border-b" style={{ borderColor: A4_COULEURS.bordure }}>
-                            <td className="py-1.5 font-semibold" style={{ color: A4_COULEURS.texte }}>
-                                {m.nom || '—'}
-                                {m.conseils && <div className="text-[10px] font-normal" style={{ color: A4_COULEURS.texteMuted }}>{m.conseils}</div>}
-                            </td>
-                            <td className="py-1.5" style={{ color: A4_COULEURS.texte }}>{m.dosage}</td>
-                            <td className="py-1.5" style={{ color: A4_COULEURS.texte }}>{m.posologie} {m.frequence}</td>
-                            <td className="py-1.5" style={{ color: A4_COULEURS.texte }}>{m.duree}</td>
-                        </tr>
+                        <li key={i} className="p-3 rounded-lg border" style={{ backgroundColor: '#F9FAFB', borderColor: '#F3F4F6' }}>
+                            <span className="font-bold text-[13px]" style={{ color: '#0F172A' }}>{m.nom || '—'}</span>{' '}
+                            <span className="font-bold" style={{ color: A4_COULEURS.primaire }}>({m.dosage})</span>
+                            <div className="pl-5 mt-1 space-y-0.5" style={{ color: '#374151' }}>
+                                <div>• <strong style={{ color: A4_COULEURS.texte }}>Posologie :</strong> {m.posologie} {m.frequence}</div>
+                                <div>• <strong style={{ color: A4_COULEURS.texte }}>Durée :</strong> {m.duree}{m.quantite && <> — <strong style={{ color: A4_COULEURS.texte }}>Qté :</strong> {m.quantite}</>}</div>
+                                {m.conseils && <div className="italic" style={{ color: A4_COULEURS.texteMuted }}>• Instructions : {m.conseils}</div>}
+                            </div>
+                        </li>
                     ))}
-                    </tbody>
-                </table>
+                </ol>
             )}
-            <SectionTexte titre="Conseils" texte={champs.conseils_generaux} />
+            {champs.conseils_generaux && (
+                <div className="mt-5 pt-4 border-t text-xs" style={{ borderColor: A4_COULEURS.bordure }}>
+                    <strong style={{ color: A4_COULEURS.texte }}>Recommandations particulières :</strong>
+                    <p className="mt-1.5 p-3 rounded-lg border whitespace-pre-wrap" style={{ color: '#4B5563', backgroundColor: A4_COULEURS.fond, borderColor: A4_COULEURS.bordure }}>
+                        {champs.conseils_generaux}
+                    </p>
+                </div>
+            )}
         </div>
     )
 }
@@ -188,7 +228,7 @@ function ApercuDemandeExamen({ champs }: ApercuProps<ChampsDemandeExamen>) {
                 </span>
             </p>
             <SectionTexte titre="Indication clinique" texte={champs.indication_clinique} />
-            <p className="text-[10px] font-bold uppercase tracking-wide mb-1.5" style={{ color: A4_COULEURS.primaire }}>Examens demandés</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest pb-1.5 mb-1.5 border-b" style={{ color: A4_COULEURS.texte, borderColor: A4_COULEURS.bordure }}>Examens demandés</p>
             {champs.examens.length === 0 ? (
                 <p className="text-[13px] italic" style={{ color: A4_COULEURS.texteMuted }}>Aucun examen sélectionné.</p>
             ) : (
@@ -245,7 +285,7 @@ function ApercuArretTravail({ contexte, champs }: ApercuProps<ChampsArretTravail
                 {contexte.patient.prenom} {contexte.patient.nom} nécessite un arrêt de travail.
             </p>
             <SectionTexte titre="Motif médical" texte={champs.motif_medical} />
-            <p className="text-[10px] font-bold uppercase tracking-wide" style={{ color: A4_COULEURS.primaire }}>Durée de l'arrêt</p>
+            <p className="text-[10px] font-extrabold uppercase tracking-widest" style={{ color: A4_COULEURS.texte }}>Durée de l'arrêt</p>
             <p className="text-[13px]" style={{ color: A4_COULEURS.texte }}>
                 {champs.date_debut && champs.date_fin
                     ? `Du ${champs.date_debut} au ${champs.date_fin}${champs.duree_jours ? ` (${champs.duree_jours} jour(s))` : ''}`

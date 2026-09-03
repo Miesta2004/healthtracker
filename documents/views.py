@@ -14,7 +14,7 @@ from .rendu import champs_vides_pour, resumer_donnees
 from .serializers import ModeleDocumentSerializer, DocumentGenereSerializer, MedicamentSerializer
 
 GABARITS_PDF = {
-    TypeDocument.ORDONNANCE: 'ordonnance.html',
+    # ORDONNANCE volontairement absente : générée côté client avec
     TypeDocument.CERTIFICAT_MEDICAL: 'certificat_medical.html',
     TypeDocument.DEMANDE_ANALYSE: 'demande_analyse.html',
     TypeDocument.DEMANDE_IMAGERIE: 'demande_analyse.html',

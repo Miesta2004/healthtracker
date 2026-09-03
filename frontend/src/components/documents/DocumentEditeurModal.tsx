@@ -1,6 +1,6 @@
 import {useEffect, useRef, useState} from 'react'
 import {CheckCircle2, ChevronLeft, Download, Printer, Save, Trash2} from 'lucide-react'
-import {getDocument, sauvegarderDocument, supprimerDocument, telechargerDocumentPdf} from '../../api/documents'
+import {getDocument, sauvegarderDocument, supprimerDocument} from '../../api/documents'
 import type {
     ChampsArretTravail,
     ChampsCertificatMedical,
@@ -21,6 +21,7 @@ import {
 } from './Formulaires.tsx'
 import ApercuA4 from './ApercuA4'
 import {SkeletonDetailPage} from '../Skeleton'
+import {usePdfDownload} from '../../hooks/usePdfDownload'
 
 export interface DocumentEditeurModalProps {
     documentId: number
@@ -123,26 +124,20 @@ export default function DocumentEditeurModal({ documentId, onClose, onChanged }:
 
     const handleImprimer = () => window.print()
 
+    const {genererEtTelechargerDocument} = usePdfDownload()
+
+    // Les 6 types de documents sont générés entièrement côté client avec
+    // @react-pdf/renderer (design Antigravity) — plus de conversion HTML → PDF
+    // côté serveur pour aucun type.
     const handleTelechargerPdf = async () => {
         if (!document) return
         setPdfLoading(true)
         setError('')
         try {
-            const blob = await telechargerDocumentPdf(document.id)
-            const url = URL.createObjectURL(blob)
-            window.open(url, '_blank')
-            setTimeout(() => URL.revokeObjectURL(url), 30000)
-        } catch (err: any) {
-            let message = "PDF indisponible pour l'instant — utilise Imprimer en attendant."
-            const blob = err?.response?.data
-            if (blob instanceof Blob && blob.type === 'application/json') {
-                try {
-                    const body = JSON.parse(await blob.text())
-                    if (body?.detail) message = body.detail
-                } catch { /* garde le message par défaut */
-                }
-            }
-            setError(message)
+            const ok = await genererEtTelechargerDocument(document, document.donnees.contexte, document.donnees.champs)
+            if (!ok) setError('Erreur lors de la génération du PDF.')
+        } catch {
+            setError('Erreur lors de la génération du PDF.')
         } finally {
             setPdfLoading(false)
         }

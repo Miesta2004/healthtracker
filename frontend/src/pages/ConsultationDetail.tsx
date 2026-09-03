@@ -1,5 +1,7 @@
 import { useEffect, useState, useMemo } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router-dom'
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
+import { useDerniereActivite } from '../hooks/useDerniereActivite'
+import type { SectionDerniereActivite } from '../types'
 import { getPatient, getSignesVitaux, postSignesVitaux, updatePatient } from '../api/patients'
 import { getAntecedents, createAntecedent, promouvoirAntecedent } from '../api/antecedents'
 import { getConsultation, createConsultation, updateConsultation, deleteConsultation } from '../api/consultations'
@@ -54,8 +56,8 @@ const STATUT_LABELS: Record<ConsultationStatut, string> = {
 }
 
 const STATUT_COLORS: Record<ConsultationStatut, { bg: string; text: string }> = {
-    planifiee: { bg: 'var(--ht-primary-tint-bg)',  text: 'var(--ht-primary)' },
-    en_cours:  { bg: 'var(--ht-primary-tint-bg)',  text: 'var(--ht-primary)' },
+    planifiee: { bg: 'var(--ht-primary-tint-bg)',  text: 'var(--ht-primary-tint-text)' },
+    en_cours:  { bg: 'var(--ht-primary-tint-bg)',  text: 'var(--ht-primary-tint-text)' },
     terminee:  { bg: 'var(--ht-success-bg)',       text: 'var(--ht-success)' },
     annulee:   { bg: 'var(--ht-danger-bg)',        text: 'var(--ht-danger)' },
 }
@@ -286,10 +288,17 @@ export default function ConsultationDetail() {
     const { id, consultId } = useParams<{ id: string; consultId?: string }>()
     const navigate = useNavigate()
     const location = useLocation()
+    const [searchParams] = useSearchParams()
     const patientId = Number(id)
     const isNew = !consultId || consultId === 'new'
 
     const navState = (location.state ?? {}) as { motif?: string; rdvOrigine?: number }
+
+    // Reprise depuis "Dernière activité" (Dashboard) : ?onglet=... permet de
+    // rouvrir directement sur le bon onglet plutôt que sur 'constantes' par
+    // défaut — cf. useDerniereActivite plus bas dans ce composant.
+    const ongletParam = searchParams.get('onglet') as Onglet | null
+    const ongletInitial: Onglet = WIZARD_ORDER.includes(ongletParam as Onglet) ? (ongletParam as Onglet) : 'constantes'
 
     const [patient, setPatient] = useState<Patient | null>(null)
     const [antecedents, setAntecedents] = useState<Antecedent[]>([])
@@ -297,7 +306,7 @@ export default function ConsultationDetail() {
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState('')
 
-    const [onglet, setOnglet] = useState<Onglet>('constantes')
+    const [onglet, setOnglet] = useState<Onglet>(ongletInitial)
     const [showMenu, setShowMenu] = useState(false)
 
     const [showDelete, setShowDelete] = useState(false)
@@ -385,6 +394,27 @@ export default function ConsultationDetail() {
             setLoading(false)
         }
     }, [patientId, consultId])
+
+    // Position de navigation pour la reprise après reconnexion — cf.
+    // useDerniereActivite. On enregistre l'ouverture de la consultation et
+    // chaque changement d'onglet significatif (ce sont des navigations
+    // délibérées de l'utilisateur, pas des micro-interactions), mais
+    // jamais tant que la consultation est en cours de création ('new') ou
+    // pas encore chargée.
+    const SECTION_PAR_ONGLET: Record<Onglet, SectionDerniereActivite> = {
+        constantes: 'signes_vitaux',
+        consultation: 'consultation',
+        examens: 'consultation',
+        prescription: 'prescription',
+        documents: 'document',
+    }
+    useDerniereActivite({
+        route: `/patients/${patientId}/consultations/${consultId}?onglet=${onglet}`,
+        section: SECTION_PAR_ONGLET[onglet],
+        patientId,
+        consultationId: consultId ? Number(consultId) : undefined,
+        enabled: !isNew && !loading && !error,
+    })
 
     const handleChange = (
         e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
